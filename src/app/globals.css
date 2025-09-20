@@ -44,3 +44,144 @@ a {
     color-scheme: dark;
   }
 }
+
+/* =======================
+   Custom Login/Signup button styles
+   ======================= */
+.user-profile {
+  width: 131px;
+  height: 51px;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: 0.3s ease;
+  background: linear-gradient(
+    to bottom right,
+    #2e8eff 0%,
+    rgba(46, 142, 255, 0) 30%
+  );
+  background-color: rgba(46, 142, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-profile:hover,
+.user-profile:focus {
+  background-color: rgba(46, 142, 255, 0.7);
+  box-shadow: 0 0 10px rgba(46, 142, 255, 0.5);
+  outline: none;
+}
+
+.user-profile-inner {
+  width: 127px;
+  height: 47px;
+  border-radius: 13px;
+  background-color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.user-profile-inner svg {
+  width: 27px;
+  height: 27px;
+  fill: #fff;
+}
+
+/* =======================
+   Custom Dropdown styles
+   ======================= */
+.dropdown {
+  border: 1px solid #c1c2c5;
+  border-radius: 12px;
+  transition: all 300ms;
+  display: flex;
+  flex-direction: column;
+  min-height: 58px;
+  background-color: white;
+  overflow: hidden;
+  position: relative;
+  inset-inline: auto;
+  max-width: 298px;
+  min-width: 298px;
+}
+
+.dropdown input:where(:checked) ~ .list {
+  opacity: 1;
+  transform: translateY(-3rem) scale(1);
+  transition: all 500ms ease;
+  margin-top: 32px;
+  padding-top: 4px;
+  margin-bottom: -32px;
+}
+
+.dropdown input:where(:not(:checked)) ~ .list {
+  opacity: 0;
+  transform: translateY(3rem);
+  margin-top: -100%;
+  user-select: none;
+  height: 0px;
+  max-height: 0px;
+  min-height: 0px;
+  pointer-events: none;
+  transition: all 500ms ease-out;
+}
+
+.trigger {
+  cursor: pointer;
+  list-style: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  font-weight: 600;
+  color: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  z-index: 99;
+  background-color: white;
+}
+
+.dropdown input:where(:checked) + .trigger {
+  margin-bottom: 1rem;
+}
+
+.dropdown input:where(:checked) + .trigger:before {
+  rotate: 90deg;
+}
+
+.trigger:before {
+  content: "›";
+  rotate: -90deg;
+  font-size: 26px;
+  transition: all 350ms ease;
+}
+
+.list {
+  max-height: 20rem;
+  display: grid;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.listitem {
+  list-style: none;
+}
+
+.article {
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  border: 1px solid #c1c2c5;
+  background-color: white;
+}
+body {
+  background: pink !important;
+}
+
