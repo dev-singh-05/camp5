@@ -5,53 +5,116 @@ import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 
 // Club type
-type Club = { id: string; name: string; category: string | null };
+type Club = { 
+  id: string; 
+  name: string; 
+  category: string | null; 
+  description?: string | null;
+};
 
-// 🔹 Reusable ClubCard component
+// 🔹 Reusable ClubCard
 function ClubCard({
-  name,
-  category,
+  club,
   rank,
   status,
-  onAction,
+  onClick,
 }: {
-  name: string;
-  category: string | null;
+  club: Club;
   rank?: number;
   status?: "joined" | "requested" | "none";
-  onAction?: () => void;
+  onClick: () => void;
 }) {
   return (
     <div
-      role={onAction ? "button" : undefined}
-      tabIndex={onAction ? 0 : -1}
-      onClick={onAction}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
       className="p-4 bg-gray-100 rounded-xl shadow-md flex items-center justify-between hover:shadow-lg transition cursor-pointer"
     >
-      {/* Left side - avatar + name */}
       <div className="flex items-center gap-4">
-        {/* Circle avatar placeholder */}
         <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold">
           👤
         </div>
-
         <div>
-          <h3 className="text-lg font-bold text-gray-900">{name}</h3>
-          <p className="text-sm text-gray-600">{category || "Uncategorized"}</p>
+          <h3 className="text-lg font-bold text-gray-900">{club.name}</h3>
+          <p className="text-sm text-gray-600">{club.category || "Uncategorized"}</p>
         </div>
       </div>
 
-      {/* Right side - rank & status */}
       <div className="flex flex-col items-end gap-2">
         {rank !== undefined && (
           <span className="text-sm font-semibold text-gray-500">Rank #{rank}</span>
         )}
-
-        {status === "joined" ? (
+        {status === "joined" && (
           <span className="px-3 py-1 bg-green-100 text-green-700 rounded">Joined</span>
-        ) : status === "requested" ? (
+        )}
+        {status === "requested" && (
           <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Requested</span>
-        ) : null}
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 🔹 Club Modal
+function ClubModal({
+  club,
+  status,
+  onClose,
+  onJoin,
+}: {
+  club: Club | null;
+  status?: "joined" | "requested" | "none";
+  onClose: () => void;
+  onJoin: () => void;
+}) {
+  const router = useRouter();
+  if (!club) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg relative">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+        >
+          ✖
+        </button>
+
+        {/* Club details */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-2xl">
+            👤
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">{club.name}</h2>
+            <p className="text-sm text-gray-600">{club.category || "Uncategorized"}</p>
+          </div>
+        </div>
+
+        <p className="text-gray-700 mb-4">{club.description || "No description provided."}</p>
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-3">
+          {status === "joined" ? (
+            <button
+              onClick={() => router.push(`/clubs/${club.id}`)}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Go Inside
+            </button>
+          ) : status === "requested" ? (
+            <span className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded">Requested</span>
+          ) : (
+            <button
+              onClick={onJoin}
+              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            >
+              Join
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -62,12 +125,13 @@ export default function MyClubs() {
   const [joined, setJoined] = useState<Club[]>([]);
   const [pending, setPending] = useState<Club[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [selectedClub, setSelectedClub] = useState<Club | null>(null);
 
   // Modal form states
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [passcode, setPasscode] = useState("");
-  const [description, setDescription] = useState(""); // ✅ new field
+  const [description, setDescription] = useState("");
 
   // Fetch clubs
   useEffect(() => {
@@ -81,13 +145,13 @@ export default function MyClubs() {
 
       const { data: joined } = await supabase
         .from("club_members")
-        .select("clubs(id, name, category)")
+        .select("clubs(id, name, category, description)")
         .eq("user_id", userId);
       if (joined) setJoined(joined.map((j: any) => j.clubs));
 
       const { data: req } = await supabase
         .from("club_requests")
-        .select("clubs(id, name, category)")
+        .select("clubs(id, name, category, description)")
         .eq("user_id", userId)
         .eq("status", "pending");
       if (req) setPending(req.map((r: any) => r.clubs));
@@ -95,6 +159,7 @@ export default function MyClubs() {
     fetchData();
   }, [router]);
 
+  // create club
   async function createClub() {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) return;
@@ -103,7 +168,7 @@ export default function MyClubs() {
         name,
         category,
         passcode: passcode || null,
-        description: description || null, // ✅ save description
+        description: description || null,
         created_by: userData.user.id,
       },
     ]);
@@ -112,12 +177,62 @@ export default function MyClubs() {
     setCategory("");
     setPasscode("");
     setDescription("");
-    window.location.reload(); // refresh list after creation
+    window.location.reload();
   }
 
-  // Navigate to club details
-  const openClub = (clubId: string) => {
-    router.push(`/clubs/${clubId}`);
+  // join logic
+  const handleJoin = async (clubId: string) => {
+    const { data: clubData, error: clubErr } = await supabase
+      .from("clubs")
+      .select("passcode")
+      .eq("id", clubId)
+      .single();
+
+    if (clubErr) {
+      console.error("Error fetching club passcode:", clubErr.message);
+      return;
+    }
+
+    const realPass = clubData?.passcode;
+    const userRes = await supabase.auth.getUser();
+    const user = userRes.data?.user;
+    if (!user) {
+      alert("You must be logged in.");
+      return;
+    }
+
+    if (!realPass) {
+      await supabase.from("club_members").insert([
+        { club_id: clubId, user_id: user.id },
+      ]);
+      window.location.reload();
+      return;
+    }
+
+    let tries = 3;
+    while (tries > 0) {
+      const pass = prompt(
+        tries === 3
+          ? "Enter club passcode (leave empty to request access):"
+          : `Wrong passcode. ${tries} tries left:`
+      );
+      if (pass === null) return;
+      if (pass === realPass) {
+        await supabase.from("club_members").insert([
+          { club_id: clubId, user_id: user.id },
+        ]);
+        alert("✅ Joined club!");
+        window.location.reload();
+        return;
+      }
+      tries--;
+    }
+
+    await supabase.from("club_requests").insert([
+      { club_id: clubId, user_id: user.id, status: "pending" },
+    ]);
+    alert("Request sent to club leader.");
+    window.location.reload();
   };
 
   return (
@@ -143,11 +258,10 @@ export default function MyClubs() {
             {joined.map((c, i) => (
               <ClubCard
                 key={c.id}
-                name={c.name}
-                category={c.category}
+                club={c}
                 rank={i + 1}
                 status="joined"
-                onAction={() => openClub(c.id)}
+                onClick={() => setSelectedClub(c)}
               />
             ))}
           </div>
@@ -164,11 +278,10 @@ export default function MyClubs() {
             {pending.map((c, i) => (
               <ClubCard
                 key={c.id}
-                name={c.name}
-                category={c.category}
+                club={c}
                 rank={i + 1}
                 status="requested"
-                onAction={() => openClub(c.id)}
+                onClick={() => setSelectedClub(c)}
               />
             ))}
           </div>
@@ -183,9 +296,25 @@ export default function MyClubs() {
         +
       </button>
 
+      {/* Club Modal */}
+      {selectedClub && (
+        <ClubModal
+          club={selectedClub}
+          status={
+            joined.find((j) => j.id === selectedClub.id)
+              ? "joined"
+              : pending.find((p) => p.id === selectedClub.id)
+              ? "requested"
+              : "none"
+          }
+          onClose={() => setSelectedClub(null)}
+          onJoin={() => handleJoin(selectedClub.id)}
+        />
+      )}
+
       {/* Create Club Modal */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
             <h3 className="text-xl font-bold mb-4">Create a New Club</h3>
 
@@ -243,6 +372,9 @@ export default function MyClubs() {
     </div>
   );
 }
+
+
+
 
 
 
