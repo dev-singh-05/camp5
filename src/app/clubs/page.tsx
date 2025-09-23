@@ -174,11 +174,14 @@ export default function ClubsPage() {
 
   // Create club logic
   const handleCreate = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-    if (!user) return;
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
+  if (!user) return;
 
-    await supabase.from("clubs").insert([
+  // Step 1: Insert club
+  const { data: newClub, error: clubError } = await supabase
+    .from("clubs")
+    .insert([
       {
         name,
         category,
@@ -186,15 +189,35 @@ export default function ClubsPage() {
         description: description || null,
         created_by: user.id,
       },
-    ]);
+    ])
+    .select()
+    .single();
 
-    setName("");
-    setCategory("");
-    setPasscode("");
-    setDescription("");
-    setShowModal(false);
-    fetchClubs();
-  };
+  if (clubError) {
+    console.error("Error creating club:", clubError.message);
+    return;
+  }
+
+  // Step 2: Add creator as admin in club_members
+  if (newClub) {
+    await supabase.from("club_members").insert([
+      {
+        club_id: newClub.id,
+        user_id: user.id,
+        role: "admin", // ✅ creator becomes admin
+      },
+    ]);
+  }
+
+  // Reset form + refresh clubs
+  setName("");
+  setCategory("");
+  setPasscode("");
+  setDescription("");
+  setShowModal(false);
+  fetchClubs();
+};
+
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
