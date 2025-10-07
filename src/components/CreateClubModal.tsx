@@ -33,6 +33,7 @@ export default function CreateClubModal({
       return;
     }
 
+    // ✅ Get logged-in user
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
     if (!user) {
@@ -40,31 +41,56 @@ export default function CreateClubModal({
       return;
     }
 
-    const { error: insertError } = await supabase.from("clubs").insert([
-      {
-        name: name.trim(),
-        category,
-        passcode: passcode.trim() || null,
-        description: description.trim() || null,
-        logo_url: null, // ✅ keep placeholder until Supabase Storage integration
-        created_by: user.id,
-      },
-    ]);
+    // ✅ Insert new club
+    const { data: clubData, error: clubError } = await supabase
+      .from("clubs")
+      .insert([
+        {
+          name: name.trim(),
+          category,
+          passcode: passcode.trim() || null,
+          description: description.trim() || null,
+          logo_url: null,
+          created_by: user.id,
+        },
+      ])
+      .select("id") // ⬅️ return the id of the new club
+      .single();
 
-    if (insertError) {
-      console.error("Error creating club:", insertError.message);
-      setError(insertError.message || "Failed to create club.");
+    if (clubError || !clubData) {
+      console.error("❌ Error creating club:", clubError?.message);
+      setError(clubError?.message || "Failed to create club.");
       return;
     }
 
-    // reset all fields
+    const clubId = clubData.id;
+
+    // ✅ Insert creator into club_members
+    const { error: memberError } = await supabase
+      .from("club_members")
+      .insert([{ club_id: clubId, user_id: user.id, role: "admin" }]);
+
+    if (memberError) {
+      console.error("❌ Error adding creator to club_members:", memberError.message);
+    }
+
+    // ✅ Insert first invite (token generated automatically)
+    const { error: inviteError } = await supabase
+      .from("club_invites")
+      .insert([{ club_id: clubId, created_by: user.id, role: "member" }]);
+
+    if (inviteError) {
+      console.error("❌ Error creating initial invite:", inviteError.message);
+    }
+
+    // ✅ Reset all fields
     setName("");
     setCategory("");
     setPasscode("");
     setDescription("");
     setLogo(null);
 
-    // refresh parent
+    // ✅ Refresh parent & close modal
     onCreate?.();
     onClose();
   };

@@ -11,54 +11,44 @@ export default function Login() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setMessage("");
 
-    // Get selected university
-    const selectedUni = localStorage.getItem("selectedUniversity");
+    try {
+      let loginEmail = identifier.trim();
 
-    // Must have a selected university
-    if (!selectedUni) {
-      setMessage("Please select your university from the boot screen ❌");
-      return;
-    }
+      // If identifier is not an email → treat as enrollment number
+      if (!loginEmail.includes("@")) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("college_email")
+          .eq("enrollment_number", loginEmail)
+          .maybeSingle();
 
-    let loginEmail = identifier;
+        if (profileError || !profile) {
+          setMessage("No account found with this enrollment number ❌");
+          return;
+        }
 
-    // If enrollment number entered → look up email in profiles
-    if (!identifier.includes("@")) {
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("college_email")
-        .eq("enrollment_number", identifier)
-        .single();
+        loginEmail = profile.college_email; // ✅ replace with actual email
+      }
 
-      if (profileError || !profile) {
-        setMessage("No account found with this enrollment number ❌");
+      // Authenticate with Supabase Auth
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password,
+      });
+
+      if (signInError || !data?.user) {
+        setMessage("Invalid login credentials ❌");
         return;
       }
 
-      loginEmail = profile.college_email;
+      setMessage("Login successful ✅");
+      router.push("/dashboard"); // redirect after success
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setMessage("Unexpected error ❌ Please try again");
     }
-
-    // Authenticate with Supabase
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password,
-    });
-
-    if (error) {
-      setMessage("Invalid credentials ❌");
-      return;
-    }
-
-    // Validate email domain based on selected university
-    if (selectedUni === "medicaps" && !loginEmail.endsWith("@medicaps.ac.in")) {
-      setMessage("Only Medicaps University email IDs are allowed ❌");
-      return;
-    }
-
-    // Redirect if successful
-    setMessage("Login successful ✅");
-    router.push("/dashboard");
   }
 
   return (
@@ -108,6 +98,3 @@ export default function Login() {
     </div>
   );
 }
-
-
-

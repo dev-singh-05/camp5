@@ -12,29 +12,28 @@ export default function Signup() {
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    setMessage("");
 
-    // 1. Passwords match check
+    // 1. Password match check
     if (password !== confirmPassword) {
       setMessage("Passwords do not match ❌");
       return;
     }
 
-// 2. College email validation
-const selectedUni = localStorage.getItem("selectedUniversity");
-
-if (selectedUni === "medicaps" && !email.endsWith("@medicaps.ac.in")) {
-  setMessage("Please use your Medicaps University email ID (@medicaps.ac.in) ❌");
-  return;
-}
-
+    // 2. College email validation
+    const selectedUni = localStorage.getItem("selectedUniversity");
+    if (selectedUni === "medicaps" && !email.endsWith("@medicaps.ac.in")) {
+      setMessage("Please use your Medicaps University email ID (@medicaps.ac.in) ❌");
+      return;
+    }
 
     // 3. Enrollment number check
-    if (!enrollment) {
+    if (!enrollment.trim()) {
       setMessage("Enrollment number is required ❌");
       return;
     }
 
-    // 4. Create user in Supabase Auth
+    // 4. Sign up in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -45,19 +44,19 @@ if (selectedUni === "medicaps" && !email.endsWith("@medicaps.ac.in")) {
       return;
     }
 
-    // 5. Save extra details in profiles table
+    // 5. Update profile row created by trigger
     if (data.user) {
-      const { error: insertError } = await supabase.from("profiles").insert([
-        {
-          id: data.user.id,
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
           full_name: fullName,
           enrollment_number: enrollment,
           college_email: email,
-        },
-      ]);
+        })
+        .eq("id", data.user.id);
 
-      if (insertError) {
-        setMessage(insertError.message);
+      if (updateError) {
+        setMessage("Profile update failed ❌ " + updateError.message);
         return;
       }
     }

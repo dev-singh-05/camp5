@@ -66,6 +66,80 @@ export default function ClubDetailsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ make sure we log the clubId for debugging
+  useEffect(() => {
+    console.log("📌 ClubDetailPage clubId from URL:", clubId);
+  }, [clubId]);
+
+  // --- Fetch invites ---
+  const fetchInvites = async () => {
+    if (!clubId) {
+      console.error("❌ No clubId in fetchInvites");
+      return;
+    }
+
+    setLoadingInvites(true);
+    console.log("🔑 clubId param (from URL):", clubId);
+
+    const { data, error } = await supabase
+      .from("club_invites")
+      .select("id, token, club_id, role, max_uses, uses, expires_at, created_at")
+      .eq("club_id", clubId.toString()) // ✅ ensure string is cast correctly
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    setLoadingInvites(false);
+
+    if (error) {
+      console.error("❌ fetchInvites error:", error.message);
+      toast.error("Failed to load invites");
+      return;
+    }
+
+    console.log("📥 fetchInvites result:", data);
+    setInvites(data ?? []);
+  };
+
+  // --- Create Invite ---
+const createInvite = async () => {
+  if (!clubId || !currentUserId) return;
+
+  const { data, error } = await supabase
+    .from("club_invites")
+    .insert([
+      {
+        club_id: clubId,
+        created_by: currentUserId,
+        role: inviteForm.role,
+        max_uses: inviteForm.max_uses || 0,
+        expires_at: inviteForm.expires_at || null,
+      },
+    ])
+    .select("id, token, club_id, role, max_uses, uses, expires_at, created_at") // 👈 force return token
+    .single();
+
+  if (error || !data) {
+    toast.error("Failed to create invite: " + (error?.message || "Unknown error"));
+    return;
+  }
+
+  // 👇 update invites state immediately with this row
+  setInvites([data]);
+
+  // 👇 build URL right away
+  const url = `${window.location.origin}/accept-invite?token=${data.token}`;
+  await navigator.clipboard?.writeText(url);
+
+  toast.success("Invite created and copied to clipboard");
+};
+
+
+
+  useEffect(() => {
+    fetchInvites();
+  }, [clubId]);
+
+
   // chat
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -134,54 +208,7 @@ export default function ClubDetailsPage() {
     setClub(data || null);
   };
 
-  const fetchInvites = async () => {
-    if (!clubId) return;
-    setLoadingInvites(true);
-
-    const { data, error } = await supabase
-      .from("club_invites")
-      .select("*")
-      .eq("club_id", clubId)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    setLoadingInvites(false);
-    if (error) {
-      toast.error("Failed to load invites");
-      return;
-    }
-    setInvites(data || []);
-  };
-
-  const createInvite = async () => {
-    if (!clubId || !currentUserId) return;
-
-    const { data, error } = await supabase
-      .from("club_invites")
-      .insert([
-        {
-          club_id: clubId,
-          created_by: currentUserId,
-          role: inviteForm.role,
-          max_uses: 0,   // 0 = unlimited
-          expires_at: inviteForm.expires_at || null
-        }
-      ])
-      .select("id, token")
-      .single();
-
-    if (error) {
-      toast.error("Failed to create invite: " + error.message);
-      return;
-    }
-
-    const url = `${window.location.origin}/accept-invite?token=${data.token}`;
-
-    await fetchInvites();
-    navigator.clipboard?.writeText(url);
-    toast.success("Invite created and copied to clipboard");
-  };
-
+  
   const revokeInvite = async (inviteId: string) => {
     const { error } = await supabase.from("club_invites").delete().eq("id", inviteId);
     if (error) {
@@ -528,16 +555,46 @@ export default function ClubDetailsPage() {
               )}
             </div>
 
-            {/* Invite Button */}
-            <button
-              onClick={() => {
-                fetchInvites(); // refresh before opening modal
-                setShowInviteModal(true);
-              }}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-            >
-              Invite
-            </button>
+
+{userRole === "admin" && (
+  <button
+    onClick={async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) {
+        alert("You must be logged in.");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("club_invites")
+        .insert([
+          {
+            club_id: clubId,
+            created_by: user.id,
+            role: "member", // invited users get member role
+            max_uses: 1,
+          },
+        ])
+        .select("token")
+        .single();
+
+      if (error || !data) {
+        alert("Failed to create invite: " + (error?.message || "Unknown error"));
+        return;
+      }
+
+      const url = `${window.location.origin}/accept-invite?token=${data.token}`;
+      await navigator.clipboard?.writeText(url);
+      alert("✅ Invite link copied:\n" + url);
+    }}
+    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+  >
+    Invite
+  </button>
+)}
+
+
 
             {/* Teammates Section */}
             <div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">

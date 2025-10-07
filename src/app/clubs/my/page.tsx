@@ -160,10 +160,13 @@ export default function MyClubs() {
   }, [router]);
 
   // create club
-  async function createClub() {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) return;
-    await supabase.from("clubs").insert([
+async function createClub() {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return;
+
+  const { data: newClub, error } = await supabase
+    .from("clubs")
+    .insert([
       {
         name,
         category,
@@ -171,14 +174,28 @@ export default function MyClubs() {
         description: description || null,
         created_by: userData.user.id,
       },
-    ]);
-    setShowModal(false);
-    setName("");
-    setCategory("");
-    setPasscode("");
-    setDescription("");
-    window.location.reload();
+    ])
+    .select("id")  // ✅ get real DB ID
+    .single();
+
+  if (error || !newClub) {
+    console.error("❌ Failed to create club:", error?.message);
+    return;
   }
+
+  console.log("📌 newClub created:", newClub);
+
+  // ✅ redirect with the real club ID
+  router.push(`/clubs/${newClub.id}`);
+
+  // reset form
+  setShowModal(false);
+  setName("");
+  setCategory("");
+  setPasscode("");
+  setDescription("");
+}
+
 
   // join logic
   const handleJoin = async (clubId: string) => {
