@@ -3,6 +3,11 @@
 import Link from "next/link";
 
 export default function HomePage() {
+  function handleSelectUniversity(slug: string) {
+    localStorage.setItem("selectedUniversity", slug);
+    alert(`Selected: ${slug}`);
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 gap-6">
       <h1 className="text-4xl font-bold mb-8">Campus 5</h1>
@@ -17,7 +22,7 @@ export default function HomePage() {
           <li className="listitem">
             <button
               className="article w-full text-left"
-              onClick={() => alert("Selected: MediCaps University")}
+              onClick={() => handleSelectUniversity("medicaps")}
             >
               MediCaps University
             </button>
@@ -25,7 +30,7 @@ export default function HomePage() {
           <li className="listitem">
             <button
               className="article w-full text-left"
-              onClick={() => alert("Selected: Example University")}
+              onClick={() => handleSelectUniversity("example")}
             >
               Example University
             </button>
@@ -49,6 +54,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
-

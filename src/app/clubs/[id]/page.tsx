@@ -213,10 +213,10 @@ export default function ClubDetailsPage() {
         role: m.role ?? null,
         profiles: m.profiles
           ? {
-              full_name: m.profiles.full_name ?? "Unnamed",
-              enrollment_number: m.profiles.enrollment_number ?? "No ID",
-              college_email: m.profiles.college_email ?? "No Email",
-            }
+            full_name: m.profiles.full_name ?? "Unnamed",
+            enrollment_number: m.profiles.enrollment_number ?? "No ID",
+            college_email: m.profiles.college_email ?? "No Email",
+          }
           : null,
       }))
     );
@@ -259,10 +259,10 @@ export default function ClubDetailsPage() {
         requested_at: r.requested_at,
         profiles: r.profiles
           ? {
-              full_name: r.profiles.full_name,
-              enrollment_number: r.profiles.enrollment_number,
-              college_email: r.profiles.college_email,
-            }
+            full_name: r.profiles.full_name,
+            enrollment_number: r.profiles.enrollment_number,
+            college_email: r.profiles.college_email,
+          }
           : null,
       }))
     );
