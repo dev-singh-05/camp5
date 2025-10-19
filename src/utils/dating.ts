@@ -1,8 +1,8 @@
 import { supabase } from "@/utils/supabaseClient";
 
-/**
- * Create a match between two users.
- */
+/* -------------------------------------------------------------------------- */
+/* 🧩 CREATE MATCH */
+/* -------------------------------------------------------------------------- */
 export async function createMatch(
   user1_id: string,
   user2_id: string,
@@ -18,9 +18,9 @@ export async function createMatch(
   return data;
 }
 
-/**
- * Fetch matches for the current user.
- */
+/* -------------------------------------------------------------------------- */
+/* 💬 FETCH MY MATCHES */
+/* -------------------------------------------------------------------------- */
 export async function getMyMatches() {
   const {
     data: { user },
@@ -41,9 +41,9 @@ export async function getMyMatches() {
   return data;
 }
 
-/**
- * Send a chat message in a match.
- */
+/* -------------------------------------------------------------------------- */
+/* ✉️ SEND CHAT MESSAGE */
+/* -------------------------------------------------------------------------- */
 export async function sendChatMessage(
   match_id: string,
   sender_id: string,
@@ -59,9 +59,9 @@ export async function sendChatMessage(
   return data;
 }
 
-/**
- * Fetch all chat messages for a match.
- */
+/* -------------------------------------------------------------------------- */
+/* 💌 GET ALL CHAT MESSAGES */
+/* -------------------------------------------------------------------------- */
 export async function getChatMessages(match_id: string) {
   const { data, error } = await supabase
     .from("dating_chats")
@@ -73,58 +73,87 @@ export async function getChatMessages(match_id: string) {
   return data;
 }
 
-/**
- * Request reveal (set current user’s reveal = true).
- */
+/* -------------------------------------------------------------------------- */
+/* 🕵️ REQUEST REVEAL (USE SERVER FUNCTION OR DIRECT UPDATE) */
+/* -------------------------------------------------------------------------- */
 export async function requestReveal(match_id: string, user_id: string) {
-  const { data: existing } = await supabase
-    .from("dating_reveals")
-    .select("*")
-    .eq("match_id", match_id)
-    .maybeSingle();
+  try {
+    // Try using the server-side RPC if defined (recommended)
+    const { data, error } = await supabase.rpc("request_reveal", {
+      p_match_id: match_id,
+      p_user_id: user_id,
+    });
 
-  if (!existing) {
+    if (error) {
+      console.error("❌ RPC request_reveal failed:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (rpcErr) {
+    // If RPC not found or fails, fallback to direct logic
+    console.warn("⚠️ Falling back to manual requestReveal logic:", rpcErr);
+
+    // Check if reveal record exists
+    const { data: existing } = await supabase
+      .from("dating_reveals")
+      .select("*")
+      .eq("match_id", match_id)
+      .maybeSingle();
+
+    // Create reveal entry if missing
+    if (!existing) {
+      const { error: insertErr } = await supabase
+        .from("dating_reveals")
+        .insert([{ match_id }]);
+      if (insertErr) throw insertErr;
+    }
+
+    // Fetch match info
+    const { data: match, error: matchErr } = await supabase
+      .from("dating_matches")
+      .select("user1_id, user2_id")
+      .eq("id", match_id)
+      .single();
+
+    if (matchErr || !match) throw matchErr || new Error("Match not found.");
+
+    const fieldToUpdate =
+      user_id === match.user1_id ? "user1_reveal" : "user2_reveal";
+
     const { data, error } = await supabase
       .from("dating_reveals")
-      .insert([{ match_id }])
-      .select()
+      .update({ [fieldToUpdate]: true })
+      .eq("match_id", match_id)
+      .select("user1_reveal, user2_reveal")
       .single();
+
     if (error) throw error;
+    return data;
   }
-
-  const field =
-    existing?.user1_reveal === null || existing?.user1_reveal === false
-      ? "user1_reveal"
-      : "user2_reveal";
-
-  const { data, error } = await supabase
-    .from("dating_reveals")
-    .update({ [field]: true, revealed_at: new Date().toISOString() })
-    .eq("match_id", match_id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
 }
 
-/**
- * Check reveal status of a match.
- */
+/* -------------------------------------------------------------------------- */
+/* 🔍 CHECK REVEAL STATUS */
+/* -------------------------------------------------------------------------- */
 export async function getRevealStatus(match_id: string) {
   const { data, error } = await supabase
     .from("dating_reveals")
-    .select("user1_reveal, user2_reveal, revealed_at")
+    .select("match_id, user1_reveal, user2_reveal, created_at")
     .eq("match_id", match_id)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    console.error("❌ Error getting reveal status:", error);
+    return null;
+  }
+
   return data;
 }
 
-/**
- * Delete a match → cascade removes chats + reveals automatically.
- */
+/* -------------------------------------------------------------------------- */
+/* 🗑 DELETE MATCH (CASCADE CHATS & REVEALS) */
+/* -------------------------------------------------------------------------- */
 export async function deleteMatch(matchId: string) {
   console.log("🗑 Deleting match with cascade:", matchId);
 
@@ -141,4 +170,3 @@ export async function deleteMatch(matchId: string) {
   console.log("✅ Match (and related chats/reveals) deleted:", matchId);
   return true;
 }
-
