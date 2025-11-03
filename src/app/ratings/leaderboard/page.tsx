@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 
 type Profile = {
@@ -17,6 +18,7 @@ type Profile = {
 };
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -57,10 +59,25 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-10 px-6">
-      {/* Title */}
-      <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8">
-        🏆 LEADERBOARD
-      </h1>
+      {/* Top bar with Back button */}
+      <div className="max-w-3xl mx-auto mb-6 flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 text-sm"
+        >
+          ← Back
+        </button>
+
+        <div className="text-center flex-1">
+          {/* Title */}
+          <h1 className="text-4xl font-extrabold text-indigo-700">
+            🏆 LEADERBOARD
+          </h1>
+        </div>
+
+        {/* placeholder to keep title centered */}
+        <div className="w-12" />
+      </div>
 
       {/* Search + Filter Row */}
       <div className="max-w-3xl mx-auto flex items-center gap-3 mb-8">

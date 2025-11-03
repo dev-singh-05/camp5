@@ -38,6 +38,15 @@ export default function ConnectionsPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
+  // Back button handler: prefer history back, fall back to /ratings
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/ratings");
+    }
+  };
+
   // ✅ Auto-scroll
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -70,7 +79,7 @@ export default function ConnectionsPage() {
         return;
       }
 
-      const otherUserIds = connections.map((req) =>
+      const otherUserIds = connections.map((req: any) =>
         req.from_user_id === currentUserId ? req.to_user_id : req.from_user_id
       );
 
@@ -235,10 +244,12 @@ export default function ConnectionsPage() {
         {/* 🔹 Back & Title */}
         <div className="flex items-center justify-between mb-6 relative">
           <button
-            onClick={() => router.push("/ratings")}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow"
+            onClick={handleBack}
+            aria-label="Go back"
+            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow flex items-center justify-center"
           >
-            ← Back
+            {/* Only a symbol — no text */}
+            <span className="text-2xl select-none">←</span>
           </button>
           <h1 className="absolute left-1/2 transform -translate-x-1/2 text-3xl font-bold text-gray-900">
             MY CONNECTIONS

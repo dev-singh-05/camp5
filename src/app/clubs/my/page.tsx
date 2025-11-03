@@ -78,6 +78,7 @@ function ClubModal({
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+          aria-label="Close club modal"
         >
           ✖
         </button>
@@ -160,42 +161,41 @@ export default function MyClubs() {
   }, [router]);
 
   // create club
-async function createClub() {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) return;
+  async function createClub() {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
 
-  const { data: newClub, error } = await supabase
-    .from("clubs")
-    .insert([
-      {
-        name,
-        category,
-        passcode: passcode || null,
-        description: description || null,
-        created_by: userData.user.id,
-      },
-    ])
-    .select("id")  // ✅ get real DB ID
-    .single();
+    const { data: newClub, error } = await supabase
+      .from("clubs")
+      .insert([
+        {
+          name,
+          category,
+          passcode: passcode || null,
+          description: description || null,
+          created_by: userData.user.id,
+        },
+      ])
+      .select("id")  // ✅ get real DB ID
+      .single();
 
-  if (error || !newClub) {
-    console.error("❌ Failed to create club:", error?.message);
-    return;
+    if (error || !newClub) {
+      console.error("❌ Failed to create club:", error?.message);
+      return;
+    }
+
+    console.log("📌 newClub created:", newClub);
+
+    // ✅ redirect with the real club ID
+    router.push(`/clubs/${newClub.id}`);
+
+    // reset form
+    setShowModal(false);
+    setName("");
+    setCategory("");
+    setPasscode("");
+    setDescription("");
   }
-
-  console.log("📌 newClub created:", newClub);
-
-  // ✅ redirect with the real club ID
-  router.push(`/clubs/${newClub.id}`);
-
-  // reset form
-  setShowModal(false);
-  setName("");
-  setCategory("");
-  setPasscode("");
-  setDescription("");
-}
-
 
   // join logic
   const handleJoin = async (clubId: string) => {
@@ -254,9 +254,20 @@ async function createClub() {
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-indigo-50 to-white relative">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Clubs</h1>
+      {/* Header with Back button on the left */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
+            aria-label="Go back"
+          >
+            ← Back
+          </button>
+
+          <h1 className="text-3xl font-bold text-gray-900">My Clubs</h1>
+        </div>
+
         <button
           onClick={() => setShowModal(true)}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg shadow-md transition"
@@ -309,6 +320,7 @@ async function createClub() {
       <button
         onClick={() => setShowModal(true)}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
+        aria-label="Create club"
       >
         +
       </button>
@@ -389,17 +401,3 @@ async function createClub() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

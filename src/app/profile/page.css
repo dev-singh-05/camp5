@@ -1,0 +1,128 @@
+/* ========= General ========= */
+body {
+  font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+  background: linear-gradient(to bottom right, #faf9ff, #f0efff);
+  color: #1e1e2f;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ========= Smooth Animations ========= */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* ========= Scrollbar Styling ========= */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #bfa8ff, #9f8eff);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #9d86ff, #7c68ff);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ========= Button Hover Effects ========= */
+button, label {
+  transition: all 0.25s ease-in-out;
+}
+
+button:hover, label:hover {
+  transform: scale(1.03);
+  filter: brightness(1.05);
+}
+
+/* ========= Card Shadow + Smooth Hover ========= */
+.shadow-sm {
+  transition: box-shadow 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+.shadow-sm:hover {
+  box-shadow: 0 10px 25px rgba(90, 90, 150, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ========= Inputs ========= */
+textarea, input[type="text"], input[type="email"], input[type="password"] {
+  transition: all 0.2s ease;
+  outline: none;
+}
+textarea:focus, input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+/* ========= Section Cards ========= */
+section, .rounded-xl, .rounded-2xl {
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+/* ========= Modal Fade ========= */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+}
+
+/* ========= Text Gradients ========= */
+.text-gradient {
+  background: linear-gradient(90deg, #7c3aed, #9333ea, #c026d3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ========= Gradient Border (for highlight) ========= */
+.gradient-border {
+  border: double 2px transparent;
+  border-radius: 16px;
+  background-image: linear-gradient(white, white),
+    linear-gradient(to right, #a78bfa, #ec4899);
+  background-origin: border-box;
+  background-clip: content-box, border-box;
+}
+
+/* ========= Subtle Fade Transitions ========= */
+.transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* ========= Collapse Smoothness ========= */
+[aria-expanded="true"] {
+  transition: all 0.4s ease;
+}
+
+/* ========= Fancy Shadow ========= */
+.shadow-2xl {
+  box-shadow: 0 20px 40px rgba(90, 90, 150, 0.15);
+}
+
+/* ========= Section Title ========= */
+.section-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #2e2e3f;
+  margin-bottom: 0.75rem;
+}
+
+/* ========= Modal Styling ========= */
+.modal {
+  animation: fadeIn 0.4s ease;
+  border-radius: 1rem;
+  background: linear-gradient(145deg, #ffffff, #f5f0ff);
+  box-shadow: 0 10px 25px rgba(90, 90, 150, 0.2);
+}
