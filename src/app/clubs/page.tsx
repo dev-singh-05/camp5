@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
+import AdBanner from "@/components/ads";
+
 
 type Club = {
   id: string;
@@ -422,6 +424,8 @@ export default function ClubsPage() {
           </div>
         </div>
       )}
+      <AdBanner placement="ratings_page" />
+
     </div>
   );
 }

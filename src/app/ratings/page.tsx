@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
+import AdBanner from "@/components/ads";
+
 
 type Profile = {
   id: string;
@@ -785,6 +787,8 @@ function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
           ))}
         </div>
       )}
+      <AdBanner placement="clubs_page" />
+
     </div>
   );
 }
