@@ -174,60 +174,76 @@ export default function ClubsPage() {
 
   // Create club logic
   const handleCreate = async () => {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData?.user;
-  if (!user) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) return;
 
-  // Step 1: Insert club
-  const { data: newClub, error: clubError } = await supabase
-    .from("clubs")
-    .insert([
-      {
-        name,
-        category,
-        passcode: passcode || null,
-        description: description || null,
-        created_by: user.id,
-      },
-    ])
-    .select()
-    .single();
+    const { data: newClub, error: clubError } = await supabase
+      .from("clubs")
+      .insert([
+        {
+          name,
+          category,
+          passcode: passcode || null,
+          description: description || null,
+          created_by: user.id,
+        },
+      ])
+      .select()
+      .single();
 
-  if (clubError) {
-    console.error("Error creating club:", clubError.message);
-    return;
-  }
+    if (clubError) {
+      console.error("Error creating club:", clubError.message);
+      return;
+    }
 
-  // Step 2: Add creator as admin in club_members
-  if (newClub) {
-    await supabase.from("club_members").insert([
-      {
-        club_id: newClub.id,
-        user_id: user.id,
-        role: "admin", // ✅ creator becomes admin
-      },
-    ]);
-  }
+    if (newClub) {
+      await supabase.from("club_members").insert([
+        {
+          club_id: newClub.id,
+          user_id: user.id,
+          role: "admin",
+        },
+      ]);
+    }
 
-  // Reset form + refresh clubs
-  setName("");
-  setCategory("");
-  setPasscode("");
-  setDescription("");
-  setShowModal(false);
-  fetchClubs();
-};
-
+    setName("");
+    setCategory("");
+    setPasscode("");
+    setDescription("");
+    setShowModal(false);
+    fetchClubs();
+  };
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Topbar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div className="flex gap-3">
-          <Link href="/clubs/my" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">My Clubs</Link>
-          <Link href="/clubs/leaderboard" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Leaderboard</Link>
+        {/* Left side: Back + Links */}
+        <div className="flex gap-3 items-center">
+          {/* 🔙 Back button on the left of My Clubs */}
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            ← Back
+          </button>
+
+          <Link
+            href="/clubs/my"
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            My Clubs
+          </Link>
+          <Link
+            href="/clubs/leaderboard"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Leaderboard
+          </Link>
         </div>
 
+        {/* Right side: search + filter */}
         <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
           <input
             type="text"
@@ -254,7 +270,8 @@ export default function ClubsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {clubs
           .filter((c) => {
-            const matchesCategory = filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
+            const matchesCategory =
+              filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
             const matchesSearch =
               c.name.toLowerCase().includes(search.toLowerCase()) ||
               c.category?.toLowerCase().includes(search.toLowerCase());
@@ -281,71 +298,70 @@ export default function ClubsPage() {
       </div>
 
       {/* Floating + button */}
-<button
-  onClick={() => setShowModal(true)}
-  className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
->
-  +
-</button>
-
-{/* Create Club Modal */}
-{showModal && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-    <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
-      <h3 className="text-xl font-bold mb-4">Create a New Club</h3>
-
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Club Name"
-        className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      <button
+        onClick={() => setShowModal(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
       >
-        <option value="">Select Category</option>
-        <option>Sports</option>
-        <option>Arts</option>
-        <option>Tech</option>
-        <option>General</option>
-      </select>
+        +
+      </button>
 
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Club Description"
-        className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        rows={3}
-      />
+      {/* Create Club Modal */}
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
+            <h3 className="text-xl font-bold mb-4">Create a New Club</h3>
 
-      <input
-        value={passcode}
-        onChange={(e) => setPasscode(e.target.value)}
-        placeholder="Passcode (optional)"
-        className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Club Name"
+              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
 
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setShowModal(false)}
-          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleCreate}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          Create
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="">Select Category</option>
+              <option>Sports</option>
+              <option>Arts</option>
+              <option>Tech</option>
+              <option>General</option>
+            </select>
 
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Club Description"
+              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              rows={3}
+            />
+
+            <input
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              placeholder="Passcode (optional)"
+              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Club Details Modal */}
       {selectedClub && (
@@ -363,24 +379,50 @@ export default function ClubsPage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">{selectedClub.name}</h2>
-                <p className="text-gray-600">{selectedClub.category || "Uncategorized"}</p>
+                <p className="text-gray-600">
+                  {selectedClub.category || "Uncategorized"}
+                </p>
               </div>
             </div>
 
-            <p className="mb-4 text-gray-700">{selectedClub.description || "No description provided."}</p>
+            <p className="mb-4 text-gray-700">
+              {selectedClub.description || "No description provided."}
+            </p>
 
             <div className="flex justify-between items-center">
               {selectedRank && (
-                <span className="text-sm font-semibold text-gray-500">Rank #{selectedRank}</span>
+                <span className="text-sm font-semibold text-gray-500">
+                  Rank #{selectedRank}
+                </span>
               )}
               {joinedClubIds.includes(selectedClub.id) ? (
-                <button onClick={() => router.push(`/clubs/${selectedClub.id}`)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Go Inside</button>
+                <button
+                  onClick={() => router.push(`/clubs/${selectedClub.id}`)}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  Go Inside
+                </button>
               ) : requestedClubIds.includes(selectedClub.id) ? (
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Requested</span>
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">
+                  Requested
+                </span>
               ) : (
                 <div className="flex gap-2">
-                  <button onClick={() => startJoin(selectedClub)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Join</button>
-                  <button onClick={() => { setJoiningClub(selectedClub); setShowRequestModal(true); }} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Request</button>
+                  <button
+                    onClick={() => startJoin(selectedClub)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    Join
+                  </button>
+                  <button
+                    onClick={() => {
+                      setJoiningClub(selectedClub);
+                      setShowRequestModal(true);
+                    }}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                  >
+                    Request
+                  </button>
                 </div>
               )}
             </div>
@@ -402,8 +444,18 @@ export default function ClubsPage() {
             />
             <p className="text-sm text-gray-600 mb-3">Tries left: {triesLeft}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowPassModal(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-              <button onClick={handlePassSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded">Submit</button>
+              <button
+                onClick={() => setShowPassModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePassSubmit}
+                className="px-4 py-2 bg-indigo-600 text-white rounded"
+              >
+                Submit
+              </button>
             </div>
           </div>
         </div>
@@ -414,10 +466,23 @@ export default function ClubsPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Request Access</h3>
-            <p className="mb-4">You used all attempts. Do you want to send a request to join <b>{joiningClub.name}</b>?</p>
+            <p className="mb-4">
+              You used all attempts. Do you want to send a request to join{" "}
+              <b>{joiningClub.name}</b>?
+            </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowRequestModal(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-              <button onClick={handleRequest} className="px-4 py-2 bg-yellow-500 text-white rounded">Request</button>
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRequest}
+                className="px-4 py-2 bg-yellow-500 text-white rounded"
+              >
+                Request
+              </button>
             </div>
           </div>
         </div>
@@ -425,12 +490,3 @@ export default function ClubsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

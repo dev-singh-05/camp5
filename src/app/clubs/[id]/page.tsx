@@ -101,46 +101,38 @@ export default function ClubDetailsPage() {
   };
 
   // --- Create Invite ---
-const createInvite = async () => {
-  if (!clubId || !currentUserId) return;
+  const createInvite = async () => {
+    if (!clubId || !currentUserId) return;
 
-  const { data, error } = await supabase
-    .from("club_invites")
-    .insert([
-      {
-        club_id: clubId,
-        created_by: currentUserId,
-        role: inviteForm.role,
-        max_uses: inviteForm.max_uses || 0,
-        expires_at: inviteForm.expires_at || null,
-      },
-    ])
-    .select("id, token, club_id, role, max_uses, uses, expires_at, created_at") // 👈 force return token
-    .single();
+    const { data, error } = await supabase
+      .from("club_invites")
+      .insert([
+        {
+          club_id: clubId,
+          created_by: currentUserId,
+          role: inviteForm.role,
+          max_uses: inviteForm.max_uses || 0,
+          expires_at: inviteForm.expires_at || null,
+        },
+      ])
+      .select("id, token, club_id, role, max_uses, uses, expires_at, created_at") // 👈 force return token
+      .single();
 
-  if (error || !data) {
-    toast.error("Failed to create invite: " + (error?.message || "Unknown error"));
-    return;
-  }
+    if (error || !data) {
+      toast.error("Failed to create invite: " + (error?.message || "Unknown error"));
+      return;
+    }
 
-  // 👇 update invites state immediately with this row
-  setInvites([data]);
+    // 👇 update invites state immediately with this row
+    setInvites([data]);
 
-  // 👇 build URL right away
-  const url = `${window.location.origin}/accept-invite?token=${data.token}`;
-  await navigator.clipboard?.writeText(url);
+    // 👇 build URL right away
+    const url = `${window.location.origin}/accept-invite?token=${data.token}`;
+    await navigator.clipboard?.writeText(url);
 
-  toast.success("Invite created and copied to clipboard");
-};
+    toast.success("Invite created and copied to clipboard");
+  };
 
-
-
-  useEffect(() => {
-    fetchInvites();
-  }, [clubId]);
-
-
-  // chat
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
@@ -165,6 +157,7 @@ const createInvite = async () => {
     expires_at: ""
   });
   const [loadingInvites, setLoadingInvites] = useState(false);
+  const [loadingInvitesError, setLoadingInvitesError] = useState<string | null>(null);
 
   // ---- Data fetch helpers ----
   const fetchMessages = async () => {
@@ -208,7 +201,6 @@ const createInvite = async () => {
     setClub(data || null);
   };
 
-  
   const revokeInvite = async (inviteId: string) => {
     const { error } = await supabase.from("club_invites").delete().eq("id", inviteId);
     if (error) {
@@ -555,7 +547,6 @@ const createInvite = async () => {
               )}
             </div>
 
-
 {userRole === "admin" && (
   <button
     onClick={async () => {
@@ -593,7 +584,6 @@ const createInvite = async () => {
     Invite
   </button>
 )}
-
 
 
             {/* Teammates Section */}
@@ -748,10 +738,23 @@ const createInvite = async () => {
 
         {/* Chat Section */}
         <div className="col-span-3 flex flex-col bg-white shadow-inner h-screen">
-          <div className="p-4 border-b">
-            <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
-            <p className="text-gray-600">{club?.description}</p>
-            <h2 className="text-md font-semibold text-gray-700 mt-2">Team Chat</h2>
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.back()}
+                aria-label="Go back"
+                className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+              >
+                ← Back
+              </button>
+
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
+                <p className="text-gray-600">{club?.description}</p>
+              </div>
+            </div>
+
+            <h2 className="text-md font-semibold text-gray-700 mt-2 hidden md:block">Team Chat</h2>
           </div>
 
           <div className="flex-1 overflow-y-auto mb-3 p-3 bg-gray-50 rounded-lg border">
@@ -981,21 +984,3 @@ const createInvite = async () => {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

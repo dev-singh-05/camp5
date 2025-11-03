@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 
 // Club type
@@ -199,6 +200,7 @@ function RequestModal({
 }
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [joinedClubIds, setJoinedClubIds] = useState<string[]>([]);
   const [requestedClubIds, setRequestedClubIds] = useState<string[]>([]);
@@ -331,7 +333,18 @@ export default function LeaderboardPage() {
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">🏆 Club Leaderboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+          >
+            ← Back
+          </button>
+          <h1 className="text-3xl font-bold text-gray-900">🏆 Club Leaderboard</h1>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
@@ -423,12 +436,3 @@ export default function LeaderboardPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
