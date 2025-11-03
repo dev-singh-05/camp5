@@ -489,7 +489,7 @@ export default function ClubsPage() {
           </div>
         </div>
       )}
-      <AdBanner placement="ratings_page" />
+      <AdBanner placement="clubs_page" />
 
     </div>
   );

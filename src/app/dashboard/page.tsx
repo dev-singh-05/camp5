@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import AdBanner from "@/components/ads";
 
 type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message";
 type NewsItem = {
@@ -22,21 +23,8 @@ export default function Dashboard() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const removedItemsRef = useRef<Set<string>>(new Set());
 
-  const [ads] = useState<string[]>([
-    "/ads/ad-1.png",
-    "/ads/ad-2.png",
-    "/ads/ad-3.png",
-  ]);
-  const [activeAdIndex, setActiveAdIndex] = useState(0);
-
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
-
-  // rotate ads
-  useEffect(() => {
-    const t = setInterval(() => setActiveAdIndex((i) => (i + 1) % ads.length), 6000);
-    return () => clearInterval(t);
-  }, [ads.length]);
 
   useEffect(() => {
     let mounted = true;
@@ -60,7 +48,6 @@ export default function Dashboard() {
       setProfileName(profile?.full_name || "Student");
       setLoading(false);
 
-      // initial news + start realtime
       await loadInitialNews(userId);
       await startRealtime(userId);
     }
@@ -71,17 +58,12 @@ export default function Dashboard() {
       mounted = false;
       cleanupRealtime();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ----------------------------
-  // load initial news (same as before)
-  // ----------------------------
   async function loadInitialNews(userId: string) {
     try {
       const results: NewsItem[] = [];
 
-      // recent ratings to this user
       const { data: ratings } = await supabase
         .from("ratings")
         .select("id, comment, created_at, overall_xp, to_user_id")
@@ -100,7 +82,6 @@ export default function Dashboard() {
         })
       );
 
-      // recent direct user messages to current user
       const { data: messages } = await supabase
         .from("user_messages")
         .select("id, from_user_id, content, created_at")
@@ -129,7 +110,6 @@ export default function Dashboard() {
         })
       );
 
-      // dating chats for matches involving user
       const { data: matches } = await supabase
         .from("dating_matches")
         .select("id, user1_id, user2_id")
@@ -163,7 +143,6 @@ export default function Dashboard() {
         });
       }
 
-      // club events & club messages for user's clubs
       const { data: memberships } = await supabase
         .from("club_members")
         .select("club_id")
@@ -215,16 +194,12 @@ export default function Dashboard() {
     }
   }
 
-  // ----------------------------
-  // Realtime: create channel, await subscribe, add handlers
-  // ----------------------------
   async function startRealtime(userId: string) {
     try {
-      cleanupRealtime(); // remove old if any
+      cleanupRealtime();
 
       const channel = supabase.channel(`dashboard-news-${userId}`);
 
-      // ratings -> target user
       channel.on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "ratings", filter: `to_user_id=eq.${userId}` },
@@ -242,7 +217,6 @@ export default function Dashboard() {
         }
       );
 
-      // user_messages -> to current user
       channel.on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "user_messages", filter: `to_user_id=eq.${userId}` },
@@ -265,7 +239,6 @@ export default function Dashboard() {
         }
       );
 
-      // dating chat inserts -> filter by involvement
       channel.on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "dating_chats" },
@@ -295,7 +268,6 @@ export default function Dashboard() {
         }
       );
 
-      // events -> only push if current user is member
       channel.on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "events" },
@@ -324,7 +296,6 @@ export default function Dashboard() {
         }
       );
 
-      // club messages -> only push if current user is member
       channel.on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
@@ -358,7 +329,6 @@ export default function Dashboard() {
         }
       );
 
-      // actually subscribe (await to ensure it's active)
       await channel.subscribe();
 
       realtimeChannelRef.current = channel;
@@ -375,9 +345,7 @@ export default function Dashboard() {
     }
   }
 
-  // avoid duplicates & respect removedItemsRef
   function pushNews(item: NewsItem) {
-    // quick ignore if user dismissed this specific id during this session
     if (removedItemsRef.current.has(item.id)) return;
 
     setNews((prev) => {
@@ -395,10 +363,8 @@ export default function Dashboard() {
 
   function clearAllNews() {
     setNews([]);
-    // keep removedItemsRef to avoid re-adding exact same ids while session lasts
   }
 
-  // clicking news navigates / or opens relevant place
   function handleNewsClick(item: NewsItem) {
     switch (item.type) {
       case "rating":
@@ -406,7 +372,6 @@ export default function Dashboard() {
         break;
       case "user_message":
         if (item.meta?.from_user_id) {
-          // route to ratings page with query param; ratings page will open the chat
           router.push(`/ratings?openChat=${item.meta.from_user_id}`);
         } else {
           router.push(`/ratings`);
@@ -434,7 +399,6 @@ export default function Dashboard() {
     );
   }
 
-  // ---------- UI ----------
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -458,66 +422,58 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-10">
-        {/* Layout: left (2 cols) = Sponsor big area + buttons below. Right (1 col) = Latest Updates */}
-        <div className="grid grid-cols-3 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT: wide area spanning 2 cols */}
           <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Sponsored big area (top + middle combined) */}
+            {/* Advertisements Section with AdBanner */}
             <div className="bg-white rounded-xl shadow p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">Sponsored</h3>
-                <div className="text-xs text-gray-500">Partner promotions</div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">📢 Advertisements</h3>
+                <span className="text-xs text-gray-500">Featured promotions</span>
               </div>
 
-              <div className="w-full h-[420px] rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                <img
-                  src={ads[activeAdIndex]}
-                  alt="sponsored"
-                  className="object-cover w-full h-full"
-                  onError={(e) => (e.currentTarget.src = "https://via.placeholder.com/900x420?text=Your+Ad+Here")}
-                />
-              </div>
+              {/* Main AdBanner */}
+              <AdBanner placement="dashboard" />
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="h-24 bg-gray-50 rounded-md flex items-center justify-center">
-                  <img src="/ads/ad-small-1.png" alt="ad" className="object-contain h-full" onError={(e)=> (e.currentTarget.src = "https://via.placeholder.com/280x80?text=Ad")} />
+              {/* Fallback message if no ads */}
+              <div id="ad-fallback" className="hidden">
+                <div className="w-full h-[300px] bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-gray-600 font-medium mb-2">Your Ad Here</p>
+                    <a href="/admin/ads" className="text-sm text-indigo-600 hover:underline">
+                      Become a sponsor
+                    </a>
+                  </div>
                 </div>
-                <div className="h-24 bg-gray-50 rounded-md flex items-center justify-center">
-                  <img src="/ads/ad-small-2.png" alt="ad" className="object-contain h-full" onError={(e)=> (e.currentTarget.src = "https://via.placeholder.com/280x80?text=Ad")} />
-                </div>
-              </div>
-
-              <div className="mt-3 text-center">
-                <a href="#" onClick={(e) => e.preventDefault()} className="text-sm text-indigo-600 hover:underline">Become a sponsor</a>
               </div>
             </div>
 
-            {/* Left-bottom: 3 equal buttons */}
+            {/* Quick Access Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Link href="/clubs" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer">
-                  <div className="text-3xl">🏆</div>
+                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                  <div className="text-3xl group-hover:scale-110 transition-transform">🏆</div>
                   <div className="mt-2 text-sm font-semibold">Clubs</div>
                 </div>
               </Link>
 
               <Link href="/ratings" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer">
-                  <div className="text-3xl">⭐</div>
+                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                  <div className="text-3xl group-hover:scale-110 transition-transform">⭐</div>
                   <div className="mt-2 text-sm font-semibold">Ratings</div>
                 </div>
               </Link>
 
               <Link href="/dating" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer">
-                  <div className="text-3xl">💌</div>
+                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                  <div className="text-3xl group-hover:scale-110 transition-transform">💌</div>
                   <div className="mt-2 text-sm font-semibold">Blind Dating</div>
                 </div>
               </Link>
             </div>
           </div>
 
-          {/* RIGHT: Latest Updates (entire right column) */}
+          {/* RIGHT: Latest Updates */}
           <aside className="space-y-6">
             <div className="sticky top-6">
               <div className="bg-white rounded-xl shadow p-4">

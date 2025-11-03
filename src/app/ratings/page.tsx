@@ -1,15 +1,11 @@
 "use client";
 import "./page.css";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
-<<<<<<< HEAD
 import AdBanner from "@/components/ads";
-
-=======
 import { useSearchParams } from "next/navigation";
->>>>>>> 1f9c0102dc7b53e47f5e001a3ffd5c7b72387003
 
 type Profile = {
   id: string;
@@ -55,7 +51,7 @@ export default function RatingsPage() {
   const [recentReviews, setRecentReviews] = useState<Rating[]>([]);
   const [connections, setConnections] = useState<Profile[]>([]);
 
-  // Rating modal states
+  // ✅ Rating modal states
   const [isProfileRatingModal, setIsProfileRatingModal] = useState(false);
   const [comment, setComment] = useState("");
   const [confidence, setConfidence] = useState(0);
@@ -65,7 +61,7 @@ export default function RatingsPage() {
   const [communication, setCommunication] = useState(0);
   const [overallXP, setOverallXP] = useState(0);
 
-  // Global rating modal
+  // ✅ Global (floating +) modal
   const [isGlobalRatingModal, setIsGlobalRatingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
@@ -79,32 +75,16 @@ export default function RatingsPage() {
 
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // NEW: container ref and subscription ref
-  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const subscriptionRef = useRef<any>(null);
 
-  // Pagination + loading flags
-  const PAGE_SIZE = 30;
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMoreOlder, setHasMoreOlder] = useState(true);
-  const [loadingChat, setLoadingChat] = useState(false);
-
-  // scroll to bottom on new messages only if user is near bottom
-  const isUserNearBottom = () => {
-    const el = messagesContainerRef.current;
-    if (!el) return true;
-    // within 120px from bottom
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-  };
-
+  // ✅ Scroll to bottom on new messages
   useEffect(() => {
-    if (messagesEndRef.current && isUserNearBottom()) {
+    if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Current user
+  // ✅ Current user
   useEffect(() => {
     async function getUser() {
       const { data } = await supabase.auth.getUser();
@@ -113,7 +93,7 @@ export default function RatingsPage() {
     getUser();
   }, []);
 
-  // Fetch profiles
+  // ✅ Fetch profiles
   useEffect(() => {
     async function fetchProfiles() {
       const { data, error } = await supabase.from("profiles").select("*");
@@ -127,7 +107,7 @@ export default function RatingsPage() {
     fetchProfiles();
   }, []);
 
-  // Fetch requests
+  // ✅ Fetch requests
   useEffect(() => {
     if (!currentUserId) return;
     async function fetchRequests() {
@@ -141,7 +121,7 @@ export default function RatingsPage() {
     fetchRequests();
   }, [currentUserId]);
 
-  // Fetch connections
+  // ✅ Fetch connected profiles (friends only)
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -157,7 +137,7 @@ export default function RatingsPage() {
         return;
       }
 
-      const otherUserIds = reqs.map((r: any) =>
+      const otherUserIds = reqs.map((r) =>
         r.from_user_id === currentUserId ? r.to_user_id : r.from_user_id
       );
 
@@ -182,12 +162,14 @@ export default function RatingsPage() {
     fetchConnections();
   }, [currentUserId]);
 
+  // ✅ Avatar fallback
   const getAvatar = (profile: Profile) => {
     if (profile.profile_photo) return profile.profile_photo;
     const name = encodeURIComponent(profile.full_name || profile.username || "User");
     return `https://ui-avatars.com/api/?name=${name}&background=random&size=128`;
   };
 
+  // ✅ Connection status
   const getRequestStatus = (userId: string): "none" | "requested" | "friends" => {
     const req = requests.find(
       (r) =>
@@ -199,6 +181,7 @@ export default function RatingsPage() {
     return "requested";
   };
 
+  // ✅ Connect/Cancel
   const handleConnectToggle = async (toUserId: string) => {
     if (!currentUserId) {
       toast.error("Login required ❌");
@@ -227,6 +210,7 @@ export default function RatingsPage() {
     }
   };
 
+  // ✅ Fetch recent reviews (last 3)
   async function fetchRecentReviews(userId: string) {
     const { data, error } = await supabase
       .from("ratings")
@@ -237,266 +221,110 @@ export default function RatingsPage() {
     if (!error && data) setRecentReviews(data);
   }
 
-  // ---------- Chat + Realtime logic ----------
+  // ✅ Open chat with realtime
+  const openChat = async (user: Profile) => {
+    setSelectedUser(user);
+    setChatOpen(true);
+    if (!currentUserId) return;
 
-  // cleanup subscription helper
-  const cleanupSubscription = useCallback(async () => {
-    try {
-      if (subscriptionRef.current) {
-        await supabase.removeChannel(subscriptionRef.current);
-      }
-    } catch (err) {
-      // non-fatal
-      console.warn("removeChannel error:", err);
-    } finally {
-      subscriptionRef.current = null;
-    }
-  }, []);
+    const { data } = await supabase
+      .from("user_messages")
+      .select("*")
+      .or(
+        `and(from_user_id.eq.${currentUserId},to_user_id.eq.${user.id}),and(from_user_id.eq.${user.id},to_user_id.eq.${currentUserId})`
+      )
+      .order("created_at", { ascending: true });
 
-  // load initial page of messages (ascending oldest->newest) with optional limit
-  const loadInitialMessages = useCallback(
-    async (otherUserId: string) => {
-      if (!currentUserId) return [];
-      setLoadingChat(true);
-      try {
-        const { data } = await supabase
-          .from("user_messages")
-          .select("*")
-          .or(
-            `and(from_user_id.eq.${currentUserId},to_user_id.eq.${otherUserId}),and(from_user_id.eq.${otherUserId},to_user_id.eq.${currentUserId})`
-          )
-          .order("created_at", { ascending: true })
-          .limit(PAGE_SIZE);
-        const msgs = data || [];
-        setHasMoreOlder((msgs.length ?? 0) === PAGE_SIZE);
-        return msgs as Message[];
-      } catch (err) {
-        console.error("loadInitialMessages error:", err);
-        return [];
-      } finally {
-        setLoadingChat(false);
-      }
-    },
-    [currentUserId]
-  );
+    setMessages(data || []);
 
-  // load older messages (strictly older than oldest message)
-  const loadOlderMessages = useCallback(async () => {
-    if (!currentUserId || !selectedUser) return;
-    if (loadingOlder || !hasMoreOlder) return;
-    const oldest = messages[0];
-    if (!oldest) return;
+    if (subscriptionRef.current) await supabase.removeChannel(subscriptionRef.current);
 
-    setLoadingOlder(true);
-    const container = messagesContainerRef.current;
-    const prevScrollHeight = container?.scrollHeight ?? 0;
-    const prevScrollTop = container?.scrollTop ?? 0;
-
-    try {
-      const { data } = await supabase
-        .from("user_messages")
-        .select("*")
-        .or(
-          `and(from_user_id.eq.${currentUserId},to_user_id.eq.${selectedUser.id}),and(from_user_id.eq.${selectedUser.id},to_user_id.eq.${currentUserId})`
-        )
-        .lt("created_at", oldest.created_at)
-        .order("created_at", { ascending: true })
-        .limit(PAGE_SIZE);
-
-      const older = (data || []) as Message[];
-
-      if (older.length > 0) {
-        setMessages((prev) => [...older, ...prev]);
-        // preserve scroll position after DOM update
-        setTimeout(() => {
-          const newScrollHeight = container?.scrollHeight ?? 0;
-          if (container) {
-            container.scrollTop = newScrollHeight - prevScrollHeight + prevScrollTop;
-          }
-        }, 50);
-        if (older.length < PAGE_SIZE) setHasMoreOlder(false);
-      } else {
-        setHasMoreOlder(false);
-      }
-    } catch (err) {
-      console.error("loadOlderMessages error:", err);
-    } finally {
-      setLoadingOlder(false);
-    }
-  }, [currentUserId, selectedUser, messages, loadingOlder, hasMoreOlder]);
-
-  // subscribe for realtime messages for the current conversation
-  const createRealtimeSubscription = useCallback(
-    async (otherUserId: string) => {
-      if (!currentUserId) return;
-      // cleanup existing
-      await cleanupSubscription();
-
-      // small guard: avoid creating many channels quickly
-      const channelName = `chat-${[currentUserId, otherUserId].sort().join("-")}`;
-
-      const channel = supabase.channel(channelName);
-
-      channel.on(
+    const channel = supabase
+      .channel(`chat-${currentUserId}-${user.id}`)
+      .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "user_messages" },
-        (payload: any) => {
+        (payload) => {
           const msg = payload.new as Message;
-          // only accept messages for this conversation
           if (
-            (msg.from_user_id === currentUserId && msg.to_user_id === otherUserId) ||
-            (msg.from_user_id === otherUserId && msg.to_user_id === currentUserId)
+            (msg.from_user_id === currentUserId && msg.to_user_id === user.id) ||
+            (msg.from_user_id === user.id && msg.to_user_id === currentUserId)
           ) {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
-
-            // auto-scroll only if user near bottom
-            setTimeout(() => {
-              if (isUserNearBottom()) {
-                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-              }
-            }, 50);
+            setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
           }
         }
-      );
+      )
+      .subscribe();
 
-      // subscribe with retry/backoff
-      let attempts = 0;
-      const maxAttempts = 4;
-      while (attempts < maxAttempts) {
-        attempts++;
-        try {
-          // subscribe returns a Promise
-          // eslint-disable-next-line no-await-in-loop
-          await channel.subscribe();
-          subscriptionRef.current = channel;
-          return;
-        } catch (err) {
-          console.warn(`subscribe attempt ${attempts} failed`, err);
-          // small delay
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((res) => setTimeout(res, 200 * attempts));
-          if (attempts === maxAttempts) {
-            console.error("Failed to subscribe realtime channel after retries:", err);
-            toast.error("Realtime connection failed. Messages will still send/receive after refresh.");
-            return;
-          }
-        }
-      }
-    },
-    [currentUserId, cleanupSubscription]
-  );
+    subscriptionRef.current = channel;
+  };
 
-  // open chat flow: load initial messages, create realtime subscription, scroll to bottom
-  const openChat = useCallback(
-    async (user: Profile) => {
-      setSelectedUser(user);
-      setChatOpen(true);
-      if (!currentUserId) return;
-
-      setLoadingChat(true);
-      try {
-        const initial = await loadInitialMessages(user.id);
-        setMessages(initial);
-        // allow DOM to paint then scroll bottom
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-          } else {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          }
-        }, 50);
-
-        // create realtime subscription
-        await createRealtimeSubscription(user.id);
-      } catch (err) {
-        console.error("openChat error:", err);
-      } finally {
-        setLoadingChat(false);
-      }
-    },
-    [currentUserId, createRealtimeSubscription, loadInitialMessages]
-  );
-
-  // ensure cleanup on unmount
-  useEffect(() => {
-    return () => {
-      (async () => {
-        try {
-          if (subscriptionRef.current) await supabase.removeChannel(subscriptionRef.current);
-        } catch (err) {
-          console.warn("cleanup removeChannel error:", err);
-        } finally {
-          subscriptionRef.current = null;
-        }
-      })();
-    };
-  }, []);
-
-  // watch selectedUser change to create subscription if needed (handles case open via query param too)
-  useEffect(() => {
-    if (!selectedUser || !chatOpen) return;
-    // if no subscription or subscription not for this conversation, create one
-    // (createRealtimeSubscription already cleans previous)
-    createRealtimeSubscription(selectedUser.id).catch((e) => {
-      console.warn("createRealtimeSubscription error on selectedUser change:", e);
-    });
-  }, [selectedUser, chatOpen, createRealtimeSubscription]);
-
-  // send message
+  // ✅ Send message (prevent duplicates)
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUserId || !selectedUser) return;
 
-    const content = newMessage.trim();
-    setNewMessage("");
-
-    // Insert and rely on realtime to append (but also optimistic append can be considered)
     const { error } = await supabase.from("user_messages").insert([
-      { from_user_id: currentUserId, to_user_id: selectedUser.id, content },
+      { from_user_id: currentUserId, to_user_id: selectedUser.id, content: newMessage },
     ]);
 
-    if (error) {
-      toast.error("Failed to send ❌");
-      // optionally re-add content to input
-      setNewMessage(content);
+    if (error) toast.error("Failed to send ❌");
+    setNewMessage("");
+  };
+
+  // ✅ Submit Rating (decimal sliders)
+  const handleSubmitRating = async (toUserId: string) => {
+    if (!currentUserId) return;
+    const { error } = await supabase.from("ratings").insert([
+      {
+        from_user_id: currentUserId,
+        to_user_id: toUserId,
+        comment,
+        confidence,
+        humbleness,
+        friendliness,
+        intelligence,
+        communication,
+        overall_xp: overallXP,
+      },
+    ]);
+    if (error) toast.error("Failed ❌");
+    else {
+      toast.success("Rating submitted ✅");
+      setIsProfileRatingModal(false);
+      setComment("");
+      fetchRecentReviews(toUserId);
+      await fetchRecentReviews(toUserId);
+      if (selectedUser && selectedUser.id === toUserId) setSelectedUser({ ...selectedUser });
     }
   };
 
-  // Auto-open chat when dashboard/news routes to ?openChat=<id>
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const openChatId = searchParams?.get("openChat");
-    if (!openChatId) return;
-    const local = profiles.find((p) => p.id === openChatId);
-    if (local) {
-      openChat(local);
-      setSelectedUser(local);
-      return;
+  // ✅ Global Rating (floating +) with decimal sliders
+  const handleSubmitGlobalRating = async (toUserId: string) => {
+    if (!currentUserId) return;
+    const { error } = await supabase.from("ratings").insert([
+      {
+        from_user_id: currentUserId,
+        to_user_id: toUserId,
+        comment: globalComment,
+        confidence: gConfidence,
+        humbleness: gHumbleness,
+        friendliness: gFriendliness,
+        intelligence: gIntelligence,
+        communication: gCommunication,
+        overall_xp: gOverallXP,
+      },
+    ]);
+    if (error) toast.error("Failed ❌");
+    else {
+      toast.success("Rating submitted ✅");
+      setGlobalComment("");
+      setSearchQuery("");
+      setSearchResults([]);
+      setIsGlobalRatingModal(false);
     }
-    (async () => {
-      const { data: fetched, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, profile_photo, description")
-        .eq("id", openChatId)
-        .maybeSingle();
-      if (fetched && !error) {
-        const profileObj = {
-          id: fetched.id,
-          full_name: fetched.full_name,
-          username: fetched.username,
-          profile_photo: fetched.profile_photo,
-          description: fetched.description,
-        };
-        setSelectedUser(profileObj);
-        openChat(profileObj);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profiles, searchParams]);
+  };
 
-  // Search for global rating modal
+  // ✅ Global search — allows searching any user, but shows connect/rate logic later
   useEffect(() => {
     async function searchProfiles() {
       if (!searchQuery.trim()) {
@@ -514,54 +342,42 @@ export default function RatingsPage() {
         return;
       }
 
+      // Exclude the current user
       const filtered = (data || []).filter((p) => p.id !== currentUserId);
       setSearchResults(filtered);
     }
     searchProfiles();
   }, [searchQuery, currentUserId]);
 
+
+  // ✅ Filtered profiles
   const filteredProfiles = profiles.filter(
     (p) =>
       p.id !== currentUserId &&
       (p.full_name || p.username || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  // scroll handler for messages container -> load older when near top
-  const handleMessagesScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    if (el.scrollTop < 120 && !loadingOlder && hasMoreOlder) {
-      loadOlderMessages();
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 relative">
       <Toaster position="top-right" />
       <div className="max-w-6xl mx-auto">
-        {/* Back button + Top buttons */}
-        <div className="flex items-center gap-4 mb-6">
-          {/* Back button added here */}
-          <button onClick={() => router.back()} className="px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50">
-            ← Back
+        {/* 🔹 Top */}
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => router.push("/ratings/connections")}
+            className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
+          >
+            My Connections
           </button>
-
-          <div className="flex-1 flex gap-4">
-            <button
-              onClick={() => router.push("/ratings/connections")}
-              className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
-            >
-              My Connections
-            </button>
-            <button
-              onClick={() => router.push("/ratings/leaderboard")}
-              className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
-            >
-              LeaderBoard
-            </button>
-          </div>
+          <button
+            onClick={() => router.push("/ratings/leaderboard")}
+            className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
+          >
+            LeaderBoard
+          </button>
         </div>
 
-        {/* Search */}
+        {/* 🔹 Search */}
         <div className="flex items-center bg-white p-3 rounded-lg mb-6 shadow border">
           <span className="mr-3 text-gray-500">🔍</span>
           <input
@@ -573,9 +389,9 @@ export default function RatingsPage() {
           />
         </div>
 
-        {/* Layout */}
+        {/* 🔹 Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left: profile list */}
+          {/* LEFT */}
           <div className="space-y-3">
             {filteredProfiles.map((profile) => (
               <div
@@ -588,20 +404,26 @@ export default function RatingsPage() {
                 className="flex items-center justify-between bg-white p-4 rounded-xl shadow cursor-pointer hover:bg-gray-50 transition"
               >
                 <div className="flex items-center gap-3">
-                  <img src={getAvatar(profile)} alt={profile.full_name} className="w-12 h-12 rounded-full" />
+                  <img
+                    src={getAvatar(profile)}
+                    alt={profile.full_name}
+                    className="w-12 h-12 rounded-full"
+                  />
                   <p className="font-medium text-gray-900">{profile.full_name}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Right: profile view or chat */}
-          <div className="bg-white rounded-xl shadow h-[600px] flex flex-col relative p-4 overflow-hidden">
+          {/* RIGHT: Profile view */}
+          <div className="bg-white rounded-xl shadow h-[600px] flex flex-col relative p-4 overflow-y-auto">
             {selectedUser ? (
               !chatOpen ? (
-                <div className="overflow-y-auto h-full pr-3">
+                <div>
+                  {/* 🟢 Fetch latest averages */}
                   <ProfileStats user={selectedUser} getAvatar={getAvatar} fetchRecentReviews={fetchRecentReviews} />
 
+                  {/* Reviews */}
                   <div className="mb-4 mt-4">
                     <h3 className="font-semibold text-gray-900 mb-2 border-b pb-1">Recent Reviews</h3>
                     {recentReviews.length > 0 ? (
@@ -615,7 +437,8 @@ export default function RatingsPage() {
                     )}
                   </div>
 
-                  <div className="flex gap-3 sticky bottom-0 bg-white pt-3">
+                  {/* Buttons */}
+                  <div className="flex gap-3">
                     {getRequestStatus(selectedUser.id) === "friends" ? (
                       <>
                         <button
@@ -647,6 +470,7 @@ export default function RatingsPage() {
                       </button>
                     )}
                   </div>
+
                 </div>
               ) : (
                 // Chat UI
@@ -659,14 +483,7 @@ export default function RatingsPage() {
                     <h2 className="font-semibold text-gray-900">{selectedUser.full_name}</h2>
                   </div>
 
-                  <div
-                    ref={messagesContainerRef}
-                    onScroll={handleMessagesScroll}
-                    className="flex-1 overflow-y-auto p-4 space-y-2"
-                  >
-                    {loadingChat && <p className="text-sm text-gray-500">Loading chat...</p>}
-                    {loadingOlder && <p className="text-sm text-gray-500">Loading older messages...</p>}
-
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
@@ -696,7 +513,10 @@ export default function RatingsPage() {
                       className="flex-1 border rounded-full px-3 py-2 text-sm bg-gray-100 text-gray-900"
                       placeholder="Type a message..."
                     />
-                    <button onClick={handleSendMessage} className="ml-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full">
+                    <button
+                      onClick={handleSendMessage}
+                      className="ml-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full"
+                    >
                       Send
                     </button>
                   </div>
@@ -706,15 +526,17 @@ export default function RatingsPage() {
               <p className="text-gray-500 m-auto">Select a user to view details</p>
             )}
           </div>
+
         </div>
       </div>
 
-      {/* Profile rating modal */}
+      {/* 🟣 Profile-Specific Rating Modal */}
       {isProfileRatingModal && selectedUser && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-center text-gray-900 mb-4">Rate {selectedUser.full_name}</h2>
-
+            <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
+              Rate {selectedUser.full_name}
+            </h2>
             {[
               ["Confidence", confidence, setConfidence],
               ["Humbleness", humbleness, setHumbleness],
@@ -727,7 +549,15 @@ export default function RatingsPage() {
                   <span>{label}</span>
                   <span>{value}/5</span>
                 </label>
-                <input type="range" min="0" max="5" step="0.5" value={value} onChange={(e) => setter(parseFloat(e.target.value))} className="w-full accent-indigo-600" />
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.5"
+                  value={value}
+                  onChange={(e) => setter(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
               </div>
             ))}
 
@@ -736,27 +566,58 @@ export default function RatingsPage() {
                 <span>Overall XP</span>
                 <span>{overallXP}/100</span>
               </label>
-              <input type="range" min="0" max="100" step="1" value={overallXP} onChange={(e) => setOverallXP(parseInt(e.target.value))} className="w-full accent-purple-600" />
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={overallXP}
+                onChange={(e) => setOverallXP(parseInt(e.target.value))}
+                className="w-full accent-purple-600"
+              />
             </div>
 
-            <textarea placeholder="Write your review..." value={comment} onChange={(e) => setComment(e.target.value)} className="w-full border rounded-lg p-2 text-sm mb-4 bg-gray-50 focus:ring focus:ring-indigo-200" />
+            <textarea
+              placeholder="Write your review..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full border rounded-lg p-2 text-sm mb-4 bg-gray-50 focus:ring focus:ring-indigo-200"
+            />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setIsProfileRatingModal(false)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">Cancel</button>
-              <button onClick={() => handleSubmitRating(selectedUser.id)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">Submit</button>
+              <button
+                onClick={() => setIsProfileRatingModal(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSubmitRating(selectedUser.id)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+              >
+                Submit
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Global floating + modal */}
+      {/* 🟢 Global Floating + Modal */}
       {isGlobalRatingModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-center text-gray-900 mb-4">Wanna Rate Someone?</h2>
-            <input type="text" placeholder="Search profiles..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full border rounded-lg p-2 mb-4 text-gray-900 bg-gray-50 focus:ring focus:ring-indigo-200" />
+            <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
+              Wanna Rate Someone?
+            </h2>
+            <input
+              type="text"
+              placeholder="Search profiles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full border rounded-lg p-2 mb-4 text-gray-900 bg-gray-50 focus:ring focus:ring-indigo-200"
+            />
             <div className="max-h-72 overflow-y-auto space-y-3">
               {searchResults.map((user) => {
-                const status = getRequestStatus(user.id);
+                const status = getRequestStatus(user.id); // 👈 check connection status
                 const isFriend = status === "friends";
 
                 return (
@@ -777,7 +638,15 @@ export default function RatingsPage() {
                               <span>{label}</span>
                               <span>{value}/5</span>
                             </label>
-                            <input type="range" min="0" max="5" step="0.5" value={value} onChange={(e) => setter(parseFloat(e.target.value))} className="w-full accent-indigo-600" />
+                            <input
+                              type="range"
+                              min="0"
+                              max="5"
+                              step="0.5"
+                              value={value}
+                              onChange={(e) => setter(parseFloat(e.target.value))}
+                              className="w-full accent-indigo-600"
+                            />
                           </div>
                         ))}
 
@@ -786,15 +655,39 @@ export default function RatingsPage() {
                             <span>Overall XP</span>
                             <span>{gOverallXP}/100</span>
                           </label>
-                          <input type="range" min="0" max="100" step="1" value={gOverallXP} onChange={(e) => setGOverallXP(parseInt(e.target.value))} className="w-full accent-purple-600" />
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={gOverallXP}
+                            onChange={(e) => setGOverallXP(parseInt(e.target.value))}
+                            className="w-full accent-purple-600"
+                          />
                         </div>
 
-                        <textarea placeholder="Leave a comment..." value={globalComment} onChange={(e) => setGlobalComment(e.target.value)} className="w-full border rounded-lg p-2 text-sm mb-2" />
+                        <textarea
+                          placeholder="Leave a comment..."
+                          value={globalComment}
+                          onChange={(e) => setGlobalComment(e.target.value)}
+                          className="w-full border rounded-lg p-2 text-sm mb-2"
+                        />
 
-                        <button onClick={() => handleSubmitGlobalRating(user.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded-lg text-sm">Submit</button>
+                        <button
+                          onClick={() => handleSubmitGlobalRating(user.id)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded-lg text-sm"
+                        >
+                          Submit
+                        </button>
                       </>
                     ) : (
-                      <button onClick={() => handleConnectToggle(user.id)} className={`w-full px-4 py-2 rounded-lg shadow text-sm font-medium ${status === "requested" ? "bg-gray-300 text-gray-800 hover:bg-gray-400" : "bg-green-600 hover:bg-green-700 text-white"}`}>
+                      <button
+                        onClick={() => handleConnectToggle(user.id)}
+                        className={`w-full px-4 py-2 rounded-lg shadow text-sm font-medium ${status === "requested"
+                          ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                          : "bg-green-600 hover:bg-green-700 text-white"
+                          }`}
+                      >
                         {status === "requested" ? "Request Sent ⏳ (Cancel)" : "+ Connect"}
                       </button>
                     )}
@@ -804,71 +697,29 @@ export default function RatingsPage() {
             </div>
 
             <div className="flex justify-end mt-4">
-              <button onClick={() => setIsGlobalRatingModal(false)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">Close</button>
+              <button
+                onClick={() => setIsGlobalRatingModal(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating + */}
-      <button onClick={() => setIsGlobalRatingModal(true)} className="fixed bottom-6 right-6 w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-2xl rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition">+</button>
+      {/* ✅ Floating + Button */}
+      <button
+        onClick={() => setIsGlobalRatingModal(true)}
+        className="fixed bottom-6 right-6 w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-2xl rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition"
+      >
+        +
+      </button>
     </div>
   );
-
-  // ---------- helper functions used above (kept below to keep main component tidy) ----------
-
-  async function handleSubmitRating(toUserId: string) {
-    if (!currentUserId) return;
-    const { error } = await supabase.from("ratings").insert([
-      {
-        from_user_id: currentUserId,
-        to_user_id: toUserId,
-        comment,
-        confidence,
-        humbleness,
-        friendliness,
-        intelligence,
-        communication,
-        overall_xp: overallXP,
-      },
-    ]);
-    if (error) toast.error("Failed ❌");
-    else {
-      toast.success("Rating submitted ✅");
-      setIsProfileRatingModal(false);
-      setComment("");
-      await fetchRecentReviews(toUserId);
-      if (selectedUser && selectedUser.id === toUserId) setSelectedUser({ ...selectedUser });
-    }
-  }
-
-  async function handleSubmitGlobalRating(toUserId: string) {
-    if (!currentUserId) return;
-    const { error } = await supabase.from("ratings").insert([
-      {
-        from_user_id: currentUserId,
-        to_user_id: toUserId,
-        comment: globalComment,
-        confidence: gConfidence,
-        humbleness: gHumbleness,
-        friendliness: gFriendliness,
-        intelligence: gIntelligence,
-        communication: gCommunication,
-        overall_xp: gOverallXP,
-      },
-    ]);
-    if (error) toast.error("Failed ❌");
-    else {
-      toast.success("Rating submitted ✅");
-      setGlobalComment("");
-      setSearchQuery("");
-      setSearchResults([]);
-      setIsGlobalRatingModal(false);
-    }
-  }
 }
 
-// ProfileStats component (kept unchanged except import usage)
+// 🟢 Profile Stats Component — fetches fresh averages and displays nicely
 function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
   const [stats, setStats] = useState<any>(null);
 
@@ -888,13 +739,22 @@ function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center gap-4 mb-5 border-b pb-3">
-        <img src={getAvatar(user)} alt={user.full_name} className="w-20 h-20 rounded-full ring-4 ring-indigo-100" />
+        <img
+          src={getAvatar(user)}
+          alt={user.full_name}
+          className="w-20 h-20 rounded-full ring-4 ring-indigo-100"
+        />
         <div>
           <h2 className="text-xl font-bold text-gray-900">{user.full_name}</h2>
           {stats ? (
             <p className="text-sm text-gray-600">
-              ⭐ <span className="font-semibold text-purple-600">{stats.avg_overall_xp?.toFixed(1) || 0}</span>/100 XP • 💬 {stats.total_ratings || 0} Ratings
+              ⭐{" "}
+              <span className="font-semibold text-purple-600">
+                {stats.avg_overall_xp?.toFixed(1) || 0}
+              </span>
+              /100 XP • 💬 {stats.total_ratings || 0} Ratings
             </p>
           ) : (
             <p className="text-gray-400 text-sm">Loading stats...</p>
@@ -902,6 +762,7 @@ function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
         </div>
       </div>
 
+      {/* Attribute bars */}
       {stats && (
         <div className="space-y-2">
           {[
@@ -917,14 +778,20 @@ function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
                 <span className="font-medium">{stats[key]?.toFixed(1) || 0}/5</span>
               </div>
               <div className="w-full bg-gray-200 h-2 rounded-full">
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500" style={{ width: `${(stats[key] || 0) * 20}%` }} />
+                <div
+                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${(stats[key] || 0) * 20}%` }}
+                />
               </div>
             </div>
           ))}
         </div>
       )}
-      <AdBanner placement="clubs_page" />
+      <AdBanner placement="ratings_page" />
 
     </div>
   );
 }
+
+
+

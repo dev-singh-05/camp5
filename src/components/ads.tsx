@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { ExternalLink } from "lucide-react";
 
 type Ad = {
   id: string;
@@ -33,7 +34,7 @@ export default function AdBanner({ placement }: { placement: string }) {
         .from("ads")
         .select("*")
         .eq("active", true)
-        // Use contains operator for text array or exact match
+        // Match placement exactly or with comma-separated values
         .or(`placement.eq.${placement},placement.ilike.%${placement}%`)
         // Optional: Check if ad is within valid date range
         .or(`starts_at.is.null,starts_at.lte.${now}`)
@@ -68,26 +69,46 @@ export default function AdBanner({ placement }: { placement: string }) {
   if (loading || !ad) return null;
 
   return (
-    <div className="my-8 flex flex-col items-center text-center bg-white rounded-2xl shadow p-4">
+    <div className="w-full bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-lg overflow-hidden border border-purple-100 hover:shadow-xl transition-shadow duration-300">
       {ad.image_path && (
-        <img
-          src={ad.image_path}
-          alt={ad.name || "Advertisement"}
-          className="w-full max-w-sm rounded-lg mb-3 object-cover"
-        />
+        <div className="w-full h-48 relative overflow-hidden bg-gray-100">
+          <img
+            src={ad.image_path}
+            alt={ad.name || "Advertisement"}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        </div>
       )}
-      {ad.title && <h3 className="font-semibold text-lg">{ad.title}</h3>}
-      {ad.body && <p className="text-gray-600 text-sm mt-1">{ad.body}</p>}
-      {ad.action_url && (
-        <a
-          href={ad.action_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-block bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          Learn More
-        </a>
-      )}
+      
+      <div className="p-6 space-y-3">
+        {ad.title && (
+          <h3 className="text-xl font-bold text-gray-900 leading-tight">
+            {ad.title}
+          </h3>
+        )}
+        
+        {ad.body && (
+          <p className="text-gray-700 text-sm leading-relaxed">
+            {ad.body}
+          </p>
+        )}
+        
+        {ad.action_url && (
+          <a
+            href={ad.action_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 group"
+          >
+            Learn More
+            <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </a>
+        )}
+        
+        <p className="text-xs text-gray-400 pt-2 border-t border-gray-200">
+          Sponsored
+        </p>
+      </div>
     </div>
   );
 }
