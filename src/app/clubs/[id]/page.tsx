@@ -67,6 +67,9 @@ export default function ClubDetailsPage() {
   const [newMessage, setNewMessage] = useState("");
   const [eventAcceptanceStatus, setEventAcceptanceStatus] = useState<Record<string, boolean>>({});
   const [canComplete, setCanComplete] = useState<Record<string, boolean>>({});
+  // add state near other admin panel states
+const [inviteActioning, setInviteActioning] = useState<string | null>(null);
+
 
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -203,20 +206,17 @@ const checkCanComplete = async (event: Event) => {
     setEventParticipantCounts(counts);
   };
 
-  const checkEventAcceptance = async (eventId: string, eventType: string) => {
-  if (eventType !== "inter") {
-    setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: true }));
-    return;
-  }
-  
+const checkEventAcceptance = async (eventId: string, eventType: string) => {
+  if (eventType !== "inter") { setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: true })); return; }
   const { data: participants } = await supabase
     .from("inter_club_participants")
     .select("accepted")
     .eq("event_id", eventId);
-  
+
   const allAccepted = participants?.every((p: any) => p.accepted === true) || false;
   setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: allAccepted }));
 };
+
 
 // Call this when opening event modal
 const handleEventClick = async (event: Event) => {
@@ -226,7 +226,15 @@ const handleEventClick = async (event: Event) => {
   await checkCanComplete(event); // ✅ Add this line
 };
 
-  const fetchRequests = async () => {
+const fetchAllClubs = async () => {
+  const { data } = await supabase
+    .from("clubs")
+    .select("id, name")
+    .order("name");
+  setAllClubs(data || []);
+};
+
+const fetchRequests = async () => {
     if (!clubId) return;
     const { data } = await supabase
       .from("club_requests")
@@ -255,43 +263,44 @@ const handleEventClick = async (event: Event) => {
     );
   };
 
+
 const fetchEventInvitations = async () => {
   if (!clubId) return;
   
-  // Get events where this club is invited but hasn't accepted yet
-  const { data } = await supabase
-    .from("inter_club_participants")
-    .select(`
-      event_id,
-      club_id,
-      accepted,
-      events!inner(
-        id,
-        title,
-        description,
-        event_date,
-        total_xp_pool,
-        status,
-        club_id,
-        clubs!inner(name)
-      )
-    `)
-    .eq("club_id", clubId)
-    .is("accepted", false)  // ✅ Changed from .eq("accepted", false) to .is("accepted", false)
-    .eq("events.status", "upcoming");
+  console.log("Fetching invitations for club:", clubId);
   
+  // Get events where this club is invited but hasn't accepted yet
+ const { data, error } = await supabase
+  .from("inter_club_participants")
+  .select(`
+    event_id,
+    club_id,
+    accepted,
+    events!inner(
+      id,
+      title,
+      description,
+      event_date,
+      total_xp_pool,
+      status,
+      club_id,
+      clubs!inner(name)
+    )
+  `)
+  .eq("club_id", clubId)
+  .neq("accepted", true)             // ✅ excludes NULL and false in a single filter
+  .eq("events.status", "upcoming");
+
+
+  if (error) {
+    console.error("Error fetching invitations:", error);
+    return;
+  }
+
+  console.log("Raw invitation data from DB:", data);
   console.log("Event invitations:", data);
   setEventInvitations(data || []);
 };
-
-  const fetchAllClubs = async () => {
-    const { data } = await supabase
-      .from("clubs")
-      .select("id, name")
-      .order("name");
-    setAllClubs(data || []);
-  };
-
  // ✅ Real-time subscription for event invitations
 // ✅ Real-time subscription for event invitations
 useEffect(() => {
@@ -503,7 +512,7 @@ useEffect(() => {
       if (sizeCategory === "medium") return 300;
       if (sizeCategory === "large") return 600;
     } else if (eventType === "inter") {
-      return competingClubs.length * 100;
+    return (competingClubs.length + 1) * 100; 
     }
     return 0;
   };
@@ -537,18 +546,29 @@ useEffect(() => {
       return;
     }
 
-   // If inter-club, save competing clubs
-if (eventType === "inter" && newEvent && competingClubs.length > 0) {
-  const participants = competingClubs.map(competingClubId => ({
-    event_id: newEvent.id,
-    club_id: competingClubId,
-    position: null,
-    xp_awarded: 0,
-    accepted: competingClubId === clubId // ✅ Creator's club auto-accepts
-  }));
+if (eventType === "inter" && newEvent) {
+  const rows = [
+    // creator’s club (auto-accepted)
+    {
+      event_id: newEvent.id,
+      club_id: clubId,                 // <- creator
+      position: null,
+      xp_awarded: 0,
+      accepted: true,
+    },
+    // invited clubs (pending)
+    ...competingClubs.map((id) => ({
+      event_id: newEvent.id,
+      club_id: id,
+      position: null,
+      xp_awarded: 0,
+      accepted: false,
+    })),
+  ];
 
-  await supabase.from("inter_club_participants").insert(participants);
+  await supabase.from("inter_club_participants").insert(rows);
 }
+
 
     toast.success("🎉 Event created");
     setShowCreateEventModal(false);
@@ -746,11 +766,25 @@ if (eventType === "inter" && newEvent && competingClubs.length > 0) {
     };
   }, [clubId, events]);
 
+
+
+
 const openCompleteModal = async (event: Event) => {
   setCompletingEvent(event);
   setResultsDescription("");
   setSelectedFiles([]);
   setClubPositions({});
+
+  // Ensure creator club row exists (covers legacy events created before the fix)
+if (event.event_type === "inter" && clubId) {
+  await supabase
+    .from("inter_club_participants")
+    .upsert(
+      { event_id: event.id, club_id: clubId, accepted: true, position: null, xp_awarded: 0 },
+      { onConflict: "event_id,club_id" }
+    );
+}
+
   
   // ✅ If inter-club, fetch the competing clubs
   if (event.event_type === "inter") {
@@ -810,16 +844,57 @@ const openCompleteModal = async (event: Event) => {
       return;
     }
 
-    // If inter-club, update positions
-    if (completingEvent.event_type === "inter") {
-      for (const [clubId, position] of Object.entries(clubPositions)) {
-        await supabase
-          .from("inter_club_participants")
-          .update({ position })
-          .eq("event_id", completingEvent.id)
-          .eq("club_id", clubId);
-      }
-    }
+ // If inter-club, update positions + XP distribution
+if (completingEvent.event_type === "inter") {
+  // 1) Save positions
+  for (const [clubId, position] of Object.entries(clubPositions)) {
+    await supabase
+      .from("inter_club_participants")
+      .update({ position })
+      .eq("event_id", completingEvent.id)
+      .eq("club_id", clubId);
+  }
+
+  // 2) Compute XP pool and split by rank (strictly decreasing)
+  // n = number of clubs (includes your club; you already loaded these for the modal)
+  const n = competingClubsForEvent.length;
+  const pool = n * 100;
+
+  // Formula: points for rank r = round( 200 * (n - r + 1) / (n + 1) )
+  // This gives strictly decreasing values and sums ~ pool.
+  // We'll adjust any rounding remainder to 1st place.
+  type Entry = { club_id: string; position: number };
+  const entries: Entry[] = Object.entries(clubPositions)
+    .map(([club_id, position]) => ({ club_id, position: Number(position) }))
+    .sort((a, b) => a.position - b.position); // rank order: 1,2,3...
+
+  const pointsByClub: Record<string, number> = {};
+  let sum = 0;
+
+  for (const e of entries) {
+    const r = e.position; // 1-based rank
+    const pts = Math.round((200 * (n - r + 1)) / (n + 1));
+    pointsByClub[e.club_id] = pts;
+    sum += pts;
+  }
+
+  // Fix rounding so total exactly equals pool (add diff to 1st place)
+  const diff = pool - sum;
+  if (entries.length > 0 && diff !== 0) {
+    const firstClubId = entries[0].club_id;
+    pointsByClub[firstClubId] = (pointsByClub[firstClubId] || 0) + diff;
+  }
+
+  // 3) Persist xp_awarded
+  for (const e of entries) {
+    await supabase
+      .from("inter_club_participants")
+      .update({ xp_awarded: pointsByClub[e.club_id] })
+      .eq("event_id", completingEvent.id)
+      .eq("club_id", e.club_id);
+  }
+}
+
 
     toast.success("✅ Event submitted for review!");
     setShowCompleteModal(false);
@@ -869,6 +944,26 @@ const openCompleteModal = async (event: Event) => {
   
   return true;
 };
+
+// ===== Inter-club completion helpers (positions) =====
+const totalClubsInModal =
+  completingEvent && completingEvent.event_type === "inter"
+    ? competingClubsForEvent.length
+    : 0;
+
+const assignedPositions = Object.values(clubPositions).filter(
+  (v): v is number => typeof v === "number" && !isNaN(v)
+);
+
+const allAssigned =
+  completingEvent?.event_type !== "inter" ||
+  assignedPositions.length === totalClubsInModal;
+
+
+const uniqueAssigned =
+ new Set(assignedPositions).size === assignedPositions.length;
+
+
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -1044,86 +1139,115 @@ const openCompleteModal = async (event: Event) => {
   <>
     <h4 className="mt-3 font-semibold text-indigo-700">Event Invitations</h4>
     <ul className="list-disc ml-6 mt-2 space-y-2">
-      {eventInvitations.map((invitation: any) => (
-        <li
-          key={invitation.event_id}
-          className="flex justify-between items-center text-gray-700"
+     // In the invitations list render:
+{eventInvitations.map((invitation: any) => {
+  const isBusy = inviteActioning === invitation.event_id;
+  return (
+    <li key={invitation.event_id} className="flex justify-between items-center text-gray-700 opacity-100">
+      <div className={isBusy ? "opacity-60" : ""}>
+        <p className="font-semibold">{invitation.events.title}</p>
+        <p className="text-xs text-gray-500">
+          By: {invitation.events.clubs.name} •
+          {new Date(invitation.events.event_date).toLocaleDateString()} •
+          {invitation.events.total_xp_pool} XP
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          disabled={isBusy}
+         onClick={async () => {
+  setInviteActioning(invitation.event_id);
+
+  // optimistic remove
+  setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+  // attempt update and RETURN the row
+  const { data: upd, error } = await supabase
+    .from("inter_club_participants")
+    .update({ accepted: true })
+    .eq("event_id", invitation.event_id)
+    .eq("club_id", clubId)
+    .select("event_id, club_id, accepted")
+    .single();
+
+  if (error || !upd || upd.accepted !== true) {
+    // rollback if update didn’t stick
+    await fetchEventInvitations();
+    setInviteActioning(null);
+
+    // better error surface for RLS/incident/0 rows
+    if (error) {
+      console.error("Accept update failed:", error);
+      toast.error(`Failed to accept challenge: ${error.message}`);
+    } else {
+      console.warn("Accept update matched no row or accepted still not true:", upd);
+      toast.error("Failed to accept challenge (no matching row / RLS / backend issue).");
+    }
+    return;
+  }
+
+  toast.success("✅ Challenge accepted!");
+  // keep UI in sync
+  await fetchEventInvitations();
+  await fetchEvents();
+
+  if (selectedEvent?.id === invitation.event_id) {
+    const event = events.find(e => e.id === invitation.event_id);
+    if (event) {
+      await checkEventAcceptance(invitation.event_id, "inter");
+      await checkCanComplete(event);
+    }
+  }
+
+  setInviteActioning(null);
+}}
+
+          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-green-300" : "bg-green-600 hover:bg-green-700"} text-white`}
         >
-          <div>
-            <p className="font-semibold">{invitation.events.title}</p>
-            <p className="text-xs text-gray-500">
-              By: {invitation.events.clubs.name} • 
-              {new Date(invitation.events.event_date).toLocaleDateString()} • 
-              {invitation.events.total_xp_pool} XP
-            </p>
-          </div>
-          <div className="flex gap-2">
-<button
- 
-  onClick={async () => {
-    // ✅ Accept invitation - update accepted status
-    const { error } = await supabase
-      .from("inter_club_participants")
-      .update({ accepted: true })
-      .eq("event_id", invitation.event_id)
-      .eq("club_id", clubId);
-    
-    if (error) {
-      toast.error("Failed to accept challenge");
-      return;
-    }
-    
-    toast.success("✅ Challenge accepted!");
-    
-    // ✅ Refresh all relevant data
-    await fetchEventInvitations();
-    await fetchEvents();
-    
-    // ✅ If the event modal is open for THIS specific event, refresh its status
-    if (selectedEvent?.id === invitation.event_id) {
-      const event = events.find(e => e.id === invitation.event_id);
-      if (event) {
-        await checkEventAcceptance(invitation.event_id, "inter");
-        await checkCanComplete(event);
-      }
-    }
-  }}
-  className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
->
-  Accept
-</button>
-   <button
-  onClick={async () => {
-    // ✅ Decline invitation - remove from participants
-    const { error } = await supabase
-      .from("inter_club_participants")
-      .delete()
-      .eq("event_id", invitation.event_id)
-      .eq("club_id", clubId);
-    
-    if (error) {
-      toast.error("Failed to decline challenge");
-      return;
-    }
-    
-    toast.success("❌ Challenge declined");
-    
-    // ✅ Refresh invitations
-    await fetchEventInvitations();
-    await fetchEvents();
-    
-    // ✅ If the event modal is open for this event, close it
-    if (selectedEvent?.id === invitation.event_id) {
-      setSelectedEvent(null);
-    }
-  }}
-  className="px-2 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
->
-  Decline
-</button>
-          </div>
-        </li>
-      ))}
+          {isBusy ? "Accepting..." : "Accept"}
+        </button>
+
+        <button
+          disabled={isBusy}
+          onClick={async () => {
+            setInviteActioning(invitation.event_id);
+
+            // ✅ optimistic remove from UI immediately
+            setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+            const { error } = await supabase
+              .from("inter_club_participants")
+              .delete()
+              .eq("event_id", invitation.event_id)
+              .eq("club_id", clubId);
+
+            if (error) {
+              toast.error("Failed to decline challenge");
+              // rollback if needed
+              await fetchEventInvitations();
+              setInviteActioning(null);
+              return;
+            }
+
+            toast.success("❌ Challenge declined");
+            await fetchEventInvitations();
+            await fetchEvents();
+
+            if (selectedEvent?.id === invitation.event_id) {
+              setSelectedEvent(null);
+            }
+
+            setInviteActioning(null);
+          }}
+          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-red-300" : "bg-red-600 hover:bg-red-700"} text-white`}
+        >
+          {isBusy ? "Declining..." : "Decline"}
+        </button>
+      </div>
+    </li>
+  );
+})}
+
     </ul>
   </>
 )}
@@ -1568,39 +1692,71 @@ const openCompleteModal = async (event: Event) => {
           </p>
         </div>
 
-        {/* ✅ If inter-club, show competing clubs */}
-        {completingEvent.event_type === "inter" && competingClubsForEvent.length > 0 && (
-          <div>
-            <label className="block text-sm font-semibold mb-2">Competition Results</label>
-            <p className="text-xs text-gray-500 mb-2">
-              Assign positions to each competing club:
+    {/* ✅ If inter-club, show competing clubs (dynamic positions + no duplicates) */}
+{completingEvent.event_type === "inter" && competingClubsForEvent.length > 0 && (
+  <div>
+    <label className="block text-sm font-semibold mb-2">Competition Results</label>
+    <p className="text-xs text-gray-500 mb-2">
+      Assign unique positions to each club:
+    </p>
+
+    {/* Make number of position options = number of clubs */}
+    {(() => {
+      const totalClubs = competingClubsForEvent.length;
+      const positionOptions = Array.from({ length: totalClubs }, (_, i) => i + 1);
+      const usedPositions = new Set(
+        Object.values(clubPositions).filter(
+          (v): v is number => typeof v === "number" && !isNaN(v)
+        )
+      );
+
+      return (
+        <>
+          {competingClubsForEvent.map((club) => (
+            <div
+              key={club.id}
+              className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded"
+            >
+              <span className="text-sm flex-1 font-medium">{club.name}</span>
+              <select
+                value={clubPositions[club.id] ?? ""}
+                onChange={(e) =>
+                  setClubPositions((prev) => ({
+                    ...prev,
+                    [club.id]: Number(e.target.value),
+                  }))
+                }
+                className="p-2 border rounded text-sm"
+                required
+              >
+                <option value="">Select position</option>
+                {positionOptions.map((pos) => (
+                  <option
+                    key={pos}
+                    value={pos}
+                    // disable a position if already used by another club
+                    disabled={usedPositions.has(pos) && clubPositions[club.id] !== pos}
+                  >
+                    {pos === 1 ? "🥇 " : pos === 2 ? "🥈 " : pos === 3 ? "🥉 " : ""}
+                    {pos}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+
+          {/* Helper message if something is missing or duplicated */}
+          {(!allAssigned || !uniqueAssigned) && (
+            <p className="text-xs text-red-600 mt-1">
+              Assign a unique position to each club (1 to {totalClubs}).
             </p>
-            {competingClubsForEvent.map((club) => (
-              <div key={club.id} className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded">
-                <span className="text-sm flex-1 font-medium">{club.name}</span>
-                <select
-                  value={clubPositions[club.id] || ""}
-                  onChange={(e) => setClubPositions({
-                    ...clubPositions,
-                    [club.id]: parseInt(e.target.value)
-                  })}
-                  className="p-2 border rounded text-sm"
-                  required
-                >
-                  <option value="">Select position</option>
-                  <option value="1">🥇 1st Place (50% XP)</option>
-                  <option value="2">🥈 2nd Place (30% XP)</option>
-                  <option value="3">🥉 3rd Place (20% XP)</option>
-                </select>
-              </div>
-            ))}
-            {Object.keys(clubPositions).length !== competingClubsForEvent.length && (
-              <p className="text-xs text-red-600 mt-1">
-                ⚠️ Please assign positions to all clubs
-              </p>
-            )}
-          </div>
-        )}
+          )}
+        </>
+      );
+    })()}
+  </div>
+)}
+
 
         <div className="bg-yellow-50 p-3 rounded">
           <p className="text-xs text-yellow-800">
@@ -1620,10 +1776,11 @@ const openCompleteModal = async (event: Event) => {
             onClick={handleCompleteEvent}
             className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
             disabled={
-              !resultsDescription || 
-              selectedFiles.length === 0 ||
-              (completingEvent.event_type === "inter" && Object.keys(clubPositions).length !== competingClubsForEvent.length)
-            }
+  !resultsDescription ||
+  selectedFiles.length === 0 ||
+  (completingEvent.event_type === "inter" && (!allAssigned || !uniqueAssigned))
+}
+
           >
             Submit for Review
           </button>
