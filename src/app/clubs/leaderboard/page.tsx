@@ -4,22 +4,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 
-// Club type
 type Club = {
   id: string;
   name: string;
   category: string | null;
   description?: string | null;
-  rank: string; // Simulated rank for now
+  total_xp: number;
 };
 
-// 🔹 Reusable ClubCard
 function ClubCard({
   club,
+  rank,
   status,
   onClick,
 }: {
   club: Club;
+  rank: number;
   status?: "joined" | "requested" | "none";
   onClick: () => void;
 }) {
@@ -28,11 +28,18 @@ function ClubCard({
       role="button"
       tabIndex={0}
       onClick={onClick}
-      className="p-4 bg-gray-100 rounded-xl shadow-md flex items-center justify-between hover:shadow-lg transition cursor-pointer"
+      className="p-4 bg-white rounded-xl shadow-md flex items-center justify-between hover:shadow-lg transition cursor-pointer border-2 border-transparent hover:border-indigo-200"
     >
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600">
-          👤
+        <div className="flex items-center justify-center">
+          {rank === 1 && <span className="text-4xl">🥇</span>}
+          {rank === 2 && <span className="text-4xl">🥈</span>}
+          {rank === 3 && <span className="text-4xl">🥉</span>}
+          {rank > 3 && (
+            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
+              #{rank}
+            </div>
+          )}
         </div>
         <div>
           <h3 className="text-lg font-bold text-gray-900">{club.name}</h3>
@@ -41,19 +48,18 @@ function ClubCard({
       </div>
 
       <div className="flex flex-col items-end gap-2">
-        <span className="text-sm font-semibold text-gray-500">{club.rank}</span>
+        <span className="text-xl font-bold text-indigo-600">{club.total_xp} XP</span>
         {status === "joined" && (
-          <span className="px-3 py-1 bg-green-100 text-green-700 rounded">Joined</span>
+          <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">Joined</span>
         )}
         {status === "requested" && (
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Requested</span>
+          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm">Requested</span>
         )}
       </div>
     </div>
   );
 }
 
-// 🔹 Club Modal
 function ClubModal({
   club,
   status,
@@ -65,12 +71,12 @@ function ClubModal({
   onClose: () => void;
   onJoin: () => void;
 }) {
+  const router = useRouter();
   if (!club) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg relative">
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
@@ -78,10 +84,9 @@ function ClubModal({
           ✖
         </button>
 
-        {/* Club details */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-2xl">
-            👤
+          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold">
+            {club.name.charAt(0)}
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{club.name}</h2>
@@ -91,14 +96,17 @@ function ClubModal({
 
         <p className="text-gray-700 mb-4">{club.description || "No description provided."}</p>
 
-        {/* Rank */}
-        <p className="font-semibold text-indigo-600 mb-4">{club.rank}</p>
+        <div className="bg-indigo-50 p-4 rounded-lg mb-4">
+          <p className="text-2xl font-bold text-indigo-700 text-center">
+            {club.total_xp} XP
+          </p>
+          <p className="text-sm text-gray-600 text-center">Total Club Experience</p>
+        </div>
 
-        {/* Action buttons */}
         <div className="flex justify-end gap-3">
           {status === "joined" ? (
             <button
-              onClick={() => (window.location.href = `/clubs/${club.id}`)}
+              onClick={() => router.push(`/clubs/${club.id}`)}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
               Go Inside
@@ -110,7 +118,7 @@ function ClubModal({
               onClick={onJoin}
               className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
             >
-              Join
+              Join Club
             </button>
           )}
         </div>
@@ -119,7 +127,6 @@ function ClubModal({
   );
 }
 
-// 🔹 Join Modal
 function JoinModal({
   onClose,
   onSubmit,
@@ -165,7 +172,6 @@ function JoinModal({
   );
 }
 
-// 🔹 Request Modal
 function RequestModal({
   onClose,
   onRequest,
@@ -178,7 +184,7 @@ function RequestModal({
       <div className="bg-white p-6 rounded-lg w-full max-w-sm shadow-lg">
         <h3 className="text-xl font-bold mb-4">Out of Tries</h3>
         <p className="mb-4">
-          You’ve used all your chances. Would you like to send a request to join this club?
+          You've used all your chances. Would you like to send a request to join this club?
         </p>
         <div className="flex justify-end gap-2">
           <button
@@ -206,11 +212,9 @@ export default function LeaderboardPage() {
   const [requestedClubIds, setRequestedClubIds] = useState<string[]>([]);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
 
-  // Filters
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  // Join logic state
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [currentClubId, setCurrentClubId] = useState<string | null>(null);
@@ -218,25 +222,43 @@ export default function LeaderboardPage() {
   const [triesLeft, setTriesLeft] = useState(3);
   const [error, setError] = useState("");
 
-  // ✅ Fetch clubs
   const fetchClubs = async () => {
-    const { data, error } = await supabase
-      .from("clubs")
-      .select("id, name, category, description")
-      .order("name", { ascending: true });
+    // Fetch clubs with XP from ledger
+    const { data: xpData, error: xpError } = await supabase
+      .from("club_xp_ledger")
+      .select("club_id, total_xp, clubs(id, name, category, description)")
+      .order("total_xp", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching clubs:", error.message);
-      setClubs([]);
-    } else {
-      const withRanks = (data || []).map((c, i) => ({
-        ...c,
-        rank: `#${i + 1} Global`,
-      }));
-      setClubs(withRanks as Club[]);
+    if (xpError) {
+      console.error("Error fetching XP data:", xpError);
+      return;
     }
 
-    // fetch user memberships & requests
+    // Also fetch clubs without XP (new clubs)
+    const { data: allClubs } = await supabase
+      .from("clubs")
+      .select("id, name, category, description");
+
+    const clubsWithXP = (xpData || []).map((item: any) => ({
+      id: item.clubs.id,
+      name: item.clubs.name,
+      category: item.clubs.category,
+      description: item.clubs.description,
+      total_xp: item.total_xp,
+    }));
+
+    // Add clubs without XP at the end
+    const clubIdsWithXP = new Set(clubsWithXP.map(c => c.id));
+    const clubsWithoutXP = (allClubs || [])
+      .filter((c: any) => !clubIdsWithXP.has(c.id))
+      .map((c: any) => ({
+        ...c,
+        total_xp: 0,
+      }));
+
+    setClubs([...clubsWithXP, ...clubsWithoutXP]);
+
+    // Fetch user memberships
     const userRes = await supabase.auth.getUser();
     const user = userRes.data?.user;
     if (!user) return;
@@ -259,7 +281,6 @@ export default function LeaderboardPage() {
     fetchClubs();
   }, []);
 
-  // ✅ Open Join flow
   const handleJoin = async (clubId: string) => {
     const { data: clubData, error: clubErr } = await supabase
       .from("clubs")
@@ -291,7 +312,6 @@ export default function LeaderboardPage() {
     setShowJoinModal(true);
   };
 
-  // ✅ Handle passcode submission
   const submitPasscode = async (pass: string) => {
     if (!currentClubId || !realPass) return;
 
@@ -317,7 +337,6 @@ export default function LeaderboardPage() {
     }
   };
 
-  // ✅ Handle request after fails
   const handleRequest = async () => {
     if (!currentClubId) return;
     const userRes = await supabase.auth.getUser();
@@ -383,10 +402,11 @@ export default function LeaderboardPage() {
                 c.category?.toLowerCase().includes(search.toLowerCase());
               return matchesCategory && matchesSearch;
             })
-            .map((club) => (
+            .map((club, index) => (
               <ClubCard
                 key={club.id}
                 club={club}
+                rank={index + 1}
                 status={
                   joinedClubIds.includes(club.id)
                     ? "joined"
@@ -400,7 +420,7 @@ export default function LeaderboardPage() {
         )}
       </div>
 
-      {/* Club Modal */}
+      {/* Modals */}
       {selectedClub && (
         <ClubModal
           club={selectedClub}
@@ -416,7 +436,6 @@ export default function LeaderboardPage() {
         />
       )}
 
-      {/* Join Modal */}
       {showJoinModal && (
         <JoinModal
           onClose={() => setShowJoinModal(false)}
@@ -426,7 +445,6 @@ export default function LeaderboardPage() {
         />
       )}
 
-      {/* Request Modal */}
       {showRequestModal && (
         <RequestModal
           onClose={() => setShowRequestModal(false)}

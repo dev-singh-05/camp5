@@ -26,6 +26,24 @@ export default function Dashboard() {
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
 
+  // Load dismissed items from localStorage
+  useEffect(() => {
+    const dismissed = localStorage.getItem("dismissedNews");
+    if (dismissed) {
+      try {
+        const parsed = JSON.parse(dismissed);
+        removedItemsRef.current = new Set(parsed);
+      } catch (e) {
+        console.error("Failed to parse dismissed news:", e);
+      }
+    }
+  }, []);
+
+  // Save dismissed items to localStorage whenever they change
+  const saveDismissedItems = () => {
+    localStorage.setItem("dismissedNews", JSON.stringify([...removedItemsRef.current]));
+  };
+
   useEffect(() => {
     let mounted = true;
     async function init() {
@@ -188,7 +206,10 @@ export default function Dashboard() {
       }
 
       results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setNews(results);
+      
+      // Filter out dismissed items
+      const filtered = results.filter(item => !removedItemsRef.current.has(item.id));
+      setNews(filtered);
     } catch (err) {
       console.error("loadInitialNews error:", err);
     }
@@ -344,6 +365,13 @@ export default function Dashboard() {
       realtimeChannelRef.current = null;
     }
   }
+  function resetDismissedItems() {
+  removedItemsRef.current.clear();
+  localStorage.removeItem("dismissedNews");
+  if (userIdRef.current) {
+    loadInitialNews(userIdRef.current);
+  }
+}
 
   function pushNews(item: NewsItem) {
     if (removedItemsRef.current.has(item.id)) return;
@@ -358,10 +386,14 @@ export default function Dashboard() {
 
   function removeNewsItem(id: string) {
     removedItemsRef.current.add(id);
+    saveDismissedItems();
     setNews((prev) => prev.filter((n) => n.id !== id));
   }
 
   function clearAllNews() {
+    // Add all current news items to dismissed list
+    news.forEach(item => removedItemsRef.current.add(item.id));
+    saveDismissedItems();
     setNews([]);
   }
 
@@ -447,6 +479,12 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+            <button
+  onClick={resetDismissedItems}
+  className="text-xs text-gray-500 hover:text-gray-700"
+>
+  Show dismissed
+</button>
 
             {/* Quick Access Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

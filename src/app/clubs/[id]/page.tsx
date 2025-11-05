@@ -29,6 +29,12 @@ type Event = {
   xp_points: number;
   place: string | null;
   created_by: string;
+  event_type: string;
+  size_category: string | null;
+  total_xp_pool: number;
+  status: string;
+  results_description: string | null;
+  proof_photos: string[] | null;
 };
 
 type Request = {
@@ -44,16 +50,6 @@ type Request = {
   } | null;
 };
 
-type Invite = {
-  id: string;
-  token: string;
-  role: string;
-  max_uses: number;
-  uses: number;
-  expires_at?: string | null;
-  created_at: string;
-};
-
 export default function ClubDetailsPage() {
   const { id: clubId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -65,101 +61,39 @@ export default function ClubDetailsPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // ✅ make sure we log the clubId for debugging
-  useEffect(() => {
-    console.log("📌 ClubDetailPage clubId from URL:", clubId);
-  }, [clubId]);
-
-  // --- Fetch invites ---
-  const fetchInvites = async () => {
-    if (!clubId) {
-      console.error("❌ No clubId in fetchInvites");
-      return;
-    }
-
-    setLoadingInvites(true);
-    console.log("🔑 clubId param (from URL):", clubId);
-
-    const { data, error } = await supabase
-      .from("club_invites")
-      .select("id, token, club_id, role, max_uses, uses, expires_at, created_at")
-      .eq("club_id", clubId.toString()) // ✅ ensure string is cast correctly
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    setLoadingInvites(false);
-
-    if (error) {
-      console.error("❌ fetchInvites error:", error.message);
-      toast.error("Failed to load invites");
-      return;
-    }
-
-    console.log("📥 fetchInvites result:", data);
-    setInvites(data ?? []);
-  };
-
-  // --- Create Invite ---
-  const createInvite = async () => {
-    if (!clubId || !currentUserId) return;
-
-    const { data, error } = await supabase
-      .from("club_invites")
-      .insert([
-        {
-          club_id: clubId,
-          created_by: currentUserId,
-          role: inviteForm.role,
-          max_uses: inviteForm.max_uses || 0,
-          expires_at: inviteForm.expires_at || null,
-        },
-      ])
-      .select("id, token, club_id, role, max_uses, uses, expires_at, created_at") // 👈 force return token
-      .single();
-
-    if (error || !data) {
-      toast.error("Failed to create invite: " + (error?.message || "Unknown error"));
-      return;
-    }
-
-    // 👇 update invites state immediately with this row
-    setInvites([data]);
-
-    // 👇 build URL right away
-    const url = `${window.location.origin}/accept-invite?token=${data.token}`;
-    await navigator.clipboard?.writeText(url);
-
-    toast.success("Invite created and copied to clipboard");
-  };
+  const [participatingLoading, setParticipatingLoading] = useState(false);
 
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
-  // Events
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
 
-  // Sidebar dropdown toggles
   const [showTeammates, setShowTeammates] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
 
-  // Modals
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
-  // invites
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [inviteForm, setInviteForm] = useState({
-    role: "member",
-    max_uses: 1,
-    expires_at: ""
-  });
-  const [loadingInvites, setLoadingInvites] = useState(false);
-  const [loadingInvitesError, setLoadingInvitesError] = useState<string | null>(null);
+  const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
 
-  // ---- Data fetch helpers ----
+  // Event creation form states
+  const [eventType, setEventType] = useState<"intra" | "inter">("intra");
+  const [sizeCategory, setSizeCategory] = useState("");
+  const [competingClubs, setCompetingClubs] = useState<string[]>([]);
+  const [allClubs, setAllClubs] = useState<any[]>([]);
+
+  // Complete event modal states
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completingEvent, setCompletingEvent] = useState<Event | null>(null);
+  const [resultsDescription, setResultsDescription] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [clubPositions, setClubPositions] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    console.log("📌 ClubDetailPage clubId from URL:", clubId);
+  }, [clubId]);
+
   const fetchMessages = async () => {
     if (!clubId) return;
     const { data, error } = await supabase
@@ -201,23 +135,6 @@ export default function ClubDetailsPage() {
     setClub(data || null);
   };
 
-  const revokeInvite = async (inviteId: string) => {
-    const { error } = await supabase.from("club_invites").delete().eq("id", inviteId);
-    if (error) {
-      toast.error("Failed to revoke invite");
-      return;
-    }
-    await fetchInvites();
-    toast.success("Invite revoked");
-  };
-
-  const getInviteLink = (token: string) => `${window.location.origin}/accept-invite?token=${token}`;
-  const copyInviteLink = async (token: string) => {
-    const url = getInviteLink(token);
-    await navigator.clipboard?.writeText(url);
-    toast.success("Invite link copied");
-  };
-
   const fetchMembers = async () => {
     if (!clubId) return;
     const { data } = await supabase
@@ -246,7 +163,7 @@ export default function ClubDetailsPage() {
     const { data, error } = await supabase
       .from("events")
       .select(
-        "id, title, description, event_date, members_required, xp_points, place, created_by"
+        "id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos"
       )
       .eq("club_id", clubId)
       .order("event_date", { ascending: true });
@@ -256,6 +173,25 @@ export default function ClubDetailsPage() {
       return;
     }
     setEvents(data || []);
+    
+    if (data && data.length > 0) {
+      fetchAllEventParticipantCounts(data.map(e => e.id));
+    }
+  };
+
+  const fetchAllEventParticipantCounts = async (eventIds: string[]) => {
+    const counts: Record<string, number> = {};
+    
+    for (const eventId of eventIds) {
+      const { count } = await supabase
+        .from("event_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId);
+      
+      counts[eventId] = count || 0;
+    }
+    
+    setEventParticipantCounts(counts);
   };
 
   const fetchRequests = async () => {
@@ -287,12 +223,18 @@ export default function ClubDetailsPage() {
     );
   };
 
-  // initial load
+  const fetchAllClubs = async () => {
+    const { data } = await supabase
+      .from("clubs")
+      .select("id, name")
+      .order("name");
+    setAllClubs(data || []);
+  };
+
   useEffect(() => {
     if (!clubId) return;
     let mounted = true;
 
-    // create channel outside of load so we can cleanup easily
     const channel = supabase
       .channel("messages-channel")
       .on(
@@ -304,7 +246,6 @@ export default function ClubDetailsPage() {
           filter: `club_id=eq.${clubId}`,
         },
         (payload) => {
-          // payload.new should be the new message row
           setMessages((prev) => [...prev, payload.new]);
         }
       )
@@ -316,8 +257,8 @@ export default function ClubDetailsPage() {
       await fetchMembers();
       await fetchEvents();
       await fetchMessages();
+      await fetchAllClubs();
 
-      // determine current user's role in this club
       const userRes = await supabase.auth.getUser();
       const userId = userRes.data.user?.id ?? null;
       if (userId) {
@@ -346,12 +287,10 @@ export default function ClubDetailsPage() {
 
     return () => {
       mounted = false;
-      // unsubscribe / remove channel on cleanup
       supabase.removeChannel(channel);
     };
   }, [clubId]);
 
-  // ---- User actions ----
   const handleLeaveClub = async () => {
     const userRes = await supabase.auth.getUser();
     const userId = userRes.data.user?.id;
@@ -468,6 +407,17 @@ export default function ClubDetailsPage() {
     await fetchMembers();
   };
 
+  const calculateXP = () => {
+    if (eventType === "intra") {
+      if (sizeCategory === "small") return 150;
+      if (sizeCategory === "medium") return 300;
+      if (sizeCategory === "large") return 600;
+    } else if (eventType === "inter") {
+      return competingClubs.length * 100;
+    }
+    return 0;
+  };
+
   const handleCreateEvent = async (formData: {
     title: string;
     description: string;
@@ -478,53 +428,329 @@ export default function ClubDetailsPage() {
   }) => {
     if (!clubId || !currentUserId) return;
 
-    const { error } = await supabase.from("events").insert([
+    const totalXP = calculateXP();
+
+    const { data: newEvent, error } = await supabase.from("events").insert([
       {
         club_id: clubId,
         created_by: currentUserId,
         ...formData,
+        event_type: eventType,
+        size_category: eventType === "intra" ? sizeCategory : null,
+        total_xp_pool: totalXP,
+        status: "upcoming",
       },
-    ]);
+    ]).select().single();
 
     if (error) {
       toast.error("❌ Error creating event");
       return;
     }
 
+    // If inter-club, save competing clubs
+    if (eventType === "inter" && newEvent && competingClubs.length > 0) {
+      const participants = competingClubs.map(clubId => ({
+        event_id: newEvent.id,
+        club_id: clubId,
+        position: null,
+        xp_awarded: 0
+      }));
+
+      await supabase.from("inter_club_participants").insert(participants);
+    }
+
     toast.success("🎉 Event created");
     setShowCreateEventModal(false);
+    setEventType("intra");
+    setSizeCategory("");
+    setCompetingClubs([]);
     await fetchEvents();
   };
 
   const handleParticipate = async (eventId: string) => {
-    if (!currentUserId) return;
-
-    const { error } = await supabase.from("event_participants").insert([
-      {
-        event_id: eventId,
-        user_id: currentUserId,
-      },
-    ]);
-
-    if (error) {
-      toast.error("❌ Could not join event");
+    if (!currentUserId) {
+      toast.error("You must be logged in to join.");
       return;
     }
 
-    toast.success("✅ Joined event!");
-    await fetchEventParticipants(eventId);
+    setParticipatingLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("join_event", {
+        p_event_id: eventId,
+        p_user_id: currentUserId,
+      });
+
+      if (error) {
+        console.error("RPC error:", error);
+        toast.error("Could not join event");
+        setParticipatingLoading(false);
+        return;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (!result) {
+        toast.error("Unexpected server response");
+        setParticipatingLoading(false);
+        return;
+      }
+
+      if (result.reason === "joined") {
+        toast.success("✅ Joined event");
+        await fetchEventParticipants(eventId);
+      } else if (result.reason === "already_joined") {
+        toast("You already joined this event");
+      } else if (result.reason === "full") {
+        toast.error("Event is full");
+      } else if (result.reason === "event_not_found") {
+        toast.error("Event not found");
+      } else {
+        toast.error("Could not join event");
+      }
+    } catch (err) {
+      console.error("Unexpected error joining event:", err);
+      toast.error("Could not join event");
+    } finally {
+      setParticipatingLoading(false);
+    }
+  };
+
+  const handleDitchEvent = async (eventId: string) => {
+    if (!currentUserId) {
+      toast.error("You must be logged in.");
+      return;
+    }
+
+    setParticipatingLoading(true);
+    try {
+      const { error } = await supabase
+        .from("event_participants")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("user_id", currentUserId);
+
+      if (error) {
+        console.error("Error ditching event:", error);
+        toast.error("Could not leave event");
+        return;
+      }
+
+      toast.success("👋 Left event");
+      await fetchEventParticipants(eventId);
+    } catch (err) {
+      console.error("Unexpected error leaving event:", err);
+      toast.error("Could not leave event");
+    } finally {
+      setParticipatingLoading(false);
+    }
   };
 
   const fetchEventParticipants = async (eventId: string) => {
-    const { data } = await supabase
+    const { data: participantData, error: participantError } = await supabase
       .from("event_participants")
-      .select("user_id, joined_at, profiles(full_name)")
+      .select("user_id, joined_at")
       .eq("event_id", eventId);
 
-    setParticipants(data || []);
+    if (participantError) {
+      console.error("Error fetching participants:", participantError);
+      setParticipants([]);
+      return;
+    }
+
+    if (!participantData || participantData.length === 0) {
+      setParticipants([]);
+      return;
+    }
+
+    const userIds = participantData.map(p => p.user_id);
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userIds);
+
+    if (profileError) {
+      console.error("Error fetching profiles:", profileError);
+      setParticipants(participantData.map(p => ({
+        user_id: p.user_id,
+        joined_at: p.joined_at,
+        profiles: null
+      })));
+      return;
+    }
+
+    const merged = participantData.map(p => ({
+      user_id: p.user_id,
+      joined_at: p.joined_at,
+      profiles: profileData?.find(prof => prof.id === p.user_id) || null
+    }));
+
+    console.log("Fetched participants:", merged);
+    setParticipants(merged);
   };
 
-  // ---- UI ----
+  useEffect(() => {
+    if (!selectedEvent || !selectedEvent.id) return;
+
+    const eventId = selectedEvent.id;
+
+    const channel = supabase
+      .channel(`event-participants-${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "event_participants",
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload: any) => {
+          setParticipants((prev) => {
+            if (prev.some((p: any) => p.user_id === payload.new.user_id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "event_participants",
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload: any) => {
+          setParticipants((prev) =>
+            prev.filter((p: any) => p.user_id !== payload.old.user_id)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      setParticipants([]);
+    };
+  }, [selectedEvent?.id]);
+
+  useEffect(() => {
+    if (!clubId || events.length === 0) return;
+
+    const channel = supabase
+      .channel(`all-event-participants-${clubId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "event_participants",
+        },
+        () => {
+          fetchAllEventParticipantCounts(events.map(e => e.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clubId, events]);
+
+  const openCompleteModal = (event: Event) => {
+    setCompletingEvent(event);
+    setResultsDescription("");
+    setSelectedFiles([]);
+    setClubPositions({});
+    setShowCompleteModal(true);
+  };
+
+  const handleCompleteEvent = async () => {
+    if (!completingEvent || !currentUserId) return;
+
+    // Upload photos
+    const photoUrls: string[] = [];
+    for (const file of selectedFiles) {
+      const fileName = `${Date.now()}_${file.name}`;
+      const { data, error } = await supabase.storage
+        .from("event-photos")
+        .upload(fileName, file);
+
+      if (error) {
+        console.error("Error uploading photo:", error);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("event-photos")
+        .getPublicUrl(fileName);
+      
+      photoUrls.push(urlData.publicUrl);
+    }
+
+    // Update event
+    const { error: updateError } = await supabase
+      .from("events")
+      .update({
+        status: "pending",
+        results_description: resultsDescription,
+        proof_photos: photoUrls,
+        submitted_at: new Date().toISOString(),
+      })
+      .eq("id", completingEvent.id);
+
+    if (updateError) {
+      toast.error("Failed to submit event");
+      return;
+    }
+
+    // If inter-club, update positions
+    if (completingEvent.event_type === "inter") {
+      for (const [clubId, position] of Object.entries(clubPositions)) {
+        await supabase
+          .from("inter_club_participants")
+          .update({ position })
+          .eq("event_id", completingEvent.id)
+          .eq("club_id", clubId);
+      }
+    }
+
+    toast.success("✅ Event submitted for review!");
+    setShowCompleteModal(false);
+    await fetchEvents();
+  };
+
+  const getEventStatusBadge = (status: string) => {
+    switch (status) {
+      case "upcoming":
+        return <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Upcoming</span>;
+      case "pending":
+        return <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Pending Review</span>;
+      case "approved":
+        return <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">✅ Approved</span>;
+      case "rejected":
+        return <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">❌ Rejected</span>;
+      default:
+        return null;
+    }
+  };
+
+  const canCompleteEvent = (event: Event) => {
+    const eventDate = new Date(event.event_date);
+    const now = new Date();
+    return (
+      event.created_by === currentUserId &&
+      eventDate < now &&
+      event.status === "upcoming"
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-gray-600">Loading club...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <Toaster />
@@ -547,44 +773,43 @@ export default function ClubDetailsPage() {
               )}
             </div>
 
-{userRole === "admin" && (
-  <button
-    onClick={async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user;
-      if (!user) {
-        alert("You must be logged in.");
-        return;
-      }
+            {userRole === "admin" && (
+              <button
+                onClick={async () => {
+                  const { data: userData } = await supabase.auth.getUser();
+                  const user = userData?.user;
+                  if (!user) {
+                    alert("You must be logged in.");
+                    return;
+                  }
 
-      const { data, error } = await supabase
-        .from("club_invites")
-        .insert([
-          {
-            club_id: clubId,
-            created_by: user.id,
-            role: "member", // invited users get member role
-            max_uses: 1,
-          },
-        ])
-        .select("token")
-        .single();
+                  const { data, error } = await supabase
+                    .from("club_invites")
+                    .insert([
+                      {
+                        club_id: clubId,
+                        created_by: user.id,
+                        role: "member",
+                        max_uses: 1,
+                      },
+                    ])
+                    .select("token")
+                    .single();
 
-      if (error || !data) {
-        alert("Failed to create invite: " + (error?.message || "Unknown error"));
-        return;
-      }
+                  if (error || !data) {
+                    alert("Failed to create invite: " + (error?.message || "Unknown error"));
+                    return;
+                  }
 
-      const url = `${window.location.origin}/accept-invite?token=${data.token}`;
-      await navigator.clipboard?.writeText(url);
-      alert("✅ Invite link copied:\n" + url);
-    }}
-    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-  >
-    Invite
-  </button>
-)}
-
+                  const url = `${window.location.origin}/accept-invite?token=${data.token}`;
+                  await navigator.clipboard?.writeText(url);
+                  alert("✅ Invite link copied:\n" + url);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              >
+                Invite
+              </button>
+            )}
 
             {/* Teammates Section */}
             <div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
@@ -674,8 +899,17 @@ export default function ClubDetailsPage() {
                             fetchEventParticipants(e.id);
                           }}
                         >
-                          📅 {e.title} –{" "}
-                          {new Date(e.event_date).toLocaleDateString()}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span>
+                                📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
+                              </span>
+                              {getEventStatusBadge(e.status)}
+                            </div>
+                          </div>
+                          <span className="text-sm text-gray-500 font-semibold">
+                            {eventParticipantCounts[e.id] || 0}/{e.members_required}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -808,38 +1042,130 @@ export default function ClubDetailsPage() {
 
       {/* Event Details Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-xl font-bold mb-2">{selectedEvent?.title}</h3>
-            <p className="text-gray-600 mb-2">{selectedEvent?.description}</p>
-            <p className="text-sm text-gray-500">
-              📅{" "}
-              {selectedEvent?.event_date
-                ? new Date(selectedEvent.event_date).toLocaleString()
-                : ""}
-            </p>
-            <p className="text-sm text-gray-500">📍 {selectedEvent?.place}</p>
-            <p className="text-sm text-gray-500">
-              🎯 {participants.length}/{selectedEvent?.members_required} slots
-              filled
-            </p>
-            <p className="text-sm text-gray-500">⭐ {selectedEvent?.xp_points} XP</p>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-3">{selectedEvent?.title}</h3>
+            {selectedEvent?.description && (
+              <p className="text-gray-600 mb-3">{selectedEvent.description}</p>
+            )}
+            <div className="space-y-1 mb-3">
+              <p className="text-sm text-gray-700">
+                📅{" "}
+                {selectedEvent?.event_date
+                  ? new Date(selectedEvent.event_date).toLocaleString()
+                  : ""}
+              </p>
+              <p className="text-sm text-gray-700">📍 {selectedEvent?.place || "TBD"}</p>
+              <p className="text-sm text-gray-700 font-semibold">
+                🎯 {participants.length}/{selectedEvent?.members_required} slots filled
+              </p>
+              <p className="text-sm text-gray-700">⭐ {selectedEvent?.total_xp_pool} XP</p>
+              <div>{getEventStatusBadge(selectedEvent.status)}</div>
+            </div>
 
-            <div className="flex justify-between mt-4">
+            {/* Show results if approved */}
+            {selectedEvent.status === "approved" && selectedEvent.results_description && (
+              <div className="mb-3 p-3 bg-green-50 rounded border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-2">Event Results</h4>
+                <p className="text-sm text-gray-700">{selectedEvent.results_description}</p>
+              </div>
+            )}
+
+            {/* Show rejection reason if rejected */}
+            {selectedEvent.status === "rejected" && (
+              <div className="mb-3 p-3 bg-red-50 rounded border border-red-200">
+                <h4 className="font-semibold text-red-800 mb-2">Event Rejected</h4>
+                <p className="text-sm text-gray-700">This event did not meet approval criteria.</p>
+              </div>
+            )}
+
+            {/* Show photos if available */}
+            {selectedEvent.proof_photos && selectedEvent.proof_photos.length > 0 && (
+              <div className="mb-3">
+                <h4 className="font-semibold text-gray-700 mb-2">Event Photos</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedEvent.proof_photos.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt={`Event photo ${idx + 1}`}
+                      className="w-full h-24 object-cover rounded"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Show participants list */}
+            {participants.length > 0 && (
+              <div className="mt-3 mb-3 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Participants:</p>
+                <ul className="text-xs text-gray-700 space-y-1">
+                  {participants.map((p: any) => (
+                    <li key={p.user_id}>
+                      • {p.profiles?.full_name || "Unknown"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-between mt-4 gap-2">
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
               >
                 Close
               </button>
-              <button
-                onClick={() =>
-                  selectedEvent && handleParticipate(selectedEvent.id)
+
+              {canCompleteEvent(selectedEvent) && (
+                <button
+                  onClick={() => openCompleteModal(selectedEvent)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                >
+                  Complete Event
+                </button>
+              )}
+
+              {selectedEvent.status === "upcoming" && (() => {
+                const participantCount = participants?.length ?? 0;
+                const capacity = selectedEvent?.members_required ?? 0;
+                const isFull = participantCount >= capacity;
+                const alreadyJoined = participants?.some((p: any) => p.user_id === currentUserId);
+
+                if (alreadyJoined) {
+                  return (
+                    <button
+                      onClick={() => selectedEvent && handleDitchEvent(selectedEvent.id)}
+                      className={`px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      disabled={participatingLoading}
+                    >
+                      {participatingLoading ? "Leaving..." : "Ditch Event"}
+                    </button>
+                  );
                 }
-                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Participate
-              </button>
+
+                if (isFull) {
+                  return (
+                    <button
+                      disabled
+                      className="px-4 py-2 bg-red-400 text-white rounded cursor-not-allowed"
+                    >
+                      Full
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={() => selectedEvent && handleParticipate(selectedEvent.id)}
+                    className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    disabled={participatingLoading}
+                  >
+                    {participatingLoading ? "Joining..." : "Participate"}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -847,8 +1173,8 @@ export default function ClubDetailsPage() {
 
       {/* Create Event Modal */}
       {showCreateEventModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4">Create Event</h3>
             <form
               onSubmit={async (e) => {
@@ -860,17 +1186,89 @@ export default function ClubDetailsPage() {
                   members_required: parseInt(
                     (e.target as any).members_required.value
                   ),
-                  xp_points: parseInt((e.target as any).xp_points.value),
+                  xp_points: calculateXP(),
                   place: (e.target as any).place.value,
                 };
                 await handleCreateEvent(formData);
               }}
               className="space-y-3"
             >
+              {/* Event Type */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Event Type</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="intra"
+                      checked={eventType === "intra"}
+                      onChange={() => setEventType("intra")}
+                      className="mr-2"
+                    />
+                    🟢 Intra-club
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="inter"
+                      checked={eventType === "inter"}
+                      onChange={() => setEventType("inter")}
+                      className="mr-2"
+                    />
+                    🔵 Inter-club
+                  </label>
+                </div>
+              </div>
+
+              {/* Size Category for Intra */}
+              {eventType === "intra" && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Event Size</label>
+                  <select
+                    value={sizeCategory}
+                    onChange={(e) => setSizeCategory(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    required
+                  >
+                    <option value="">Select size</option>
+                    <option value="small">Small (50-60 people) - 150 XP</option>
+                    <option value="medium">Medium (90-150 people) - 300 XP</option>
+                    <option value="large">Large (150+ people) - 600 XP</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Competing Clubs for Inter */}
+              {eventType === "inter" && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Competing Clubs (100 XP per club)
+                  </label>
+                  <select
+                    multiple
+                    value={competingClubs}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions, option => option.value);
+                      setCompetingClubs(selected);
+                    }}
+                    className="w-full p-2 border rounded h-32"
+                    required
+                  >
+                    {allClubs.filter(c => c.id !== clubId).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Hold Ctrl/Cmd to select multiple. Total XP: {calculateXP()}
+                  </p>
+                </div>
+              )}
+
               <input
                 name="title"
                 placeholder="Event Title"
                 className="w-full p-2 border rounded"
+                required
               />
               <textarea
                 name="description"
@@ -881,24 +1279,28 @@ export default function ClubDetailsPage() {
                 type="datetime-local"
                 name="event_date"
                 className="w-full p-2 border rounded"
+                required
               />
               <input
                 type="number"
                 name="members_required"
                 placeholder="Slots required"
                 className="w-full p-2 border rounded"
-              />
-              <input
-                type="number"
-                name="xp_points"
-                placeholder="XP Points"
-                className="w-full p-2 border rounded"
+                min="1"
+                required
               />
               <input
                 name="place"
                 placeholder="Event Place"
                 className="w-full p-2 border rounded"
               />
+
+              <div className="bg-indigo-50 p-3 rounded">
+                <p className="text-sm font-semibold text-indigo-800">
+                  Total XP for this event: {calculateXP()}
+                </p>
+              </div>
+
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -919,37 +1321,89 @@ export default function ClubDetailsPage() {
         </div>
       )}
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Invite Link</h3>
-            <p className="mb-4 text-sm text-gray-600">
-              Share this link with others to invite them:
-            </p>
-            <input
-              type="text"
-              readOnly
-              value={`${window.location.origin}/accept-invite?token=${invites[0]?.token || ""}`}
-              className="w-full p-2 border rounded mb-4"
-            />
+      {/* Complete Event Modal */}
+      {showCompleteModal && completingEvent && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
 
-            {invites.length > 0 && (
-              <button
-                onClick={() => copyInviteLink(invites[0].token)}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mr-2"
-              >
-                Copy Link
-              </button>
-            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold mb-2">What happened?</label>
+                <textarea
+                  value={resultsDescription}
+                  onChange={(e) => setResultsDescription(e.target.value)}
+                  placeholder="Describe the event results..."
+                  className="w-full p-2 border rounded h-24"
+                  required
+                />
+              </div>
 
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-              >
-                Close
-              </button>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+                  className="w-full p-2 border rounded"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedFiles.length} photo(s) selected
+                </p>
+              </div>
+
+              {/* If inter-club, ask for positions */}
+              {completingEvent.event_type === "inter" && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Club Positions</label>
+                  {competingClubs.map((clubId) => {
+                    const clubName = allClubs.find(c => c.id === clubId)?.name || clubId;
+                    return (
+                      <div key={clubId} className="flex items-center gap-2 mb-2">
+                        <span className="text-sm flex-1">{clubName}</span>
+                        <select
+                          value={clubPositions[clubId] || ""}
+                          onChange={(e) => setClubPositions({
+                            ...clubPositions,
+                            [clubId]: parseInt(e.target.value)
+                          })}
+                          className="p-2 border rounded"
+                          required
+                        >
+                          <option value="">Select position</option>
+                          <option value="1">1st Place (50% XP)</option>
+                          <option value="2">2nd Place (30% XP)</option>
+                          <option value="3">3rd Place (20% XP)</option>
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="bg-yellow-50 p-3 rounded">
+                <p className="text-xs text-yellow-800">
+                  ℹ️ After submission, this event will be reviewed by platform admins.
+                  XP will be awarded upon approval.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowCompleteModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCompleteEvent}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                  disabled={!resultsDescription || selectedFiles.length === 0}
+                >
+                  Submit for Review
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -957,11 +1411,11 @@ export default function ClubDetailsPage() {
 
       {/* Leave Confirmation Modal */}
       {showLeaveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Leave Club</h3>
             <p className="mb-4 text-sm text-gray-600">
-              Are you sure you want to leave this club? You’ll lose access to
+              Are you sure you want to leave this club? You'll lose access to
               teammates, chat, and events.
             </p>
             <div className="flex justify-end gap-2">
