@@ -50,6 +50,7 @@ export default function RatingsPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [recentReviews, setRecentReviews] = useState<Rating[]>([]);
   const [connections, setConnections] = useState<Profile[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   // ✅ Rating modal states
   const [isProfileRatingModal, setIsProfileRatingModal] = useState(false);
@@ -83,6 +84,11 @@ export default function RatingsPage() {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // ✅ Client-side only rendering flag
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // ✅ Current user
   useEffect(() => {
@@ -137,7 +143,7 @@ export default function RatingsPage() {
         return;
       }
 
-      const otherUserIds = reqs.map((r) =>
+      const otherUserIds = reqs.map((r: any) =>
         r.from_user_id === currentUserId ? r.to_user_id : r.from_user_id
       );
 
@@ -221,54 +227,108 @@ export default function RatingsPage() {
     if (!error && data) setRecentReviews(data);
   }
 
-  // ✅ Open chat with realtime
+  // ✅ Open chat with realtime — deterministic channel key + safe unsubscribe
   const openChat = async (user: Profile) => {
     setSelectedUser(user);
     setChatOpen(true);
     if (!currentUserId) return;
 
-    const { data } = await supabase
-      .from("user_messages")
-      .select("*")
-      .or(
-        `and(from_user_id.eq.${currentUserId},to_user_id.eq.${user.id}),and(from_user_id.eq.${user.id},to_user_id.eq.${currentUserId})`
-      )
-      .order("created_at", { ascending: true });
+    try {
+      // load past messages
+      const { data, error } = await supabase
+        .from("user_messages")
+        .select("*")
+        .or(
+          `and(from_user_id.eq.${currentUserId},to_user_id.eq.${user.id}),and(from_user_id.eq.${user.id},to_user_id.eq.${currentUserId})`
+        )
+        .order("created_at", { ascending: true });
 
-    setMessages(data || []);
+      if (error) {
+        console.error("Failed to load messages:", error);
+      } else {
+        setMessages(data || []);
+      }
 
-    if (subscriptionRef.current) await supabase.removeChannel(subscriptionRef.current);
-
-    const channel = supabase
-      .channel(`chat-${currentUserId}-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "user_messages" },
-        (payload) => {
-          const msg = payload.new as Message;
-          if (
-            (msg.from_user_id === currentUserId && msg.to_user_id === user.id) ||
-            (msg.from_user_id === user.id && msg.to_user_id === currentUserId)
-          ) {
-            setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-          }
+      // unsubscribe old channel if any
+      if (subscriptionRef.current) {
+        try {
+          await supabase.removeChannel(subscriptionRef.current);
+        } catch (err) {
+          console.warn("removeChannel error:", err);
         }
-      )
-      .subscribe();
+        subscriptionRef.current = null;
+      }
 
-    subscriptionRef.current = channel;
+      // deterministic channel key so both sides use same channel
+      const channelKey = [currentUserId, user.id].sort().join("-");
+      const channel = supabase
+        .channel(`chat-${channelKey}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "user_messages" },
+          (payload) => {
+            const msg = payload.new as Message;
+            // only push messages for this conversation
+            if (
+              (msg.from_user_id === currentUserId && msg.to_user_id === user.id) ||
+              (msg.from_user_id === user.id && msg.to_user_id === currentUserId)
+            ) {
+              setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+            }
+          }
+        )
+        .subscribe();
+
+      subscriptionRef.current = channel;
+      console.log("Subscribed to channel chat-" + channelKey);
+    } catch (e) {
+      console.error("openChat error:", e);
+    }
   };
 
-  // ✅ Send message (prevent duplicates)
+  // ✅ Send message (optimistic + replace with DB row)
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUserId || !selectedUser) return;
 
-    const { error } = await supabase.from("user_messages").insert([
-      { from_user_id: currentUserId, to_user_id: selectedUser.id, content: newMessage },
-    ]);
+    // create optimistic message so user sees it immediately
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      from_user_id: currentUserId,
+      to_user_id: selectedUser.id,
+      content: newMessage,
+      created_at: new Date().toISOString(),
+    };
 
-    if (error) toast.error("Failed to send ❌");
+    setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage("");
+
+    try {
+      // insert and request returned row
+      const { data, error } = await supabase
+        .from("user_messages")
+        .insert([
+          { from_user_id: currentUserId, to_user_id: selectedUser.id, content: optimisticMsg.content },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        // rollback optimistic message on failure
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        toast.error("Failed to send ❌");
+        console.error("message insert error:", error);
+        return;
+      }
+
+      // replace optimistic with actual row (if id differs)
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? (data as Message) : m)));
+    } catch (e) {
+      // unexpected error
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      console.error("handleSendMessage unexpected error:", e);
+      toast.error("Failed to send ❌");
+    }
   };
 
   // ✅ Submit Rating (decimal sliders)
@@ -343,12 +403,11 @@ export default function RatingsPage() {
       }
 
       // Exclude the current user
-      const filtered = (data || []).filter((p) => p.id !== currentUserId);
+      const filtered = (data || []).filter((p: any) => p.id !== currentUserId);
       setSearchResults(filtered);
     }
     searchProfiles();
   }, [searchQuery, currentUserId]);
-
 
   // ✅ Filtered profiles
   const filteredProfiles = profiles.filter(
@@ -362,7 +421,16 @@ export default function RatingsPage() {
       <Toaster position="top-right" />
       <div className="max-w-6xl mx-auto">
         {/* 🔹 Top */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 items-center">
+          {/* <-- Back button added to the left of My Connections --> */}
+          <button
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="p-2 rounded-lg bg-white hover:bg-gray-100 shadow text-sm font-medium"
+          >
+            ← Back
+          </button>
+
           <button
             onClick={() => router.push("/ratings/connections")}
             className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
@@ -392,7 +460,7 @@ export default function RatingsPage() {
         {/* 🔹 Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* LEFT */}
-          <div className="space-y-3">
+          <div className="space-y-3 h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
             {filteredProfiles.map((profile) => (
               <div
                 key={profile.id}
@@ -415,11 +483,11 @@ export default function RatingsPage() {
             ))}
           </div>
 
-          {/* RIGHT: Profile view */}
-          <div className="bg-white rounded-xl shadow h-[600px] flex flex-col relative p-4 overflow-y-auto">
+          {/* RIGHT: Profile view or Ad Banner */}
+          <div className="bg-white rounded-xl shadow h-[600px] flex flex-col relative overflow-hidden">
             {selectedUser ? (
               !chatOpen ? (
-                <div>
+                <div className="p-4 overflow-y-auto">
                   {/* 🟢 Fetch latest averages */}
                   <ProfileStats user={selectedUser} getAvatar={getAvatar} fetchRecentReviews={fetchRecentReviews} />
 
@@ -523,7 +591,21 @@ export default function RatingsPage() {
                 </div>
               )
             ) : (
-              <p className="text-gray-500 m-auto">Select a user to view details</p>
+              // 🎯 Ad Banner Display - Shows when no profile is selected
+              <div className="flex flex-col items-center justify-center h-full p-6 space-y-6">
+                <div className="text-center">
+                  <p className="text-gray-500 text-base">👈 Select a profile to view details</p>
+                </div>
+                
+                {/* Ad Banner Section */}
+                <div className="w-full max-w-md">
+                  {isMounted ? (
+                    <AdBanner placement="ratings_page" />
+                  ) : (
+                    <div className="h-64 bg-gray-100 rounded-lg animate-pulse"></div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
@@ -787,11 +869,6 @@ function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
           ))}
         </div>
       )}
-      <AdBanner placement="ratings_page" />
-
     </div>
   );
 }
-
-
-

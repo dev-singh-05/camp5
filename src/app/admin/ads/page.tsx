@@ -311,7 +311,7 @@ export default function AdminAdsPage() {
               Examples: <code className="bg-gray-100 px-1 rounded">dating_page</code>, 
               <code className="bg-gray-100 px-1 rounded mx-1">dashboard</code>, 
              <code className="bg-gray-100 px-1 rounded mx-1">clubs</code>, 
-           <code className="bg-gray-100 px-1 rounded mx-1">ratings</code>,  </p>
+           <code className="bg-gray-100 px-1 rounded mx-1">ratings_page</code>,  </p>
           </div>
 
           <div>
