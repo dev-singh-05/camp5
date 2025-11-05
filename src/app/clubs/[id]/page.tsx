@@ -65,6 +65,8 @@ export default function ClubDetailsPage() {
 
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [eventAcceptanceStatus, setEventAcceptanceStatus] = useState<Record<string, boolean>>({});
+  const [canComplete, setCanComplete] = useState<Record<string, boolean>>({});
 
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -74,6 +76,8 @@ export default function ClubDetailsPage() {
   const [showEvents, setShowEvents] = useState(true);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [competingClubsForEvent, setCompetingClubsForEvent] = useState<any[]>([]);
+const [eventInvitations, setEventInvitations] = useState<any[]>([]);
 
   const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
 
@@ -178,6 +182,11 @@ export default function ClubDetailsPage() {
       fetchAllEventParticipantCounts(data.map(e => e.id));
     }
   };
+ 
+const checkCanComplete = async (event: Event) => {
+  const result = await canCompleteEvent(event);
+  setCanComplete(prev => ({ ...prev, [event.id]: result }));
+};
 
   const fetchAllEventParticipantCounts = async (eventIds: string[]) => {
     const counts: Record<string, number> = {};
@@ -193,6 +202,29 @@ export default function ClubDetailsPage() {
     
     setEventParticipantCounts(counts);
   };
+
+  const checkEventAcceptance = async (eventId: string, eventType: string) => {
+  if (eventType !== "inter") {
+    setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: true }));
+    return;
+  }
+  
+  const { data: participants } = await supabase
+    .from("inter_club_participants")
+    .select("accepted")
+    .eq("event_id", eventId);
+  
+  const allAccepted = participants?.every((p: any) => p.accepted === true) || false;
+  setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: allAccepted }));
+};
+
+// Call this when opening event modal
+const handleEventClick = async (event: Event) => {
+  setSelectedEvent(event);
+  await fetchEventParticipants(event.id);
+  await checkEventAcceptance(event.id, event.event_type);
+  await checkCanComplete(event); // ✅ Add this line
+};
 
   const fetchRequests = async () => {
     if (!clubId) return;
@@ -223,6 +255,35 @@ export default function ClubDetailsPage() {
     );
   };
 
+const fetchEventInvitations = async () => {
+  if (!clubId) return;
+  
+  // Get events where this club is invited but hasn't accepted yet
+  const { data } = await supabase
+    .from("inter_club_participants")
+    .select(`
+      event_id,
+      club_id,
+      accepted,
+      events!inner(
+        id,
+        title,
+        description,
+        event_date,
+        total_xp_pool,
+        status,
+        club_id,
+        clubs!inner(name)
+      )
+    `)
+    .eq("club_id", clubId)
+    .is("accepted", false)  // ✅ Changed from .eq("accepted", false) to .is("accepted", false)
+    .eq("events.status", "upcoming");
+  
+  console.log("Event invitations:", data);
+  setEventInvitations(data || []);
+};
+
   const fetchAllClubs = async () => {
     const { data } = await supabase
       .from("clubs")
@@ -231,6 +292,32 @@ export default function ClubDetailsPage() {
     setAllClubs(data || []);
   };
 
+ // ✅ Real-time subscription for event invitations
+// ✅ Real-time subscription for event invitations
+useEffect(() => {
+  if (!clubId || userRole !== "admin") return;
+
+  const channel = supabase
+    .channel(`event-invitations-${clubId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "inter_club_participants",
+        filter: `club_id=eq.${clubId}`,
+      },
+      async () => {
+        await fetchEventInvitations();
+        await fetchEvents();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [clubId, userRole]);
   useEffect(() => {
     if (!clubId) return;
     let mounted = true;
@@ -274,11 +361,13 @@ export default function ClubDetailsPage() {
         if (!mounted) return;
         setUserRole(roleData?.role || null);
 
-        if (roleData?.role === "admin") {
-          await fetchRequests();
-        } else {
-          setRequests([]);
-        }
+      if (roleData?.role === "admin") {
+  await fetchRequests();
+  await fetchEventInvitations(); // ✅ Add this line
+} else {
+  setRequests([]);
+  setEventInvitations([]); // ✅ Add this line
+}
       }
       if (mounted) setLoading(false);
     };
@@ -290,6 +379,7 @@ export default function ClubDetailsPage() {
       supabase.removeChannel(channel);
     };
   }, [clubId]);
+  
 
   const handleLeaveClub = async () => {
     const userRes = await supabase.auth.getUser();
@@ -447,17 +537,18 @@ export default function ClubDetailsPage() {
       return;
     }
 
-    // If inter-club, save competing clubs
-    if (eventType === "inter" && newEvent && competingClubs.length > 0) {
-      const participants = competingClubs.map(clubId => ({
-        event_id: newEvent.id,
-        club_id: clubId,
-        position: null,
-        xp_awarded: 0
-      }));
+   // If inter-club, save competing clubs
+if (eventType === "inter" && newEvent && competingClubs.length > 0) {
+  const participants = competingClubs.map(competingClubId => ({
+    event_id: newEvent.id,
+    club_id: competingClubId,
+    position: null,
+    xp_awarded: 0,
+    accepted: competingClubId === clubId // ✅ Creator's club auto-accepts
+  }));
 
-      await supabase.from("inter_club_participants").insert(participants);
-    }
+  await supabase.from("inter_club_participants").insert(participants);
+}
 
     toast.success("🎉 Event created");
     setShowCreateEventModal(false);
@@ -655,14 +746,31 @@ export default function ClubDetailsPage() {
     };
   }, [clubId, events]);
 
-  const openCompleteModal = (event: Event) => {
-    setCompletingEvent(event);
-    setResultsDescription("");
-    setSelectedFiles([]);
-    setClubPositions({});
-    setShowCompleteModal(true);
-  };
-
+const openCompleteModal = async (event: Event) => {
+  setCompletingEvent(event);
+  setResultsDescription("");
+  setSelectedFiles([]);
+  setClubPositions({});
+  
+  // ✅ If inter-club, fetch the competing clubs
+  if (event.event_type === "inter") {
+    const { data: participants } = await supabase
+      .from("inter_club_participants")
+      .select("club_id, clubs(id, name)")
+      .eq("event_id", event.id);
+    
+    if (participants) {
+      setCompetingClubsForEvent(participants.map((p: any) => ({
+        id: p.club_id,
+        name: p.clubs?.name || "Unknown Club"
+      })));
+    }
+  } else {
+    setCompetingClubsForEvent([]);
+  }
+  
+  setShowCompleteModal(true);
+};
   const handleCompleteEvent = async () => {
     if (!completingEvent || !currentUserId) return;
 
@@ -733,23 +841,34 @@ export default function ClubDetailsPage() {
     }
   };
 
-  const canCompleteEvent = (event: Event) => {
-    const eventDate = new Date(event.event_date);
-    const now = new Date();
-    return (
-      event.created_by === currentUserId &&
-      eventDate < now &&
-      event.status === "upcoming"
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Loading club...</p>
-      </div>
-    );
+ const canCompleteEvent = async (event: Event) => {
+  const eventDate = new Date(event.event_date);
+  const now = new Date();
+  
+  const isCreator = event.created_by === currentUserId;
+  const isPastDate = eventDate < now;
+  const isUpcoming = event.status === "upcoming";
+  
+  if (!isCreator || !isPastDate || !isUpcoming) {
+    return false;
   }
+  
+  // ✅ For inter-club events, check if all clubs have accepted
+  if (event.event_type === "inter") {
+    const { data: participants, error } = await supabase
+      .from("inter_club_participants")
+      .select("accepted")
+      .eq("event_id", event.id);
+    
+    if (error || !participants) return false;
+    
+    // All clubs must have accepted
+    const allAccepted = participants.every((p: any) => p.accepted === true);
+    return allAccepted;
+  }
+  
+  return true;
+};
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -891,14 +1010,11 @@ export default function ClubDetailsPage() {
                   ) : (
                     <ul className="space-y-2">
                       {events.map((e) => (
-                        <li
-                          key={e.id}
-                          className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
-                          onClick={() => {
-                            setSelectedEvent(e);
-                            fetchEventParticipants(e.id);
-                          }}
-                        >
+                 <li
+  key={e.id}
+  className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
+  onClick={() => handleEventClick(e)} // ✅ Use new handler
+>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span>
@@ -922,6 +1038,95 @@ export default function ClubDetailsPage() {
             {userRole === "admin" && (
               <div className="bg-yellow-50 rounded-lg shadow-sm p-4">
                 <h3 className="font-bold text-lg text-yellow-800">Admin Panel</h3>
+                {/* ✅ Event Invitations Section */}
+{/* ✅ Event Invitations Section */}
+{eventInvitations.length > 0 && (
+  <>
+    <h4 className="mt-3 font-semibold text-indigo-700">Event Invitations</h4>
+    <ul className="list-disc ml-6 mt-2 space-y-2">
+      {eventInvitations.map((invitation: any) => (
+        <li
+          key={invitation.event_id}
+          className="flex justify-between items-center text-gray-700"
+        >
+          <div>
+            <p className="font-semibold">{invitation.events.title}</p>
+            <p className="text-xs text-gray-500">
+              By: {invitation.events.clubs.name} • 
+              {new Date(invitation.events.event_date).toLocaleDateString()} • 
+              {invitation.events.total_xp_pool} XP
+            </p>
+          </div>
+          <div className="flex gap-2">
+<button
+ 
+  onClick={async () => {
+    // ✅ Accept invitation - update accepted status
+    const { error } = await supabase
+      .from("inter_club_participants")
+      .update({ accepted: true })
+      .eq("event_id", invitation.event_id)
+      .eq("club_id", clubId);
+    
+    if (error) {
+      toast.error("Failed to accept challenge");
+      return;
+    }
+    
+    toast.success("✅ Challenge accepted!");
+    
+    // ✅ Refresh all relevant data
+    await fetchEventInvitations();
+    await fetchEvents();
+    
+    // ✅ If the event modal is open for THIS specific event, refresh its status
+    if (selectedEvent?.id === invitation.event_id) {
+      const event = events.find(e => e.id === invitation.event_id);
+      if (event) {
+        await checkEventAcceptance(invitation.event_id, "inter");
+        await checkCanComplete(event);
+      }
+    }
+  }}
+  className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+>
+  Accept
+</button>
+   <button
+  onClick={async () => {
+    // ✅ Decline invitation - remove from participants
+    const { error } = await supabase
+      .from("inter_club_participants")
+      .delete()
+      .eq("event_id", invitation.event_id)
+      .eq("club_id", clubId);
+    
+    if (error) {
+      toast.error("Failed to decline challenge");
+      return;
+    }
+    
+    toast.success("❌ Challenge declined");
+    
+    // ✅ Refresh invitations
+    await fetchEventInvitations();
+    await fetchEvents();
+    
+    // ✅ If the event modal is open for this event, close it
+    if (selectedEvent?.id === invitation.event_id) {
+      setSelectedEvent(null);
+    }
+  }}
+  className="px-2 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+>
+  Decline
+</button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </>
+)}
                 <h4 className="mt-2 font-semibold">Pending Requests</h4>
                 {requests.length === 0 ? (
                   <p className="text-gray-500">No pending requests.</p>
@@ -957,6 +1162,7 @@ export default function ClubDetailsPage() {
                 )}
               </div>
             )}
+            
           </div>
 
           {/* Leave Club Button */}
@@ -1079,6 +1285,7 @@ export default function ClubDetailsPage() {
               </div>
             )}
 
+
             {/* Show photos if available */}
             {selectedEvent.proof_photos && selectedEvent.proof_photos.length > 0 && (
               <div className="mb-3">
@@ -1117,16 +1324,24 @@ export default function ClubDetailsPage() {
               >
                 Close
               </button>
+{canComplete[selectedEvent.id] && eventAcceptanceStatus[selectedEvent.id] && (
+  <button
+    onClick={() => openCompleteModal(selectedEvent)}
+    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+  >
+    Complete Event
+  </button>
+)}
 
-              {canCompleteEvent(selectedEvent) && (
-                <button
-                  onClick={() => openCompleteModal(selectedEvent)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Complete Event
-                </button>
-              )}
-
+{selectedEvent.event_type === "inter" && !eventAcceptanceStatus[selectedEvent.id] && (
+  <button
+    disabled
+    className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed"
+    title="Waiting for all clubs to accept this challenge"
+  >
+    ⏳ Waiting for Clubs
+  </button>
+)}
               {selectedEvent.status === "upcoming" && (() => {
                 const participantCount = participants?.length ?? 0;
                 const capacity = selectedEvent?.members_required ?? 0;
@@ -1322,93 +1537,101 @@ export default function ClubDetailsPage() {
       )}
 
       {/* Complete Event Modal */}
-      {showCompleteModal && completingEvent && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
+{showCompleteModal && completingEvent && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold mb-2">What happened?</label>
-                <textarea
-                  value={resultsDescription}
-                  onChange={(e) => setResultsDescription(e.target.value)}
-                  placeholder="Describe the event results..."
-                  className="w-full p-2 border rounded h-24"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
-                  className="w-full p-2 border rounded"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {selectedFiles.length} photo(s) selected
-                </p>
-              </div>
-
-              {/* If inter-club, ask for positions */}
-              {completingEvent.event_type === "inter" && (
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Club Positions</label>
-                  {competingClubs.map((clubId) => {
-                    const clubName = allClubs.find(c => c.id === clubId)?.name || clubId;
-                    return (
-                      <div key={clubId} className="flex items-center gap-2 mb-2">
-                        <span className="text-sm flex-1">{clubName}</span>
-                        <select
-                          value={clubPositions[clubId] || ""}
-                          onChange={(e) => setClubPositions({
-                            ...clubPositions,
-                            [clubId]: parseInt(e.target.value)
-                          })}
-                          className="p-2 border rounded"
-                          required
-                        >
-                          <option value="">Select position</option>
-                          <option value="1">1st Place (50% XP)</option>
-                          <option value="2">2nd Place (30% XP)</option>
-                          <option value="3">3rd Place (20% XP)</option>
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="bg-yellow-50 p-3 rounded">
-                <p className="text-xs text-yellow-800">
-                  ℹ️ After submission, this event will be reviewed by platform admins.
-                  XP will be awarded upon approval.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowCompleteModal(false)}
-                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCompleteEvent}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  disabled={!resultsDescription || selectedFiles.length === 0}
-                >
-                  Submit for Review
-                </button>
-              </div>
-            </div>
-          </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-semibold mb-2">What happened?</label>
+          <textarea
+            value={resultsDescription}
+            onChange={(e) => setResultsDescription(e.target.value)}
+            placeholder="Describe the event results..."
+            className="w-full p-2 border rounded h-24"
+            required
+          />
         </div>
-      )}
 
+        <div>
+          <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+            className="w-full p-2 border rounded"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {selectedFiles.length} photo(s) selected
+          </p>
+        </div>
+
+        {/* ✅ If inter-club, show competing clubs */}
+        {completingEvent.event_type === "inter" && competingClubsForEvent.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold mb-2">Competition Results</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Assign positions to each competing club:
+            </p>
+            {competingClubsForEvent.map((club) => (
+              <div key={club.id} className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded">
+                <span className="text-sm flex-1 font-medium">{club.name}</span>
+                <select
+                  value={clubPositions[club.id] || ""}
+                  onChange={(e) => setClubPositions({
+                    ...clubPositions,
+                    [club.id]: parseInt(e.target.value)
+                  })}
+                  className="p-2 border rounded text-sm"
+                  required
+                >
+                  <option value="">Select position</option>
+                  <option value="1">🥇 1st Place (50% XP)</option>
+                  <option value="2">🥈 2nd Place (30% XP)</option>
+                  <option value="3">🥉 3rd Place (20% XP)</option>
+                </select>
+              </div>
+            ))}
+            {Object.keys(clubPositions).length !== competingClubsForEvent.length && (
+              <p className="text-xs text-red-600 mt-1">
+                ⚠️ Please assign positions to all clubs
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="bg-yellow-50 p-3 rounded">
+          <p className="text-xs text-yellow-800">
+            ℹ️ After submission, this event will be reviewed by platform admins.
+            XP will be awarded upon approval.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setShowCompleteModal(false)}
+            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCompleteEvent}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            disabled={
+              !resultsDescription || 
+              selectedFiles.length === 0 ||
+              (completingEvent.event_type === "inter" && Object.keys(clubPositions).length !== competingClubsForEvent.length)
+            }
+          >
+            Submit for Review
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {/* Leave Confirmation Modal */}
       {showLeaveModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">

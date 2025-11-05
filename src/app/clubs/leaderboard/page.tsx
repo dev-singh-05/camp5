@@ -10,6 +10,7 @@ type Club = {
   category: string | null;
   description?: string | null;
   total_xp: number;
+  rank: number; // ✅ Added rank property
 };
 
 function ClubCard({
@@ -91,6 +92,7 @@ function ClubModal({
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{club.name}</h2>
             <p className="text-sm text-gray-600">{club.category || "Uncategorized"}</p>
+            <p className="text-sm text-indigo-600 font-semibold">Global Rank #{club.rank}</p>
           </div>
         </div>
 
@@ -239,21 +241,24 @@ export default function LeaderboardPage() {
       .from("clubs")
       .select("id, name, category, description");
 
-    const clubsWithXP = (xpData || []).map((item: any) => ({
+    // ✅ Store original rank with each club
+    const clubsWithXP = (xpData || []).map((item: any, index: number) => ({
       id: item.clubs.id,
       name: item.clubs.name,
       category: item.clubs.category,
       description: item.clubs.description,
       total_xp: item.total_xp,
+      rank: index + 1, // ✅ Store the global rank
     }));
 
     // Add clubs without XP at the end
     const clubIdsWithXP = new Set(clubsWithXP.map(c => c.id));
     const clubsWithoutXP = (allClubs || [])
       .filter((c: any) => !clubIdsWithXP.has(c.id))
-      .map((c: any) => ({
+      .map((c: any, index: number) => ({
         ...c,
         total_xp: 0,
+        rank: clubsWithXP.length + index + 1, // ✅ Continue ranking from last XP rank
       }));
 
     setClubs([...clubsWithXP, ...clubsWithoutXP]);
@@ -402,11 +407,11 @@ export default function LeaderboardPage() {
                 c.category?.toLowerCase().includes(search.toLowerCase());
               return matchesCategory && matchesSearch;
             })
-            .map((club, index) => (
+            .map((club) => (
               <ClubCard
                 key={club.id}
                 club={club}
-                rank={index + 1}
+                rank={club.rank} // ✅ Use stored global rank, not index
                 status={
                   joinedClubIds.includes(club.id)
                     ? "joined"
