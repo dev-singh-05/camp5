@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { ExternalLink } from "lucide-react";
+
 
 type Ad = {
   id: string;
