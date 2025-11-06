@@ -18,6 +18,7 @@ import {
   BookOpen,
   Camera,
   GraduationCap,
+  Sparkles,
 } from "lucide-react";
 
 type Profile = {
@@ -43,6 +44,7 @@ type Profile = {
   year_locked?: boolean;
   profile_completed?: boolean;
   interests?: string[];
+  dating_description?: string;
 };
 
 export default function DatingProfileDashboard() {
@@ -53,6 +55,14 @@ export default function DatingProfileDashboard() {
   const [saving, setSaving] = useState(false);
   const [completion, setCompletion] = useState(0);
   const [manualValue, setManualValue] = useState<string>("");
+
+  // Interests state
+  const [showInterestsModal, setShowInterestsModal] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+
+  // Dating description state
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+  const [datingDescription, setDatingDescription] = useState("");
 
   useEffect(() => {
     fetchProfile();
@@ -73,6 +83,8 @@ export default function DatingProfileDashboard() {
     } else if (data) {
       if (!data.gallery_photos) data.gallery_photos = ["", "", "", ""];
       setProfile(data as Profile);
+      setSelectedInterests(data.interests || []);
+      setDatingDescription(data.dating_description || "");
       calculateCompletion(data);
     }
     setLoading(false);
@@ -208,6 +220,50 @@ export default function DatingProfileDashboard() {
     toast.success("Photo added to gallery!");
   }
 
+  // ✅ Save Interests
+  async function handleSaveInterests() {
+    if (!profile) return;
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ interests: selectedInterests })
+      .eq("id", profile.id);
+
+    if (error) {
+      toast.error("Error saving interests: " + error.message);
+    } else {
+      const updated = { ...profile, interests: selectedInterests };
+      setProfile(updated);
+      toast.success("Interests saved!");
+      setShowInterestsModal(false);
+    }
+
+    setSaving(false);
+  }
+
+  // ✅ Save Dating Description
+  async function handleSaveDatingDescription() {
+    if (!profile) return;
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ dating_description: datingDescription.trim() })
+      .eq("id", profile.id);
+
+    if (error) {
+      toast.error("Error saving description: " + error.message);
+    } else {
+      const updated = { ...profile, dating_description: datingDescription.trim() };
+      setProfile(updated);
+      toast.success("Dating description saved!");
+      setShowDescriptionModal(false);
+    }
+
+    setSaving(false);
+  }
+
   const essentialFields = ["age", "gender", "branch", "location", "hometown"];
   const essentialsFilled = essentialFields.every(
     (key) => profile && (profile as any)[key] && String((profile as any)[key]).trim() !== ""
@@ -241,9 +297,15 @@ export default function DatingProfileDashboard() {
     religion: ["Hindu", "Muslim", "Christian", "Sikh", "Atheist", "Other"],
     height: ["5'0", "5'2", "5'4", "5'6", "5'8", "6'0", "6'2+"],
     year: ["1st Year", "2nd Year", "3rd Year", "4th Year"],
-   branch: ["CSE", "ECE", "IT", "Mechanical", "Civil", "Electrical", "Other"],
- // ✅ Matching valid_branch constraint exactly
+    branch: ["CSE", "ECE", "IT", "Mechanical", "Civil", "Electrical", "Other"],
   };
+
+  const INTEREST_OPTIONS = [
+    "Movies", "Music", "Sports", "Reading", "Gaming", "Traveling",
+    "Cooking", "Photography", "Art", "Dancing", "Fitness", "Yoga",
+    "Technology", "Fashion", "Food", "Nature", "Pets", "Adventure",
+    "Writing", "Shopping", "Meditation", "Hiking", "Swimming", "Cycling"
+  ];
 
   if (loading)
     return (
@@ -256,34 +318,31 @@ export default function DatingProfileDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 p-6 pb-24">
       <Toaster position="top-center" />
 
-{/* ✅ Persistent Update My Profile Button (bottom center) */}
-<div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
-  <button
-    onClick={async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast.error("Please log in again.");
-          router.push("/login");
-          return;
-        }
+      {/* ✅ Persistent Update My Profile Button (bottom center) */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
+        <button
+          onClick={async () => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                toast.error("Please log in again.");
+                router.push("/login");
+                return;
+              }
 
-        // Optionally refresh profile
-        await fetchProfile();
-        toast.success("Profile updated! Redirecting...");
-        setTimeout(() => router.push("/dating"), 1500);
-      } catch (err) {
-        console.error("Update button error:", err);
-        toast.error("Something went wrong.");
-      }
-    }}
-    className="px-8 py-3 bg-pink-500 text-white font-semibold rounded-full shadow-lg hover:bg-pink-600 transition"
-  >
-    🔄 Update My Profile
-  </button>
-</div>
-
-
+              await fetchProfile();
+              toast.success("Profile updated! Redirecting...");
+              setTimeout(() => router.push("/dating"), 1500);
+            } catch (err) {
+              console.error("Update button error:", err);
+              toast.error("Something went wrong.");
+            }
+          }}
+          className="px-8 py-3 bg-pink-500 text-white font-semibold rounded-full shadow-lg hover:bg-pink-600 transition"
+        >
+          🔄 Update My Profile
+        </button>
+      </div>
 
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow p-6">
         {/* Profile Photo Upload */}
@@ -371,7 +430,7 @@ export default function DatingProfileDashboard() {
         </section>
 
         {/* More About You */}
-        <section>
+        <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-3">More About You</h2>
           <div className="divide-y divide-gray-200">
             {moreAbout.map((item) => (
@@ -392,6 +451,48 @@ export default function DatingProfileDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ✅ Dating Section */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-700 mb-3">Dating Preferences</h2>
+          <div className="divide-y divide-gray-200">
+            {/* Dating Description */}
+            <div
+              className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
+              onClick={() => setShowDescriptionModal(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-pink-500"><Heart /></div>
+                <span className="font-medium text-gray-800">Dating Bio</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600 text-sm max-w-xs truncate">
+                  {profile?.dating_description || <span className="italic text-gray-400">Add</span>}
+                </span>
+                <Pencil className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Interests */}
+            <div
+              className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
+              onClick={() => setShowInterestsModal(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-pink-500"><Sparkles /></div>
+                <span className="font-medium text-gray-800">Interests</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600 text-sm">
+                  {profile?.interests && profile.interests.length > 0 
+                    ? `${profile.interests.length} selected` 
+                    : <span className="italic text-gray-400">Add</span>}
+                </span>
+                <Pencil className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -420,7 +521,7 @@ export default function DatingProfileDashboard() {
         </div>
       )}
 
-      {/* Popup Modal */}
+      {/* Regular Fields Popup Modal */}
       {activeField && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-2xl shadow-xl w-80 text-center">
@@ -469,6 +570,100 @@ export default function DatingProfileDashboard() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Interests Modal */}
+      {showInterestsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Select Your Interests</h3>
+            <p className="text-sm text-gray-600 mb-4">Choose up to 10 interests</p>
+
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {INTEREST_OPTIONS.map((interest) => (
+                <button
+                  key={interest}
+                  onClick={() => {
+                    if (selectedInterests.includes(interest)) {
+                      setSelectedInterests(selectedInterests.filter((i) => i !== interest));
+                    } else {
+                      if (selectedInterests.length < 10) {
+                        setSelectedInterests([...selectedInterests, interest]);
+                      } else {
+                        toast.error("Maximum 10 interests allowed");
+                      }
+                    }
+                  }}
+                  className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
+                    selectedInterests.includes(interest)
+                      ? "bg-pink-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {interest}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedInterests(profile?.interests || []);
+                  setShowInterestsModal(false);
+                }}
+                className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveInterests}
+                disabled={saving}
+                className="flex-1 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 font-medium transition disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Interests"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Dating Description Modal */}
+      {showDescriptionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-lg w-full">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Dating Bio</h3>
+            <p className="text-sm text-gray-600 mb-4">Tell potential matches about yourself</p>
+
+            <textarea
+              value={datingDescription}
+              onChange={(e) => setDatingDescription(e.target.value)}
+              placeholder="e.g., Love traveling, coffee addict, looking for genuine connections..."
+              rows={5}
+              maxLength={200}
+              className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none"
+            />
+            <p className="text-xs text-gray-500 mt-1 text-right">{datingDescription.length}/200</p>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setDatingDescription(profile?.dating_description || "");
+                  setShowDescriptionModal(false);
+                }}
+                className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDatingDescription}
+                disabled={saving}
+                className="flex-1 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 font-medium transition disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Bio"}
+              </button>
+            </div>
           </div>
         </div>
       )}

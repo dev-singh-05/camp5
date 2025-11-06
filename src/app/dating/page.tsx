@@ -9,7 +9,6 @@ import { getMyMatches } from "@/utils/dating";
 import { User } from "lucide-react";
 import AdBanner from "@/components/ads";
 
-
 type Match = {
   id: string;
   user1_id: string;
@@ -44,6 +43,10 @@ export default function DatingPage() {
   const [completion, setCompletion] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [userGender, setUserGender] = useState<string | null>(null);
+
+  // 🧪 TESTING MODE - Controlled by environment variable
+  const ENABLE_TESTING_MODE = process.env.NEXT_PUBLIC_ENABLE_DATING_TEST === "true";
+  const [testingMode, setTestingMode] = useState(false);
 
   // Request flow state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -110,7 +113,6 @@ export default function DatingPage() {
     }
   }
 
-  // 🔹 Fetch current user's gender
   async function fetchUserGender() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -126,7 +128,6 @@ export default function DatingPage() {
     }
   }
 
-  // 🔹 Find candidate and show request modal
   async function handleMatch(type: "random" | "interest") {
     if (completion > 0 && completion < 50) {
       toast.error("Complete at least 50% of your profile before matching 💞");
@@ -144,7 +145,7 @@ export default function DatingPage() {
         return;
       }
 
-      // Get user's interests
+      // Get user's interests and gender
       const { data: myProfile } = await supabase
         .from("profiles")
         .select("interests, gender")
@@ -159,41 +160,59 @@ export default function DatingPage() {
           ? "male"
           : null;
 
-      // Find existing matches and pending requests to exclude
-      const { data: existingMatches } = await supabase
-        .from("dating_matches")
-        .select("user1_id, user2_id")
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+      // 🧪 Build exclusion set - ONLY if NOT in testing mode
+      const excludedIds = new Set<string>([user.id]);
+      
+      if (!testingMode) {
+        // Find existing matches and pending requests to exclude
+        const { data: existingMatches } = await supabase
+          .from("dating_matches")
+          .select("user1_id, user2_id")
+          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      const { data: existingRequests } = await supabase
-        .from("dating_requests")
-        .select("requester_id, candidate_id")
-        .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
+        const { data: existingRequests } = await supabase
+          .from("dating_requests")
+          .select("requester_id, candidate_id")
+          .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
 
-      const excludedIds = new Set([user.id]);
-      (existingMatches || []).forEach((m) => {
-        excludedIds.add(m.user1_id);
-        excludedIds.add(m.user2_id);
-      });
-      (existingRequests || []).forEach((r) => {
-        excludedIds.add(r.requester_id);
-        excludedIds.add(r.candidate_id);
-      });
+        // ✅ Only exclude the OTHER person in each match/request
+        (existingMatches || []).forEach((m) => {
+          if (m.user1_id === user.id) {
+            excludedIds.add(m.user2_id);
+          } else {
+            excludedIds.add(m.user1_id);
+          }
+        });
 
+        (existingRequests || []).forEach((r) => {
+          if (r.requester_id === user.id) {
+            excludedIds.add(r.candidate_id);
+          } else {
+            excludedIds.add(r.requester_id);
+          }
+        });
+
+        console.log("Excluded IDs:", Array.from(excludedIds));
+      } else {
+        console.log("🧪 TESTING MODE: Not excluding any users");
+      }
+
+      // ✅ BUILD QUERY - fetch ALL candidates first
       let candidateQuery = supabase
         .from("profiles")
-        .select("id, full_name, profile_photo, gender, branch, year, height, dating_description, interests")
-        .not("id", "in", `(${Array.from(excludedIds).join(",")})`);
+        .select("id, full_name, profile_photo, gender, branch, year, height, dating_description, interests");
 
-      // 🔹 Gender filter
-      if (oppositeGender) candidateQuery = candidateQuery.eq("gender", oppositeGender);
+      // Apply gender filter
+      if (oppositeGender) {
+        candidateQuery = candidateQuery.eq("gender", oppositeGender);
+      }
 
-      // 🔹 Interest matching
+      // Apply interest filter for interest-based matching
       if (type === "interest" && myProfile?.interests && myProfile.interests.length > 0) {
         candidateQuery = candidateQuery.overlaps("interests", myProfile.interests);
       }
 
-      const { data: candidates, error: candidateErr } = await candidateQuery.limit(10);
+      const { data: allCandidates, error: candidateErr } = await candidateQuery;
 
       if (candidateErr) {
         console.error("Candidate fetch error:", candidateErr);
@@ -201,16 +220,24 @@ export default function DatingPage() {
         return;
       }
 
-      if (!candidates || candidates.length === 0) {
-        toast("No opposite-gender matches found right now. Try again later.");
+      // ✅ FILTER OUT EXCLUDED IDs IN JAVASCRIPT (not SQL)
+      const candidates = (allCandidates || []).filter(
+        (c) => !excludedIds.has(c.id)
+      );
+
+      console.log("Total candidates after filtering:", candidates.length);
+
+      if (candidates.length === 0) {
+        toast("No matches found right now. Try again later!");
         return;
       }
 
       // Pick random candidate
       const selectedCandidate = candidates[Math.floor(Math.random() * candidates.length)];
+      console.log("Selected candidate:", selectedCandidate.full_name);
       setCandidate(selectedCandidate);
 
-      // Fetch a random question (category-specific or general)
+      // Fetch a random question
       let questionQuery = supabase
         .from("dating_questions")
         .select("*")
@@ -280,6 +307,44 @@ export default function DatingPage() {
     }
   }
 
+  // 🧪 Clear all your dating data for testing
+  async function clearMyDatingData() {
+    if (!confirm("⚠️ This will delete ALL your matches, chats, reveals, and requests. Continue?")) {
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get all match IDs for this user
+      const { data: myMatches } = await supabase
+        .from("dating_matches")
+        .select("id")
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+      const matchIds = (myMatches || []).map(m => m.id);
+
+      // Delete in order due to foreign keys
+      if (matchIds.length > 0) {
+        await supabase.from("dating_chats").delete().in("match_id", matchIds);
+        await supabase.from("dating_reveals").delete().in("match_id", matchIds);
+        await supabase.from("dating_matches").delete().in("id", matchIds);
+      }
+
+      await supabase
+        .from("dating_requests")
+        .delete()
+        .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
+
+      toast.success("All dating data cleared! You can now re-match with anyone.");
+      fetchMatches();
+    } catch (err) {
+      console.error("Clear data error:", err);
+      toast.error("Failed to clear data.");
+    }
+  }
+
   const profilePlaceholder = "/images/avatar-placeholder.png";
   const matchingDisabled = creating || (completion > 0 && completion < 50);
 
@@ -332,6 +397,33 @@ export default function DatingPage() {
           </div>
         </div>
       </header>
+
+      {/* 🧪 TESTING MODE CONTROLS - Only visible in development */}
+      {ENABLE_TESTING_MODE && (
+        <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={testingMode}
+                  onChange={(e) => setTestingMode(e.target.checked)}
+                  className="w-4 h-4 text-pink-500 rounded focus:ring-pink-400"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  🧪 Testing Mode (Allow re-matching)
+                </span>
+              </label>
+            </div>
+            <button
+              onClick={clearMyDatingData}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
+            >
+              🗑️ Clear All My Dating Data
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-10 max-w-5xl mx-auto w-full">
@@ -508,7 +600,6 @@ export default function DatingPage() {
         </div>
       )}
       <AdBanner placement="dating_page" />
-
     </div>
   );
 }
