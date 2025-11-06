@@ -15,6 +15,7 @@ type Profile = {
   avg_communication: number | null;
   avg_overall_xp: number | null;
   total_ratings: number | null;
+  rank: number; // ✅ Added global rank
 };
 
 export default function LeaderboardPage() {
@@ -37,8 +38,13 @@ export default function LeaderboardPage() {
 
       if (error) console.error("Leaderboard fetch error:", error);
       else {
-        setProfiles(data || []);
-        setFilteredProfiles(data || []);
+        // ✅ Store global rank with each profile
+        const profilesWithRank = (data || []).map((profile, index) => ({
+          ...profile,
+          rank: index + 1, // ✅ Assign global rank based on position
+        }));
+        setProfiles(profilesWithRank);
+        setFilteredProfiles(profilesWithRank);
       }
     }
 
@@ -99,7 +105,10 @@ export default function LeaderboardPage() {
       {/* Leaderboard list */}
       <div className="max-w-3xl mx-auto space-y-4">
         {filteredProfiles.length > 0 ? (
-          filteredProfiles.map((user, index) => {
+          filteredProfiles.map((user) => {
+            // ✅ Use stored rank instead of filtered index
+            const rank = user.rank;
+            
             // 🎨 Different styles for Top 3
             let bgColor = "bg-white hover:bg-indigo-50";
             let rankColor = "text-indigo-600";
@@ -107,19 +116,19 @@ export default function LeaderboardPage() {
             let borderStyle = "border border-gray-100";
             let ringColor = "ring-indigo-100";
 
-            if (index === 0) {
+            if (rank === 1) {
               bgColor = "bg-gradient-to-r from-yellow-100 to-yellow-50 shadow-md hover:shadow-lg";
               rankColor = "text-yellow-600";
               nameStyle = "font-extrabold text-lg text-yellow-700";
               borderStyle = "border-yellow-200";
               ringColor = "ring-yellow-300";
-            } else if (index === 1) {
+            } else if (rank === 2) {
               bgColor = "bg-gradient-to-r from-gray-100 to-gray-50 shadow hover:shadow-md";
               rankColor = "text-gray-600";
               nameStyle = "font-bold text-lg text-gray-700";
               borderStyle = "border-gray-200";
               ringColor = "ring-gray-300";
-            } else if (index === 2) {
+            } else if (rank === 3) {
               bgColor = "bg-gradient-to-r from-orange-100 to-orange-50 shadow hover:shadow-md";
               rankColor = "text-orange-600";
               nameStyle = "font-bold text-lg text-orange-700";
@@ -134,10 +143,10 @@ export default function LeaderboardPage() {
                 className={`flex items-center justify-between ${bgColor} cursor-pointer p-4 rounded-xl ${borderStyle} transition transform hover:scale-[1.01]`}
               >
                 <div className="flex items-center gap-4">
-                  {/* Rank number on the left */}
+                  {/* Rank number on the left - ✅ Now shows global rank */}
                   <div className="w-12 text-center">
                     <p className={`text-2xl font-extrabold ${rankColor}`}>
-                      #{index + 1}
+                      #{rank}
                     </p>
                   </div>
 
@@ -170,7 +179,7 @@ export default function LeaderboardPage() {
           })
         ) : (
           <p className="text-center text-gray-500 text-sm">
-            No users yet with 3 or more ratings.
+            No users found matching your search.
           </p>
         )}
       </div>
@@ -198,16 +207,20 @@ export default function LeaderboardPage() {
                 </h2>
                 <div className="flex justify-between items-center text-sm text-gray-600">
                   <p>
-                    ⭐ XP:{" "}
+                    🏆 Global Rank:{" "}
+                    <span className="text-indigo-600 font-bold">
+                      #{selectedUser.rank}
+                    </span>
+                    {" "} • ⭐ XP:{" "}
                     <span className="text-indigo-600 font-semibold">
                       {selectedUser.avg_overall_xp?.toFixed(1) || 0}
                     </span>{" "}
                     • 💬 {selectedUser.total_ratings || 0} Ratings
                   </p>
-                  <p className="italic text-gray-500">
-                    {selectedUser.branch || "—"}
-                  </p>
                 </div>
+                <p className="text-sm italic text-gray-500 mt-1">
+                  {selectedUser.branch || "—"}
+                </p>
               </div>
             </div>
 

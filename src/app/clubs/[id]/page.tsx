@@ -65,6 +65,11 @@ export default function ClubDetailsPage() {
 
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [eventAcceptanceStatus, setEventAcceptanceStatus] = useState<Record<string, boolean>>({});
+  const [canComplete, setCanComplete] = useState<Record<string, boolean>>({});
+  // add state near other admin panel states
+const [inviteActioning, setInviteActioning] = useState<string | null>(null);
+
 
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -72,8 +77,12 @@ export default function ClubDetailsPage() {
 
   const [showTeammates, setShowTeammates] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+const [showActivityLog, setShowActivityLog] = useState(false);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [competingClubsForEvent, setCompetingClubsForEvent] = useState<any[]>([]);
+const [eventInvitations, setEventInvitations] = useState<any[]>([]);
 
   const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
 
@@ -89,6 +98,20 @@ export default function ClubDetailsPage() {
   const [resultsDescription, setResultsDescription] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [clubPositions, setClubPositions] = useState<Record<string, number>>({});
+
+// Helper: Check if event should be in history
+const isHistoryEvent = (event: Event) => {
+  return event.status === "approved" || event.status === "rejected";
+};
+
+// Split events into active and history
+const activeEvents = events.filter(e => !isHistoryEvent(e));
+const historyEvents = events.filter(e => isHistoryEvent(e));
+
+// Filter system messages for activity log (messages starting with 🔔 SYSTEM:)
+const activityLogs = messages.filter(msg => 
+  msg.content && msg.content.startsWith("🔔 SYSTEM:")
+);
 
   useEffect(() => {
     console.log("📌 ClubDetailPage clubId from URL:", clubId);
@@ -125,6 +148,22 @@ export default function ClubDetailsPage() {
     setNewMessage("");
   };
 
+ const sendSystemMessage = async (content: string) => {
+  if (!clubId || !currentUserId) return;
+  
+  const { error } = await supabase.from("messages").insert([
+    {
+      club_id: clubId,
+      user_id: currentUserId, // Use current user ID for system messages
+      content: `🔔 SYSTEM: ${content}`,
+    },
+  ]);
+
+  if (error) {
+    console.error("❌ Failed to send system message:", error.message);
+  }
+};
+
   const fetchClub = async () => {
     if (!clubId) return;
     const { data } = await supabase
@@ -158,26 +197,67 @@ export default function ClubDetailsPage() {
     );
   };
 
-  const fetchEvents = async () => {
-    if (!clubId) return;
-    const { data, error } = await supabase
-      .from("events")
-      .select(
-        "id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos"
-      )
-      .eq("club_id", clubId)
-      .order("event_date", { ascending: true });
+const fetchEvents = async () => {
+  if (!clubId) return;
+  
+  // Fetch events created by this club
+  const { data: ownEvents, error: ownError } = await supabase
+    .from("events")
+    .select(
+      "id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos"
+    )
+    .eq("club_id", clubId)
+    .order("event_date", { ascending: true });
 
-    if (error) {
-      toast.error("Error fetching events");
-      return;
-    }
-    setEvents(data || []);
-    
-    if (data && data.length > 0) {
-      fetchAllEventParticipantCounts(data.map(e => e.id));
-    }
-  };
+  if (ownError) {
+    toast.error("Error fetching events");
+    return;
+  }
+
+  // Fetch inter-club events where this club has ACCEPTED
+  const { data: acceptedInterEvents, error: interError } = await supabase
+    .from("inter_club_participants")
+    .select(`
+      event_id,
+      events!inner(
+        id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos, club_id
+      )
+    `)
+    .eq("club_id", clubId)
+    .eq("accepted", true)
+    .neq("events.club_id", clubId);
+
+  if (interError) {
+    console.error("Error fetching accepted inter-club events:", interError);
+  }
+
+  // Merge both event lists
+  const allEvents = [
+    ...(ownEvents || []),
+    ...(acceptedInterEvents || []).map((item: any) => item.events)
+  ];
+
+  // Remove duplicates by event id
+  const uniqueEvents = Array.from(
+    new Map(allEvents.map(event => [event.id, event])).values()
+  );
+
+  // Sort by event_date
+  uniqueEvents.sort((a, b) => 
+    new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
+  );
+
+  setEvents(uniqueEvents);
+  
+  if (uniqueEvents.length > 0) {
+    fetchAllEventParticipantCounts(uniqueEvents.map(e => e.id));
+  }
+};
+ 
+const checkCanComplete = async (event: Event) => {
+  const result = await canCompleteEvent(event);
+  setCanComplete(prev => ({ ...prev, [event.id]: result }));
+};
 
   const fetchAllEventParticipantCounts = async (eventIds: string[]) => {
     const counts: Record<string, number> = {};
@@ -194,7 +274,35 @@ export default function ClubDetailsPage() {
     setEventParticipantCounts(counts);
   };
 
-  const fetchRequests = async () => {
+const checkEventAcceptance = async (eventId: string, eventType: string) => {
+  if (eventType !== "inter") { setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: true })); return; }
+  const { data: participants } = await supabase
+    .from("inter_club_participants")
+    .select("accepted")
+    .eq("event_id", eventId);
+
+  const allAccepted = participants?.every((p: any) => p.accepted === true) || false;
+  setEventAcceptanceStatus(prev => ({ ...prev, [eventId]: allAccepted }));
+};
+
+
+// Call this when opening event modal
+const handleEventClick = async (event: Event) => {
+  setSelectedEvent(event);
+  await fetchEventParticipants(event.id);
+  await checkEventAcceptance(event.id, event.event_type);
+  await checkCanComplete(event); // ✅ Add this line
+};
+
+const fetchAllClubs = async () => {
+  const { data } = await supabase
+    .from("clubs")
+    .select("id, name")
+    .order("name");
+  setAllClubs(data || []);
+};
+
+const fetchRequests = async () => {
     if (!clubId) return;
     const { data } = await supabase
       .from("club_requests")
@@ -223,14 +331,70 @@ export default function ClubDetailsPage() {
     );
   };
 
-  const fetchAllClubs = async () => {
-    const { data } = await supabase
-      .from("clubs")
-      .select("id, name")
-      .order("name");
-    setAllClubs(data || []);
-  };
 
+const fetchEventInvitations = async () => {
+  if (!clubId) return;
+  
+  console.log("Fetching invitations for club:", clubId);
+  
+  // Get events where this club is invited but hasn't accepted yet
+ const { data, error } = await supabase
+  .from("inter_club_participants")
+  .select(`
+    event_id,
+    club_id,
+    accepted,
+    events!inner(
+      id,
+      title,
+      description,
+      event_date,
+      total_xp_pool,
+      status,
+      club_id,
+      clubs!inner(name)
+    )
+  `)
+  .eq("club_id", clubId)
+  .neq("accepted", true)             // ✅ excludes NULL and false in a single filter
+  .eq("events.status", "upcoming");
+
+
+  if (error) {
+    console.error("Error fetching invitations:", error);
+    return;
+  }
+
+  console.log("Raw invitation data from DB:", data);
+  console.log("Event invitations:", data);
+  setEventInvitations(data || []);
+};
+ // ✅ Real-time subscription for event invitations
+// ✅ Real-time subscription for event invitations
+useEffect(() => {
+  if (!clubId || userRole !== "admin") return;
+
+  const channel = supabase
+    .channel(`event-invitations-${clubId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "inter_club_participants",
+        filter: `club_id=eq.${clubId}`,
+      },
+      async () => {
+        await fetchEventInvitations();
+        await fetchEvents();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [clubId, userRole]);
   useEffect(() => {
     if (!clubId) return;
     let mounted = true;
@@ -274,11 +438,13 @@ export default function ClubDetailsPage() {
         if (!mounted) return;
         setUserRole(roleData?.role || null);
 
-        if (roleData?.role === "admin") {
-          await fetchRequests();
-        } else {
-          setRequests([]);
-        }
+      if (roleData?.role === "admin") {
+  await fetchRequests();
+  await fetchEventInvitations(); // ✅ Add this line
+} else {
+  setRequests([]);
+  setEventInvitations([]); // ✅ Add this line
+}
       }
       if (mounted) setLoading(false);
     };
@@ -290,6 +456,7 @@ export default function ClubDetailsPage() {
       supabase.removeChannel(channel);
     };
   }, [clubId]);
+  
 
   const handleLeaveClub = async () => {
     const userRes = await supabase.auth.getUser();
@@ -331,6 +498,10 @@ export default function ClubDetailsPage() {
     await supabase.from("club_requests").delete().eq("id", requestId);
 
     toast.success("✅ Request approved & user added");
+    const approvedUser = requests.find(r => r.id === requestId);
+    if (approvedUser?.profiles?.full_name) {
+      await sendSystemMessage(`${approvedUser.profiles.full_name} joined the club`);
+    }
     await fetchRequests();
     await fetchMembers();
   };
@@ -341,39 +512,58 @@ export default function ClubDetailsPage() {
     await fetchRequests();
   };
 
-  const handlePromote = async (targetUserId: string) => {
-    if (!clubId) return;
-    await supabase
-      .from("club_members")
-      .update({ role: "admin" })
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
-    await fetchMembers();
-  };
+const handlePromote = async (targetUserId: string) => {
+  if (!clubId) return;
+  
+  // Get user's name before promoting
+  const targetMember = members.find(m => m.user_id === targetUserId);
+  
+  await supabase
+    .from("club_members")
+    .update({ role: "admin" })
+    .eq("club_id", clubId)
+    .eq("user_id", targetUserId);
+  
+  // Send system message
+  if (targetMember?.profiles?.full_name) {
+    await sendSystemMessage(`${targetMember.profiles.full_name} was promoted to admin`);
+  }
+  
+  await fetchMembers();
+};
 
-  const handleDemote = async (targetUserId: string) => {
-    if (!clubId) return;
-    const { count } = await supabase
-      .from("club_members")
-      .select("user_id", { count: "exact", head: true })
-      .eq("club_id", clubId)
-      .eq("role", "admin");
+const handleDemote = async (targetUserId: string) => {
+  if (!clubId) return;
+  
+  // Get user's name before demoting
+  const targetMember = members.find(m => m.user_id === targetUserId);
+  
+  const { count } = await supabase
+    .from("club_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("club_id", clubId)
+    .eq("role", "admin");
 
-    if (count !== null && count <= 1) {
-      toast.error("❌ Cannot demote the last admin.");
-      return;
-    }
+  if (count !== null && count <= 1) {
+    toast.error("❌ Cannot demote the last admin.");
+    return;
+  }
 
-    await supabase
-      .from("club_members")
-      .update({ role: "member" })
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
+  await supabase
+    .from("club_members")
+    .update({ role: "member" })
+    .eq("club_id", clubId)
+    .eq("user_id", targetUserId);
 
-    toast.success("User demoted ✅");
-    await fetchMembers();
-  };
-
+  toast.success("User demoted ✅");
+  
+  // Send system message
+  if (targetMember?.profiles?.full_name) {
+    await sendSystemMessage(`${targetMember.profiles.full_name} was demoted to member`);
+  }
+  
+  await fetchMembers();
+};
   const handleRemove = async (targetUserId: string) => {
     if (!clubId) return;
 
@@ -397,14 +587,23 @@ export default function ClubDetailsPage() {
       }
     }
 
-    await supabase
-      .from("club_members")
-      .delete()
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
+   // Get user's name before removing
+const targetMember = members.find(m => m.user_id === targetUserId);
 
-    toast.success("User removed ✅");
-    await fetchMembers();
+await supabase
+  .from("club_members")
+  .delete()
+  .eq("club_id", clubId)
+  .eq("user_id", targetUserId);
+
+toast.success("User removed ✅");
+
+// Send system message
+if (targetMember?.profiles?.full_name) {
+  await sendSystemMessage(`${targetMember.profiles.full_name} was removed from the club`);
+}
+
+await fetchMembers();
   };
 
   const calculateXP = () => {
@@ -413,7 +612,7 @@ export default function ClubDetailsPage() {
       if (sizeCategory === "medium") return 300;
       if (sizeCategory === "large") return 600;
     } else if (eventType === "inter") {
-      return competingClubs.length * 100;
+    return (competingClubs.length + 1) * 100; 
     }
     return 0;
   };
@@ -447,19 +646,32 @@ export default function ClubDetailsPage() {
       return;
     }
 
-    // If inter-club, save competing clubs
-    if (eventType === "inter" && newEvent && competingClubs.length > 0) {
-      const participants = competingClubs.map(clubId => ({
-        event_id: newEvent.id,
-        club_id: clubId,
-        position: null,
-        xp_awarded: 0
-      }));
+if (eventType === "inter" && newEvent) {
+  const rows = [
+    // creator’s club (auto-accepted)
+    {
+      event_id: newEvent.id,
+      club_id: clubId,                 // <- creator
+      position: null,
+      xp_awarded: 0,
+      accepted: true,
+    },
+    // invited clubs (pending)
+    ...competingClubs.map((id) => ({
+      event_id: newEvent.id,
+      club_id: id,
+      position: null,
+      xp_awarded: 0,
+      accepted: false,
+    })),
+  ];
 
-      await supabase.from("inter_club_participants").insert(participants);
-    }
+  await supabase.from("inter_club_participants").insert(rows);
+}
+
 
     toast.success("🎉 Event created");
+    await sendSystemMessage(`New event created: ${formData.title} on ${new Date(formData.event_date).toLocaleDateString()}`);
     setShowCreateEventModal(false);
     setEventType("intra");
     setSizeCategory("");
@@ -497,6 +709,10 @@ export default function ClubDetailsPage() {
 
       if (result.reason === "joined") {
         toast.success("✅ Joined event");
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          await sendSystemMessage(`${currentUserId} joined event: ${event.title}`);
+        }
         await fetchEventParticipants(eventId);
       } else if (result.reason === "already_joined") {
         toast("You already joined this event");
@@ -655,14 +871,45 @@ export default function ClubDetailsPage() {
     };
   }, [clubId, events]);
 
-  const openCompleteModal = (event: Event) => {
-    setCompletingEvent(event);
-    setResultsDescription("");
-    setSelectedFiles([]);
-    setClubPositions({});
-    setShowCompleteModal(true);
-  };
 
+
+
+const openCompleteModal = async (event: Event) => {
+  setCompletingEvent(event);
+  setResultsDescription("");
+  setSelectedFiles([]);
+  setClubPositions({});
+
+  // Ensure creator club row exists (covers legacy events created before the fix)
+if (event.event_type === "inter" && clubId) {
+  await supabase
+    .from("inter_club_participants")
+    .upsert(
+      { event_id: event.id, club_id: clubId, accepted: true, position: null, xp_awarded: 0 },
+      { onConflict: "event_id,club_id" }
+    );
+}
+
+  
+  // ✅ If inter-club, fetch the competing clubs
+  if (event.event_type === "inter") {
+    const { data: participants } = await supabase
+      .from("inter_club_participants")
+      .select("club_id, clubs(id, name)")
+      .eq("event_id", event.id);
+    
+    if (participants) {
+      setCompetingClubsForEvent(participants.map((p: any) => ({
+        id: p.club_id,
+        name: p.clubs?.name || "Unknown Club"
+      })));
+    }
+  } else {
+    setCompetingClubsForEvent([]);
+  }
+  
+  setShowCompleteModal(true);
+};
   const handleCompleteEvent = async () => {
     if (!completingEvent || !currentUserId) return;
 
@@ -702,18 +949,60 @@ export default function ClubDetailsPage() {
       return;
     }
 
-    // If inter-club, update positions
-    if (completingEvent.event_type === "inter") {
-      for (const [clubId, position] of Object.entries(clubPositions)) {
-        await supabase
-          .from("inter_club_participants")
-          .update({ position })
-          .eq("event_id", completingEvent.id)
-          .eq("club_id", clubId);
-      }
-    }
+ // If inter-club, update positions + XP distribution
+if (completingEvent.event_type === "inter") {
+  // 1) Save positions
+  for (const [clubId, position] of Object.entries(clubPositions)) {
+    await supabase
+      .from("inter_club_participants")
+      .update({ position })
+      .eq("event_id", completingEvent.id)
+      .eq("club_id", clubId);
+  }
+
+  // 2) Compute XP pool and split by rank (strictly decreasing)
+  // n = number of clubs (includes your club; you already loaded these for the modal)
+  const n = competingClubsForEvent.length;
+  const pool = n * 100;
+
+  // Formula: points for rank r = round( 200 * (n - r + 1) / (n + 1) )
+  // This gives strictly decreasing values and sums ~ pool.
+  // We'll adjust any rounding remainder to 1st place.
+  type Entry = { club_id: string; position: number };
+  const entries: Entry[] = Object.entries(clubPositions)
+    .map(([club_id, position]) => ({ club_id, position: Number(position) }))
+    .sort((a, b) => a.position - b.position); // rank order: 1,2,3...
+
+  const pointsByClub: Record<string, number> = {};
+  let sum = 0;
+
+  for (const e of entries) {
+    const r = e.position; // 1-based rank
+    const pts = Math.round((200 * (n - r + 1)) / (n + 1));
+    pointsByClub[e.club_id] = pts;
+    sum += pts;
+  }
+
+  // Fix rounding so total exactly equals pool (add diff to 1st place)
+  const diff = pool - sum;
+  if (entries.length > 0 && diff !== 0) {
+    const firstClubId = entries[0].club_id;
+    pointsByClub[firstClubId] = (pointsByClub[firstClubId] || 0) + diff;
+  }
+
+  // 3) Persist xp_awarded
+  for (const e of entries) {
+    await supabase
+      .from("inter_club_participants")
+      .update({ xp_awarded: pointsByClub[e.club_id] })
+      .eq("event_id", completingEvent.id)
+      .eq("club_id", e.club_id);
+  }
+}
+
 
     toast.success("✅ Event submitted for review!");
+    await sendSystemMessage(`Event "${completingEvent.title}" submitted for review`);
     setShowCompleteModal(false);
     await fetchEvents();
   };
@@ -733,23 +1022,54 @@ export default function ClubDetailsPage() {
     }
   };
 
-  const canCompleteEvent = (event: Event) => {
-    const eventDate = new Date(event.event_date);
-    const now = new Date();
-    return (
-      event.created_by === currentUserId &&
-      eventDate < now &&
-      event.status === "upcoming"
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Loading club...</p>
-      </div>
-    );
+ const canCompleteEvent = async (event: Event) => {
+  const eventDate = new Date(event.event_date);
+  const now = new Date();
+  
+  const isCreator = event.created_by === currentUserId;
+  const isPastDate = eventDate < now;
+  const isUpcoming = event.status === "upcoming";
+  
+  if (!isCreator || !isPastDate || !isUpcoming) {
+    return false;
   }
+  
+  // ✅ For inter-club events, check if all clubs have accepted
+  if (event.event_type === "inter") {
+    const { data: participants, error } = await supabase
+      .from("inter_club_participants")
+      .select("accepted")
+      .eq("event_id", event.id);
+    
+    if (error || !participants) return false;
+    
+    // All clubs must have accepted
+    const allAccepted = participants.every((p: any) => p.accepted === true);
+    return allAccepted;
+  }
+  
+  return true;
+};
+
+// ===== Inter-club completion helpers (positions) =====
+const totalClubsInModal =
+  completingEvent && completingEvent.event_type === "inter"
+    ? competingClubsForEvent.length
+    : 0;
+
+const assignedPositions = Object.values(clubPositions).filter(
+  (v): v is number => typeof v === "number" && !isNaN(v)
+);
+
+const allAssigned =
+  completingEvent?.event_type !== "inter" ||
+  assignedPositions.length === totalClubsInModal;
+
+
+const uniqueAssigned =
+ new Set(assignedPositions).size === assignedPositions.length;
+
+
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -804,6 +1124,7 @@ export default function ClubDetailsPage() {
                   const url = `${window.location.origin}/accept-invite?token=${data.token}`;
                   await navigator.clipboard?.writeText(url);
                   alert("✅ Invite link copied:\n" + url);
+                  await sendSystemMessage(`Admin created a new invite link`);
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
               >
@@ -875,53 +1196,204 @@ export default function ClubDetailsPage() {
               )}
             </div>
 
-            {/* Events Section */}
-            <div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
-              <button
-                onClick={() => setShowEvents(!showEvents)}
-                className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
-              >
-                Events / Competitions
-                <span>{showEvents ? "▲" : "▼"}</span>
-              </button>
-              {showEvents && (
-                <div className="max-h-40 overflow-y-auto px-4 py-2">
-                  {events.length === 0 ? (
-                    <p className="text-gray-500">No events yet.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {events.map((e) => (
-                        <li
-                          key={e.id}
-                          className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
-                          onClick={() => {
-                            setSelectedEvent(e);
-                            fetchEventParticipants(e.id);
-                          }}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span>
-                                📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
-                              </span>
-                              {getEventStatusBadge(e.status)}
-                            </div>
-                          </div>
-                          <span className="text-sm text-gray-500 font-semibold">
-                            {eventParticipantCounts[e.id] || 0}/{e.members_required}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+ {/* Active Events Section */}
+<div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
+  <button
+    onClick={() => setShowEvents(!showEvents)}
+    className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
+  >
+    Active Events
+    <span>{showEvents ? "▲" : "▼"}</span>
+  </button>
+  {showEvents && (
+    <div className="max-h-40 overflow-y-auto px-4 py-2">
+      {activeEvents.length === 0 ? (
+        <p className="text-gray-500">No active events.</p>
+      ) : (
+        <ul className="space-y-2">
+          {activeEvents.map((e) => (
+            <li
+              key={e.id}
+              className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
+              onClick={() => handleEventClick(e)}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span>
+                    📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
+                  </span>
+                  {getEventStatusBadge(e.status)}
                 </div>
-              )}
-            </div>
+              </div>
+              <span className="text-sm text-gray-500 font-semibold">
+                {eventParticipantCounts[e.id] || 0}/{e.members_required}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )}
+</div>
+
+{/* Event History - Clickable Card */}
+<div 
+  onClick={() => router.push(`/clubs/${clubId}/profile#history`)}
+  className="bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
+>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <span className="text-3xl">📜</span>
+      <div>
+        <h3 className="font-bold text-gray-800">Event History</h3>
+        <p className="text-xs text-gray-600">View completed events</p>
+      </div>
+    </div>
+    <span className="text-2xl text-purple-600">→</span>
+  </div>
+</div>
+
+{/* Activity Log - Clickable Card */}
+<div 
+  onClick={() => router.push(`/clubs/${clubId}/profile#activity`)}
+  className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
+>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <span className="text-3xl">📋</span>
+      <div>
+        <h3 className="font-bold text-gray-800">Activity Log</h3>
+        <p className="text-xs text-gray-600">View all club activities</p>
+      </div>
+    </div>
+    <span className="text-2xl text-blue-600">→</span>
+  </div>
+</div>
 
             {/* Admin Panel */}
             {userRole === "admin" && (
               <div className="bg-yellow-50 rounded-lg shadow-sm p-4">
                 <h3 className="font-bold text-lg text-yellow-800">Admin Panel</h3>
+                {/* ✅ Event Invitations Section */}
+{/* ✅ Event Invitations Section */}
+{eventInvitations.length > 0 && (
+  <>
+    <h4 className="mt-3 font-semibold text-indigo-700">Event Invitations</h4>
+    <ul className="list-disc ml-6 mt-2 space-y-2">
+     // In the invitations list render:
+{eventInvitations.map((invitation: any) => {
+  const isBusy = inviteActioning === invitation.event_id;
+  return (
+    <li key={invitation.event_id} className="flex justify-between items-center text-gray-700 opacity-100">
+      <div className={isBusy ? "opacity-60" : ""}>
+        <p className="font-semibold">{invitation.events.title}</p>
+        <p className="text-xs text-gray-500">
+          By: {invitation.events.clubs.name} •
+          {new Date(invitation.events.event_date).toLocaleDateString()} •
+          {invitation.events.total_xp_pool} XP
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          disabled={isBusy}
+         onClick={async () => {
+  setInviteActioning(invitation.event_id);
+
+  // optimistic remove
+  setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+  // attempt update and RETURN the row
+  const { data: upd, error } = await supabase
+    .from("inter_club_participants")
+    .update({ accepted: true })
+    .eq("event_id", invitation.event_id)
+    .eq("club_id", clubId)
+    .select("event_id, club_id, accepted")
+    .single();
+
+  if (error || !upd || upd.accepted !== true) {
+    // rollback if update didn’t stick
+    await fetchEventInvitations();
+    setInviteActioning(null);
+
+    // better error surface for RLS/incident/0 rows
+    if (error) {
+      console.error("Accept update failed:", error);
+      toast.error(`Failed to accept challenge: ${error.message}`);
+    } else {
+      console.warn("Accept update matched no row or accepted still not true:", upd);
+      toast.error("Failed to accept challenge (no matching row / RLS / backend issue).");
+    }
+    return;
+  }
+
+  toast.success("✅ Challenge accepted!");
+  await sendSystemMessage(`Accepted inter-club event: ${invitation.events.title}`);
+  // keep UI in sync
+  await fetchEventInvitations();
+  await fetchEvents();
+
+  if (selectedEvent?.id === invitation.event_id) {
+    const event = events.find(e => e.id === invitation.event_id);
+    if (event) {
+      await checkEventAcceptance(invitation.event_id, "inter");
+      await checkCanComplete(event);
+    }
+  }
+
+  setInviteActioning(null);
+}}
+
+          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-green-300" : "bg-green-600 hover:bg-green-700"} text-white`}
+        >
+          {isBusy ? "Accepting..." : "Accept"}
+        </button>
+
+        <button
+          disabled={isBusy}
+          onClick={async () => {
+            setInviteActioning(invitation.event_id);
+
+            // ✅ optimistic remove from UI immediately
+            setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+            const { error } = await supabase
+              .from("inter_club_participants")
+              .delete()
+              .eq("event_id", invitation.event_id)
+              .eq("club_id", clubId);
+
+            if (error) {
+              toast.error("Failed to decline challenge");
+              // rollback if needed
+              await fetchEventInvitations();
+              setInviteActioning(null);
+              return;
+            }
+
+            toast.success("❌ Challenge declined");
+            await sendSystemMessage(`Declined inter-club event: ${invitation.events.title}`);
+            await fetchEventInvitations();
+            await fetchEvents();
+
+            if (selectedEvent?.id === invitation.event_id) {
+              setSelectedEvent(null);
+            }
+
+            setInviteActioning(null);
+          }}
+          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-red-300" : "bg-red-600 hover:bg-red-700"} text-white`}
+        >
+          {isBusy ? "Declining..." : "Decline"}
+        </button>
+      </div>
+    </li>
+  );
+})}
+
+    </ul>
+  </>
+)}
                 <h4 className="mt-2 font-semibold">Pending Requests</h4>
                 {requests.length === 0 ? (
                   <p className="text-gray-500">No pending requests.</p>
@@ -957,6 +1429,7 @@ export default function ClubDetailsPage() {
                 )}
               </div>
             )}
+            
           </div>
 
           {/* Leave Club Button */}
@@ -972,24 +1445,32 @@ export default function ClubDetailsPage() {
 
         {/* Chat Section */}
         <div className="col-span-3 flex flex-col bg-white shadow-inner h-screen">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                aria-label="Go back"
-                className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-              >
-                ← Back
-              </button>
+         <div className="p-4 border-b flex items-center justify-between">
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => router.back()}
+      aria-label="Go back"
+      className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+    >
+      ← Back
+    </button>
 
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
-                <p className="text-gray-600">{club?.description}</p>
-              </div>
-            </div>
+    <div>
+      <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
+      <p className="text-gray-600">{club?.description}</p>
+    </div>
+  </div>
 
-            <h2 className="text-md font-semibold text-gray-700 mt-2 hidden md:block">Team Chat</h2>
-          </div>
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => router.push(`/clubs/${clubId}/profile`)}
+      className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+    >
+      📋 Profile
+    </button>
+    <h2 className="text-md font-semibold text-gray-700 hidden md:block">Team Chat</h2>
+  </div>
+</div>
 
           <div className="flex-1 overflow-y-auto mb-3 p-3 bg-gray-50 rounded-lg border">
             {messages.length === 0 ? (
@@ -1079,6 +1560,7 @@ export default function ClubDetailsPage() {
               </div>
             )}
 
+
             {/* Show photos if available */}
             {selectedEvent.proof_photos && selectedEvent.proof_photos.length > 0 && (
               <div className="mb-3">
@@ -1117,16 +1599,24 @@ export default function ClubDetailsPage() {
               >
                 Close
               </button>
+{canComplete[selectedEvent.id] && eventAcceptanceStatus[selectedEvent.id] && (
+  <button
+    onClick={() => openCompleteModal(selectedEvent)}
+    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+  >
+    Complete Event
+  </button>
+)}
 
-              {canCompleteEvent(selectedEvent) && (
-                <button
-                  onClick={() => openCompleteModal(selectedEvent)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Complete Event
-                </button>
-              )}
-
+{selectedEvent.event_type === "inter" && !eventAcceptanceStatus[selectedEvent.id] && (
+  <button
+    disabled
+    className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed"
+    title="Waiting for all clubs to accept this challenge"
+  >
+    ⏳ Waiting for Clubs
+  </button>
+)}
               {selectedEvent.status === "upcoming" && (() => {
                 const participantCount = participants?.length ?? 0;
                 const capacity = selectedEvent?.members_required ?? 0;
@@ -1322,93 +1812,134 @@ export default function ClubDetailsPage() {
       )}
 
       {/* Complete Event Modal */}
-      {showCompleteModal && completingEvent && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
+{showCompleteModal && completingEvent && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold mb-2">What happened?</label>
-                <textarea
-                  value={resultsDescription}
-                  onChange={(e) => setResultsDescription(e.target.value)}
-                  placeholder="Describe the event results..."
-                  className="w-full p-2 border rounded h-24"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
-                  className="w-full p-2 border rounded"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {selectedFiles.length} photo(s) selected
-                </p>
-              </div>
-
-              {/* If inter-club, ask for positions */}
-              {completingEvent.event_type === "inter" && (
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Club Positions</label>
-                  {competingClubs.map((clubId) => {
-                    const clubName = allClubs.find(c => c.id === clubId)?.name || clubId;
-                    return (
-                      <div key={clubId} className="flex items-center gap-2 mb-2">
-                        <span className="text-sm flex-1">{clubName}</span>
-                        <select
-                          value={clubPositions[clubId] || ""}
-                          onChange={(e) => setClubPositions({
-                            ...clubPositions,
-                            [clubId]: parseInt(e.target.value)
-                          })}
-                          className="p-2 border rounded"
-                          required
-                        >
-                          <option value="">Select position</option>
-                          <option value="1">1st Place (50% XP)</option>
-                          <option value="2">2nd Place (30% XP)</option>
-                          <option value="3">3rd Place (20% XP)</option>
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="bg-yellow-50 p-3 rounded">
-                <p className="text-xs text-yellow-800">
-                  ℹ️ After submission, this event will be reviewed by platform admins.
-                  XP will be awarded upon approval.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowCompleteModal(false)}
-                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCompleteEvent}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  disabled={!resultsDescription || selectedFiles.length === 0}
-                >
-                  Submit for Review
-                </button>
-              </div>
-            </div>
-          </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-semibold mb-2">What happened?</label>
+          <textarea
+            value={resultsDescription}
+            onChange={(e) => setResultsDescription(e.target.value)}
+            placeholder="Describe the event results..."
+            className="w-full p-2 border rounded h-24"
+            required
+          />
         </div>
-      )}
 
+        <div>
+          <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+            className="w-full p-2 border rounded"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {selectedFiles.length} photo(s) selected
+          </p>
+        </div>
+
+    {/* ✅ If inter-club, show competing clubs (dynamic positions + no duplicates) */}
+{completingEvent.event_type === "inter" && competingClubsForEvent.length > 0 && (
+  <div>
+    <label className="block text-sm font-semibold mb-2">Competition Results</label>
+    <p className="text-xs text-gray-500 mb-2">
+      Assign unique positions to each club:
+    </p>
+
+    {/* Make number of position options = number of clubs */}
+    {(() => {
+      const totalClubs = competingClubsForEvent.length;
+      const positionOptions = Array.from({ length: totalClubs }, (_, i) => i + 1);
+      const usedPositions = new Set(
+        Object.values(clubPositions).filter(
+          (v): v is number => typeof v === "number" && !isNaN(v)
+        )
+      );
+
+      return (
+        <>
+          {competingClubsForEvent.map((club) => (
+            <div
+              key={club.id}
+              className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded"
+            >
+              <span className="text-sm flex-1 font-medium">{club.name}</span>
+              <select
+                value={clubPositions[club.id] ?? ""}
+                onChange={(e) =>
+                  setClubPositions((prev) => ({
+                    ...prev,
+                    [club.id]: Number(e.target.value),
+                  }))
+                }
+                className="p-2 border rounded text-sm"
+                required
+              >
+                <option value="">Select position</option>
+                {positionOptions.map((pos) => (
+                  <option
+                    key={pos}
+                    value={pos}
+                    // disable a position if already used by another club
+                    disabled={usedPositions.has(pos) && clubPositions[club.id] !== pos}
+                  >
+                    {pos === 1 ? "🥇 " : pos === 2 ? "🥈 " : pos === 3 ? "🥉 " : ""}
+                    {pos}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+
+          {/* Helper message if something is missing or duplicated */}
+          {(!allAssigned || !uniqueAssigned) && (
+            <p className="text-xs text-red-600 mt-1">
+              Assign a unique position to each club (1 to {totalClubs}).
+            </p>
+          )}
+        </>
+      );
+    })()}
+  </div>
+)}
+
+
+        <div className="bg-yellow-50 p-3 rounded">
+          <p className="text-xs text-yellow-800">
+            ℹ️ After submission, this event will be reviewed by platform admins.
+            XP will be awarded upon approval.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setShowCompleteModal(false)}
+            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCompleteEvent}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            disabled={
+  !resultsDescription ||
+  selectedFiles.length === 0 ||
+  (completingEvent.event_type === "inter" && (!allAssigned || !uniqueAssigned))
+}
+
+          >
+            Submit for Review
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {/* Leave Confirmation Modal */}
       {showLeaveModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">

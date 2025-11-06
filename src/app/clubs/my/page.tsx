@@ -234,14 +234,29 @@ export default function MyClubs() {
           : `Wrong passcode. ${tries} tries left:`
       );
       if (pass === null) return;
-      if (pass === realPass) {
-        await supabase.from("club_members").insert([
-          { club_id: clubId, user_id: user.id },
-        ]);
-        alert("✅ Joined club!");
-        window.location.reload();
-        return;
-      }
+if (pass === realPass) {
+  await supabase.from("club_members").insert([
+    { club_id: clubId, user_id: user.id },
+  ]);
+  
+  // Get user's name
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+  
+  // Send system message to club chat
+  await supabase.from("messages").insert([{
+    club_id: clubId,
+    user_id: user.id,
+    content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
+  }]);
+  
+  alert("✅ Joined club!");
+  window.location.reload();
+  return;
+}
       tries--;
     }
 
