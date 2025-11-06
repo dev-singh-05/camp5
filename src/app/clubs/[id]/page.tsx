@@ -395,6 +395,65 @@ useEffect(() => {
     supabase.removeChannel(channel);
   };
 }, [clubId, userRole]);
+
+// ADD THIS TO clubs/[id]/page.tsx
+
+// ✅ Add this useEffect after the existing message subscription (around line 400)
+// This subscribes to event status changes in real-time
+
+useEffect(() => {
+  if (!clubId) return;
+
+  const channel = supabase
+    .channel(`event-status-${clubId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "events",
+        filter: `club_id=eq.${clubId}`,
+      },
+      async (payload) => {
+        console.log("Event status changed:", payload);
+        // Refresh events when any event is updated
+        await fetchEvents();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [clubId]);
+
+// ✅ Also subscribe to inter-club event status changes
+useEffect(() => {
+  if (!clubId) return;
+
+  const channel = supabase
+    .channel(`inter-event-status-${clubId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "inter_club_participants",
+        filter: `club_id=eq.${clubId}`,
+      },
+      async (payload) => {
+        console.log("Inter-club participant updated:", payload);
+        // Refresh events when XP is awarded
+        await fetchEvents();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [clubId]);
+
   useEffect(() => {
     if (!clubId) return;
     let mounted = true;
@@ -950,6 +1009,8 @@ if (event.event_type === "inter" && clubId) {
     }
 
  // If inter-club, update positions + XP distribution
+// If inter-club, update positions + XP distribution
+// If inter-club, update positions + XP distribution
 if (completingEvent.event_type === "inter") {
   // 1) Save positions
   for (const [clubId, position] of Object.entries(clubPositions)) {
@@ -960,37 +1021,42 @@ if (completingEvent.event_type === "inter") {
       .eq("club_id", clubId);
   }
 
-  // 2) Compute XP pool and split by rank (strictly decreasing)
-  // n = number of clubs (includes your club; you already loaded these for the modal)
-  const n = competingClubsForEvent.length;
-  const pool = n * 100;
-
-  // Formula: points for rank r = round( 200 * (n - r + 1) / (n + 1) )
-  // This gives strictly decreasing values and sums ~ pool.
-  // We'll adjust any rounding remainder to 1st place.
+  // 2) Build the ranked list from the *assigned* positions only
   type Entry = { club_id: string; position: number };
   const entries: Entry[] = Object.entries(clubPositions)
     .map(([club_id, position]) => ({ club_id, position: Number(position) }))
+    .filter(e => Number.isFinite(e.position)) // only clubs that got a position
     .sort((a, b) => a.position - b.position); // rank order: 1,2,3...
+
+  // n = number of clubs actually ranked (what the creator assigned)
+  const n = entries.length;
+
+  // 3) XP pool = n * 100 (your rule)
+  const pool = n * 100;
+
+  // 4) Strictly-decreasing split that ALWAYS sums to pool
+  //    Weight for rank r is proportional to (n - r + 1); sum of weights = n(n+1)/2
+  //    points = pool * weight / totalWeights
+  const totalWeights = (n * (n + 1)) / 2;
 
   const pointsByClub: Record<string, number> = {};
   let sum = 0;
 
   for (const e of entries) {
-    const r = e.position; // 1-based rank
-    const pts = Math.round((200 * (n - r + 1)) / (n + 1));
+    const weight = n - e.position + 1; // n, n-1, ..., 1
+    const pts = Math.round((pool * weight) / totalWeights);
     pointsByClub[e.club_id] = pts;
     sum += pts;
   }
 
-  // Fix rounding so total exactly equals pool (add diff to 1st place)
+  // 5) Fix rounding so total exactly equals pool (give diff to 1st place)
   const diff = pool - sum;
   if (entries.length > 0 && diff !== 0) {
     const firstClubId = entries[0].club_id;
     pointsByClub[firstClubId] = (pointsByClub[firstClubId] || 0) + diff;
   }
 
-  // 3) Persist xp_awarded
+  // 6) Persist xp_awarded
   for (const e of entries) {
     await supabase
       .from("inter_club_participants")
@@ -998,7 +1064,15 @@ if (completingEvent.event_type === "inter") {
       .eq("event_id", completingEvent.id)
       .eq("club_id", e.club_id);
   }
+
+  // (Optional) Keep the event's visible pool aligned with what you just distributed
+  await supabase
+    .from("events")
+    .update({ total_xp_pool: pool })
+    .eq("id", completingEvent.id);
 }
+
+
 
 
     toast.success("✅ Event submitted for review!");
