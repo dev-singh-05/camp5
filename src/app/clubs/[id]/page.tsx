@@ -77,6 +77,8 @@ const [inviteActioning, setInviteActioning] = useState<string | null>(null);
 
   const [showTeammates, setShowTeammates] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+const [showActivityLog, setShowActivityLog] = useState(false);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [competingClubsForEvent, setCompetingClubsForEvent] = useState<any[]>([]);
@@ -96,6 +98,20 @@ const [eventInvitations, setEventInvitations] = useState<any[]>([]);
   const [resultsDescription, setResultsDescription] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [clubPositions, setClubPositions] = useState<Record<string, number>>({});
+
+// Helper: Check if event should be in history
+const isHistoryEvent = (event: Event) => {
+  return event.status === "approved" || event.status === "rejected";
+};
+
+// Split events into active and history
+const activeEvents = events.filter(e => !isHistoryEvent(e));
+const historyEvents = events.filter(e => isHistoryEvent(e));
+
+// Filter system messages for activity log (messages starting with 🔔 SYSTEM:)
+const activityLogs = messages.filter(msg => 
+  msg.content && msg.content.startsWith("🔔 SYSTEM:")
+);
 
   useEffect(() => {
     console.log("📌 ClubDetailPage clubId from URL:", clubId);
@@ -132,6 +148,22 @@ const [eventInvitations, setEventInvitations] = useState<any[]>([]);
     setNewMessage("");
   };
 
+ const sendSystemMessage = async (content: string) => {
+  if (!clubId || !currentUserId) return;
+  
+  const { error } = await supabase.from("messages").insert([
+    {
+      club_id: clubId,
+      user_id: currentUserId, // Use current user ID for system messages
+      content: `🔔 SYSTEM: ${content}`,
+    },
+  ]);
+
+  if (error) {
+    console.error("❌ Failed to send system message:", error.message);
+  }
+};
+
   const fetchClub = async () => {
     if (!clubId) return;
     const { data } = await supabase
@@ -165,26 +197,62 @@ const [eventInvitations, setEventInvitations] = useState<any[]>([]);
     );
   };
 
-  const fetchEvents = async () => {
-    if (!clubId) return;
-    const { data, error } = await supabase
-      .from("events")
-      .select(
-        "id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos"
-      )
-      .eq("club_id", clubId)
-      .order("event_date", { ascending: true });
+const fetchEvents = async () => {
+  if (!clubId) return;
+  
+  // Fetch events created by this club
+  const { data: ownEvents, error: ownError } = await supabase
+    .from("events")
+    .select(
+      "id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos"
+    )
+    .eq("club_id", clubId)
+    .order("event_date", { ascending: true });
 
-    if (error) {
-      toast.error("Error fetching events");
-      return;
-    }
-    setEvents(data || []);
-    
-    if (data && data.length > 0) {
-      fetchAllEventParticipantCounts(data.map(e => e.id));
-    }
-  };
+  if (ownError) {
+    toast.error("Error fetching events");
+    return;
+  }
+
+  // Fetch inter-club events where this club has ACCEPTED
+  const { data: acceptedInterEvents, error: interError } = await supabase
+    .from("inter_club_participants")
+    .select(`
+      event_id,
+      events!inner(
+        id, title, description, event_date, members_required, xp_points, place, created_by, event_type, size_category, total_xp_pool, status, results_description, proof_photos, club_id
+      )
+    `)
+    .eq("club_id", clubId)
+    .eq("accepted", true)
+    .neq("events.club_id", clubId);
+
+  if (interError) {
+    console.error("Error fetching accepted inter-club events:", interError);
+  }
+
+  // Merge both event lists
+  const allEvents = [
+    ...(ownEvents || []),
+    ...(acceptedInterEvents || []).map((item: any) => item.events)
+  ];
+
+  // Remove duplicates by event id
+  const uniqueEvents = Array.from(
+    new Map(allEvents.map(event => [event.id, event])).values()
+  );
+
+  // Sort by event_date
+  uniqueEvents.sort((a, b) => 
+    new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
+  );
+
+  setEvents(uniqueEvents);
+  
+  if (uniqueEvents.length > 0) {
+    fetchAllEventParticipantCounts(uniqueEvents.map(e => e.id));
+  }
+};
  
 const checkCanComplete = async (event: Event) => {
   const result = await canCompleteEvent(event);
@@ -430,6 +498,10 @@ useEffect(() => {
     await supabase.from("club_requests").delete().eq("id", requestId);
 
     toast.success("✅ Request approved & user added");
+    const approvedUser = requests.find(r => r.id === requestId);
+    if (approvedUser?.profiles?.full_name) {
+      await sendSystemMessage(`${approvedUser.profiles.full_name} joined the club`);
+    }
     await fetchRequests();
     await fetchMembers();
   };
@@ -440,39 +512,58 @@ useEffect(() => {
     await fetchRequests();
   };
 
-  const handlePromote = async (targetUserId: string) => {
-    if (!clubId) return;
-    await supabase
-      .from("club_members")
-      .update({ role: "admin" })
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
-    await fetchMembers();
-  };
+const handlePromote = async (targetUserId: string) => {
+  if (!clubId) return;
+  
+  // Get user's name before promoting
+  const targetMember = members.find(m => m.user_id === targetUserId);
+  
+  await supabase
+    .from("club_members")
+    .update({ role: "admin" })
+    .eq("club_id", clubId)
+    .eq("user_id", targetUserId);
+  
+  // Send system message
+  if (targetMember?.profiles?.full_name) {
+    await sendSystemMessage(`${targetMember.profiles.full_name} was promoted to admin`);
+  }
+  
+  await fetchMembers();
+};
 
-  const handleDemote = async (targetUserId: string) => {
-    if (!clubId) return;
-    const { count } = await supabase
-      .from("club_members")
-      .select("user_id", { count: "exact", head: true })
-      .eq("club_id", clubId)
-      .eq("role", "admin");
+const handleDemote = async (targetUserId: string) => {
+  if (!clubId) return;
+  
+  // Get user's name before demoting
+  const targetMember = members.find(m => m.user_id === targetUserId);
+  
+  const { count } = await supabase
+    .from("club_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("club_id", clubId)
+    .eq("role", "admin");
 
-    if (count !== null && count <= 1) {
-      toast.error("❌ Cannot demote the last admin.");
-      return;
-    }
+  if (count !== null && count <= 1) {
+    toast.error("❌ Cannot demote the last admin.");
+    return;
+  }
 
-    await supabase
-      .from("club_members")
-      .update({ role: "member" })
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
+  await supabase
+    .from("club_members")
+    .update({ role: "member" })
+    .eq("club_id", clubId)
+    .eq("user_id", targetUserId);
 
-    toast.success("User demoted ✅");
-    await fetchMembers();
-  };
-
+  toast.success("User demoted ✅");
+  
+  // Send system message
+  if (targetMember?.profiles?.full_name) {
+    await sendSystemMessage(`${targetMember.profiles.full_name} was demoted to member`);
+  }
+  
+  await fetchMembers();
+};
   const handleRemove = async (targetUserId: string) => {
     if (!clubId) return;
 
@@ -496,14 +587,23 @@ useEffect(() => {
       }
     }
 
-    await supabase
-      .from("club_members")
-      .delete()
-      .eq("club_id", clubId)
-      .eq("user_id", targetUserId);
+   // Get user's name before removing
+const targetMember = members.find(m => m.user_id === targetUserId);
 
-    toast.success("User removed ✅");
-    await fetchMembers();
+await supabase
+  .from("club_members")
+  .delete()
+  .eq("club_id", clubId)
+  .eq("user_id", targetUserId);
+
+toast.success("User removed ✅");
+
+// Send system message
+if (targetMember?.profiles?.full_name) {
+  await sendSystemMessage(`${targetMember.profiles.full_name} was removed from the club`);
+}
+
+await fetchMembers();
   };
 
   const calculateXP = () => {
@@ -571,6 +671,7 @@ if (eventType === "inter" && newEvent) {
 
 
     toast.success("🎉 Event created");
+    await sendSystemMessage(`New event created: ${formData.title} on ${new Date(formData.event_date).toLocaleDateString()}`);
     setShowCreateEventModal(false);
     setEventType("intra");
     setSizeCategory("");
@@ -608,6 +709,10 @@ if (eventType === "inter" && newEvent) {
 
       if (result.reason === "joined") {
         toast.success("✅ Joined event");
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          await sendSystemMessage(`${currentUserId} joined event: ${event.title}`);
+        }
         await fetchEventParticipants(eventId);
       } else if (result.reason === "already_joined") {
         toast("You already joined this event");
@@ -897,6 +1002,7 @@ if (completingEvent.event_type === "inter") {
 
 
     toast.success("✅ Event submitted for review!");
+    await sendSystemMessage(`Event "${completingEvent.title}" submitted for review`);
     setShowCompleteModal(false);
     await fetchEvents();
   };
@@ -1018,6 +1124,7 @@ const uniqueAssigned =
                   const url = `${window.location.origin}/accept-invite?token=${data.token}`;
                   await navigator.clipboard?.writeText(url);
                   alert("✅ Invite link copied:\n" + url);
+                  await sendSystemMessage(`Admin created a new invite link`);
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
               >
@@ -1089,45 +1196,79 @@ const uniqueAssigned =
               )}
             </div>
 
-            {/* Events Section */}
-            <div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
-              <button
-                onClick={() => setShowEvents(!showEvents)}
-                className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
-              >
-                Events / Competitions
-                <span>{showEvents ? "▲" : "▼"}</span>
-              </button>
-              {showEvents && (
-                <div className="max-h-40 overflow-y-auto px-4 py-2">
-                  {events.length === 0 ? (
-                    <p className="text-gray-500">No events yet.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {events.map((e) => (
-                 <li
-  key={e.id}
-  className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
-  onClick={() => handleEventClick(e)} // ✅ Use new handler
->
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span>
-                                📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
-                              </span>
-                              {getEventStatusBadge(e.status)}
-                            </div>
-                          </div>
-                          <span className="text-sm text-gray-500 font-semibold">
-                            {eventParticipantCounts[e.id] || 0}/{e.members_required}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+ {/* Active Events Section */}
+<div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
+  <button
+    onClick={() => setShowEvents(!showEvents)}
+    className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
+  >
+    Active Events
+    <span>{showEvents ? "▲" : "▼"}</span>
+  </button>
+  {showEvents && (
+    <div className="max-h-40 overflow-y-auto px-4 py-2">
+      {activeEvents.length === 0 ? (
+        <p className="text-gray-500">No active events.</p>
+      ) : (
+        <ul className="space-y-2">
+          {activeEvents.map((e) => (
+            <li
+              key={e.id}
+              className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
+              onClick={() => handleEventClick(e)}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span>
+                    📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
+                  </span>
+                  {getEventStatusBadge(e.status)}
                 </div>
-              )}
-            </div>
+              </div>
+              <span className="text-sm text-gray-500 font-semibold">
+                {eventParticipantCounts[e.id] || 0}/{e.members_required}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )}
+</div>
+
+{/* Event History - Clickable Card */}
+<div 
+  onClick={() => router.push(`/clubs/${clubId}/profile#history`)}
+  className="bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
+>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <span className="text-3xl">📜</span>
+      <div>
+        <h3 className="font-bold text-gray-800">Event History</h3>
+        <p className="text-xs text-gray-600">View completed events</p>
+      </div>
+    </div>
+    <span className="text-2xl text-purple-600">→</span>
+  </div>
+</div>
+
+{/* Activity Log - Clickable Card */}
+<div 
+  onClick={() => router.push(`/clubs/${clubId}/profile#activity`)}
+  className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
+>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <span className="text-3xl">📋</span>
+      <div>
+        <h3 className="font-bold text-gray-800">Activity Log</h3>
+        <p className="text-xs text-gray-600">View all club activities</p>
+      </div>
+    </div>
+    <span className="text-2xl text-blue-600">→</span>
+  </div>
+</div>
 
             {/* Admin Panel */}
             {userRole === "admin" && (
@@ -1187,6 +1328,7 @@ const uniqueAssigned =
   }
 
   toast.success("✅ Challenge accepted!");
+  await sendSystemMessage(`Accepted inter-club event: ${invitation.events.title}`);
   // keep UI in sync
   await fetchEventInvitations();
   await fetchEvents();
@@ -1230,6 +1372,7 @@ const uniqueAssigned =
             }
 
             toast.success("❌ Challenge declined");
+            await sendSystemMessage(`Declined inter-club event: ${invitation.events.title}`);
             await fetchEventInvitations();
             await fetchEvents();
 
@@ -1302,24 +1445,32 @@ const uniqueAssigned =
 
         {/* Chat Section */}
         <div className="col-span-3 flex flex-col bg-white shadow-inner h-screen">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                aria-label="Go back"
-                className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-              >
-                ← Back
-              </button>
+         <div className="p-4 border-b flex items-center justify-between">
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => router.back()}
+      aria-label="Go back"
+      className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+    >
+      ← Back
+    </button>
 
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
-                <p className="text-gray-600">{club?.description}</p>
-              </div>
-            </div>
+    <div>
+      <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
+      <p className="text-gray-600">{club?.description}</p>
+    </div>
+  </div>
 
-            <h2 className="text-md font-semibold text-gray-700 mt-2 hidden md:block">Team Chat</h2>
-          </div>
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => router.push(`/clubs/${clubId}/profile`)}
+      className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+    >
+      📋 Profile
+    </button>
+    <h2 className="text-md font-semibold text-gray-700 hidden md:block">Team Chat</h2>
+  </div>
+</div>
 
           <div className="flex-1 overflow-y-auto mb-3 p-3 bg-gray-50 rounded-lg border">
             {messages.length === 0 ? (

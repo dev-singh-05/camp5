@@ -145,12 +145,27 @@ export default function ClubsPage() {
       return;
     }
 
-    if (enteredPass === realPass) {
-      await supabase.from("club_members").insert([{ club_id: joiningClub.id, user_id: user.id }]);
-      setJoinedClubIds((prev) => [...prev, joiningClub.id]);
-      setShowPassModal(false);
-      return;
-    }
+if (enteredPass === realPass) {
+  await supabase.from("club_members").insert([{ club_id: joiningClub.id, user_id: user.id }]);
+  
+  // Get user's name
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+  
+  // Send system message to club chat
+  await supabase.from("messages").insert([{
+    club_id: joiningClub.id,
+    user_id: user.id,
+    content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
+  }]);
+  
+  setJoinedClubIds((prev) => [...prev, joiningClub.id]);
+  setShowPassModal(false);
+  return;
+}
 
     if (triesLeft - 1 > 0) {
       setTriesLeft(triesLeft - 1);
