@@ -26,10 +26,12 @@ type Event = {
 type InterClubParticipant = {
   club_id: string;
   position: number | null;
+  xp_awarded: number | null;   // ← add this
   clubs: {
     name: string;
   } | null;
 };
+
 
 export default function AdminEventsPage() {
   const router = useRouter();
@@ -98,10 +100,11 @@ export default function AdminEventsPage() {
     setSelectedEvent(event);
 
     if (event.event_type === "inter") {
-      const { data } = await supabase
-        .from("inter_club_participants")
-        .select("club_id, position, clubs!inner(name)")
-        .eq("event_id", event.id);
+ const { data } = await supabase
+  .from("inter_club_participants")
+  .select("club_id, position, xp_awarded, clubs!inner(name)") // ← xp_awarded added
+  .eq("event_id", event.id);
+
 
       // Transform the data to match our type
       const transformedData = (data || []).map((participant: any) => ({
@@ -115,12 +118,18 @@ export default function AdminEventsPage() {
     }
   };
 
-  const calculatePositionXP = (position: number, totalXP: number) => {
-    if (position === 1) return Math.floor(totalXP * 0.5);
-    if (position === 2) return Math.floor(totalXP * 0.3);
-    if (position === 3) return Math.floor(totalXP * 0.2);
-    return 0;
-  };
+const calculatePositionXP = (
+  position: number,
+  totalXP: number,
+  totalClubs: number
+) => {
+  const n = Math.max(1, totalClubs);            // safety
+  const pool = totalXP;
+  const totalWeights = (n * (n + 1)) / 2;       // n(n+1)/2
+  const weight = n - position + 1;              // n, n-1, ..., 1
+  return Math.round((pool * weight) / totalWeights);
+};
+
 
   const addXPToClub = async (clubId: string, xp: number) => {
     const { data: existing } = await supabase
@@ -149,23 +158,61 @@ export default function AdminEventsPage() {
     if (!selectedEvent || !currentUserId) return;
 
     try {
+      let xpMessage = "";
+
       // Award XP
       if (selectedEvent.event_type === "intra") {
         await addXPToClub(selectedEvent.club_id, selectedEvent.total_xp_pool);
-      } else if (selectedEvent.event_type === "inter") {
-        for (const participant of interClubData) {
-          if (participant.position) {
-            const xp = calculatePositionXP(participant.position, selectedEvent.total_xp_pool);
-            await addXPToClub(participant.club_id, xp);
+        xpMessage = `Event "${selectedEvent.title}" approved! Your club earned ${selectedEvent.total_xp_pool} XP! 🎉`;
+        
+        // Send system notification to the club
+        await supabase.from("messages").insert([{
+          club_id: selectedEvent.club_id,
+          user_id: currentUserId,
+          content: `🔔 SYSTEM: ${xpMessage}`
+        }]);
 
-            await supabase
-              .from("inter_club_participants")
-              .update({ xp_awarded: xp })
-              .eq("event_id", selectedEvent.id)
-              .eq("club_id", participant.club_id);
-          }
-        }
-      }
+      } else if (selectedEvent.event_type === "inter") {
+  // Count of ranked clubs (fallback to all if none missing)
+  const rankedCount =
+    interClubData.filter(p => p.position != null).length || interClubData.length;
+
+  for (const participant of interClubData) {
+    if (!participant.position) continue;
+
+    // If creator flow already saved xp_awarded, **use it**. Otherwise compute now.
+    const xp =
+      participant.xp_awarded != null
+        ? participant.xp_awarded
+        : calculatePositionXP(
+            participant.position,
+            selectedEvent.total_xp_pool,
+            rankedCount
+          );
+
+    // Persist xp_awarded (idempotent if already set)
+    await supabase
+      .from("inter_club_participants")
+      .update({ xp_awarded: xp })
+      .eq("event_id", selectedEvent.id)
+      .eq("club_id", participant.club_id);
+
+    // Update ledger
+    await addXPToClub(participant.club_id, xp);
+
+    // Notify club
+    const positionEmoji =
+      participant.position === 1 ? "🥇" :
+      participant.position === 2 ? "🥈" :
+      participant.position === 3 ? "🥉" : `#${participant.position}`;
+
+    await supabase.from("messages").insert([{
+      club_id: participant.club_id,
+      user_id: currentUserId!,
+      content: `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" approved! Your club placed ${positionEmoji} and earned ${xp} XP! 🎉`
+    }]);
+  }
+}
 
       // Update event status
       const { error } = await supabase
@@ -182,7 +229,7 @@ export default function AdminEventsPage() {
         return;
       }
 
-      toast.success("✅ Event approved! XP awarded.");
+      toast.success("✅ Event approved! XP awarded and clubs notified.");
       setSelectedEvent(null);
       await fetchPendingEvents();
     } catch (err) {
@@ -209,7 +256,25 @@ export default function AdminEventsPage() {
       return;
     }
 
-    toast.error("❌ Event rejected");
+    // Send rejection notification to club(s)
+    if (selectedEvent.event_type === "intra") {
+      await supabase.from("messages").insert([{
+        club_id: selectedEvent.club_id,
+        user_id: currentUserId,
+        content: `🔔 SYSTEM: Event "${selectedEvent.title}" was rejected. Reason: ${rejectionReason}`
+      }]);
+    } else if (selectedEvent.event_type === "inter") {
+      // Notify all participating clubs
+      for (const participant of interClubData) {
+        await supabase.from("messages").insert([{
+          club_id: participant.club_id,
+          user_id: currentUserId,
+          content: `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" was rejected. Reason: ${rejectionReason}`
+        }]);
+      }
+    }
+
+    toast.error("❌ Event rejected and clubs notified");
     setShowRejectModal(false);
     setRejectionReason("");
     setSelectedEvent(null);
@@ -371,11 +436,19 @@ export default function AdminEventsPage() {
                               </td>
                               <td className="px-4 py-2">{participant.clubs?.name || "Unknown Club"}</td>
                               <td className="px-4 py-2 text-right font-semibold">
-                                {participant.position
-                                  ? calculatePositionXP(participant.position, selectedEvent.total_xp_pool)
-                                  : 0}{" "}
-                                XP
-                              </td>
+  {participant.position
+    ? (participant.xp_awarded != null
+        ? participant.xp_awarded
+        : calculatePositionXP(
+            participant.position,
+            selectedEvent.total_xp_pool,
+            interClubData.filter(p => p.position != null).length || interClubData.length
+          )
+      )
+    : 0}{" "}
+  XP
+</td>
+
                             </tr>
                           ))}
                       </tbody>
