@@ -154,90 +154,84 @@ const calculatePositionXP = (
     }
   };
 
-  const handleApprove = async () => {
-    if (!selectedEvent || !currentUserId) return;
+  // FIXED: Admin approval handler for inter-club events
+// Place this in src/app/admin/events/page.tsx
 
-    try {
-      let xpMessage = "";
+const handleApprove = async () => {
+  if (!selectedEvent || !currentUserId) return;
 
-      // Award XP
-      if (selectedEvent.event_type === "intra") {
-        await addXPToClub(selectedEvent.club_id, selectedEvent.total_xp_pool);
-        xpMessage = `Event "${selectedEvent.title}" approved! Your club earned ${selectedEvent.total_xp_pool} XP! 🎉`;
+  try {
+    let xpMessage = "";
+
+    // Award XP
+    if (selectedEvent.event_type === "intra") {
+      await addXPToClub(selectedEvent.club_id, selectedEvent.total_xp_pool);
+      xpMessage = `Event "${selectedEvent.title}" approved! Your club earned ${selectedEvent.total_xp_pool} XP! 🎉`;
+      
+      await supabase.from("messages").insert([{
+        club_id: selectedEvent.club_id,
+        user_id: currentUserId,
+        content: `🔔 SYSTEM: ${xpMessage}`
+      }]);
+
+    } else if (selectedEvent.event_type === "inter") {
+      // ✅ FIX: Always use the pre-calculated xp_awarded from event completion
+      // Don't recalculate - trust the creator's distribution
+      
+      for (const participant of interClubData) {
+        // Skip clubs without positions (didn't participate/accept)
+        if (!participant.position) continue;
         
-        // Send system notification to the club
+        // ✅ CRITICAL: Use the xp_awarded that was saved during event completion
+        const xp = participant.xp_awarded ?? 0;
+        
+        // Safety check: xp_awarded must exist
+        if (!xp) {
+          console.error(`❌ Missing xp_awarded for club ${participant.club_id}`);
+          toast.error(`Missing XP data for ${participant.clubs?.name}`);
+          return;
+        }
+
+        // Update ledger
+        await addXPToClub(participant.club_id, xp);
+
+        // Notify club
+        const positionEmoji =
+          participant.position === 1 ? "🥇" :
+          participant.position === 2 ? "🥈" :
+          participant.position === 3 ? "🥉" : `#${participant.position}`;
+
         await supabase.from("messages").insert([{
-          club_id: selectedEvent.club_id,
+          club_id: participant.club_id,
           user_id: currentUserId,
-          content: `🔔 SYSTEM: ${xpMessage}`
+          content: `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" approved! Your club placed ${positionEmoji} and earned ${xp} XP! 🎉`
         }]);
-
-      } else if (selectedEvent.event_type === "inter") {
-  // Count of ranked clubs (fallback to all if none missing)
-  const rankedCount =
-    interClubData.filter(p => p.position != null).length || interClubData.length;
-
-  for (const participant of interClubData) {
-    if (!participant.position) continue;
-
-    // If creator flow already saved xp_awarded, **use it**. Otherwise compute now.
-    const xp =
-      participant.xp_awarded != null
-        ? participant.xp_awarded
-        : calculatePositionXP(
-            participant.position,
-            selectedEvent.total_xp_pool,
-            rankedCount
-          );
-
-    // Persist xp_awarded (idempotent if already set)
-    await supabase
-      .from("inter_club_participants")
-      .update({ xp_awarded: xp })
-      .eq("event_id", selectedEvent.id)
-      .eq("club_id", participant.club_id);
-
-    // Update ledger
-    await addXPToClub(participant.club_id, xp);
-
-    // Notify club
-    const positionEmoji =
-      participant.position === 1 ? "🥇" :
-      participant.position === 2 ? "🥈" :
-      participant.position === 3 ? "🥉" : `#${participant.position}`;
-
-    await supabase.from("messages").insert([{
-      club_id: participant.club_id,
-      user_id: currentUserId!,
-      content: `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" approved! Your club placed ${positionEmoji} and earned ${xp} XP! 🎉`
-    }]);
-  }
-}
-
-      // Update event status
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "approved",
-          reviewed_by: currentUserId,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", selectedEvent.id);
-
-      if (error) {
-        toast.error("Failed to approve event");
-        return;
       }
-
-      toast.success("✅ Event approved! XP awarded and clubs notified.");
-      setSelectedEvent(null);
-      await fetchPendingEvents();
-    } catch (err) {
-      console.error("Error approving event:", err);
-      toast.error("Failed to approve event");
     }
-  };
 
+    // Update event status
+    const { error } = await supabase
+      .from("events")
+      .update({
+        status: "approved",
+        reviewed_by: currentUserId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", selectedEvent.id);
+
+    if (error) {
+      toast.error("Failed to approve event");
+      return;
+    }
+
+    toast.success("✅ Event approved! XP awarded and clubs notified.");
+    setSelectedEvent(null);
+    await fetchPendingEvents();
+  } catch (err) {
+    console.error("Error approving event:", err);
+    toast.error("Failed to approve event");
+  }
+};
   const handleReject = async () => {
     if (!selectedEvent || !currentUserId) return;
 
