@@ -15,26 +15,98 @@ type NewsItem = {
   meta?: Record<string, any>;
 };
 
-type CampusNews = {
-  id: string;
-  title: string;
-  category: string;
-  published_at: string;
-};
-
 export default function Dashboard() {
   const router = useRouter();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [campusNews, setCampusNews] = useState<CampusNews[]>([]);
-  const [hasUnreadNews, setHasUnreadNews] = useState(false);
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [tableExists, setTableExists] = useState<boolean>(true);
+  const removedItemsRef = useRef<Set<string>>(new Set());
 
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
+
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // About modal
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  // Help & Feedback modals
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  // Help form state
+  const [helpName, setHelpName] = useState("");
+  const [helpEmail, setHelpEmail] = useState("");
+  const [helpMessage, setHelpMessage] = useState("");
+
+  // Feedback form state
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackEmail, setFeedbackEmail] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackType, setFeedbackType] = useState("general");
+
+  // Notification preference toggles (persisted)
+  const [notificationsPaused, setNotificationsPaused] = useState(false);
+  const notificationsPausedRef = useRef(false);
+
+  const [ratingsMsgEnabled, setRatingsMsgEnabled] = useState(true);
+  const ratingsMsgRef = useRef(true);
+
+  const [datingMsgEnabled, setDatingMsgEnabled] = useState(true);
+  const datingMsgRef = useRef(true);
+
+  const [clubsMsgEnabled, setClubsMsgEnabled] = useState(true);
+  const clubsMsgRef = useRef(true);
+
+  // Dark mode placeholder
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Load dismissed items from localStorage
+  useEffect(() => {
+    const dismissed = localStorage.getItem("dismissedNews");
+    if (dismissed) {
+      try {
+        const parsed = JSON.parse(dismissed);
+        removedItemsRef.current = new Set(parsed);
+      } catch (e) {
+        console.error("Failed to parse dismissed news:", e);
+      }
+    }
+
+    // Load notification prefs
+    const paused = localStorage.getItem("prefs_notifications_paused");
+    const r = localStorage.getItem("prefs_ratings_messages");
+    const d = localStorage.getItem("prefs_dating_messages");
+    const c = localStorage.getItem("prefs_clubs_messages");
+    const dm = localStorage.getItem("prefs_dark_mode");
+
+    if (paused === "1") {
+      setNotificationsPaused(true);
+      notificationsPausedRef.current = true;
+    }
+    if (r === "0") {
+      setRatingsMsgEnabled(false);
+      ratingsMsgRef.current = false;
+    }
+    if (d === "0") {
+      setDatingMsgEnabled(false);
+      datingMsgRef.current = false;
+    }
+    if (c === "0") {
+      setClubsMsgEnabled(false);
+      clubsMsgRef.current = false;
+    }
+    if (dm === "1") {
+      setDarkMode(true);
+    }
+  }, []);
+
+  // Save dismissed items to localStorage whenever they change
+  const saveDismissedItems = () => {
+    localStorage.setItem("dismissedNews", JSON.stringify([...removedItemsRef.current]));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -56,12 +128,10 @@ export default function Dashboard() {
 
       if (!mounted) return;
       setProfileName(profile?.full_name || "Student");
-
-      const dismissed = await loadDismissedNotifications(userId);
-      await loadInitialNews(userId, dismissed);
-      await loadCampusNews(userId);
-      await startRealtime(userId);
       setLoading(false);
+
+      await loadInitialNews(userId);
+      await startRealtime(userId);
     }
 
     init();
@@ -70,66 +140,11 @@ export default function Dashboard() {
       mounted = false;
       cleanupRealtime();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadDismissedNotifications(userId: string): Promise<Set<string>> {
+  async function loadInitialNews(userId: string) {
     try {
-      const { data, error } = await supabase
-        .from("dismissed_notifications")
-        .select("notification_id")
-        .eq("user_id", userId);
-
-      if (error) {
-        if (error.code === '42P01' || error.message.includes('does not exist')) {
-          setTableExists(false);
-          return new Set();
-        }
-        return new Set();
-      }
-
-      const dismissed = new Set((data || []).map(d => d.notification_id));
-      setDismissedIds(dismissed);
-      return dismissed;
-    } catch (err) {
-      return new Set();
-    }
-  }
-
-  async function loadCampusNews(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from("campus_news")
-        .select("id, title, category, published_at")
-        .eq("published", true)
-        .eq("featured", true)
-        .order("pinned", { ascending: false })      // Pinned first
-        .order("published_at", { ascending: false }) // Then newest
-        .limit(4);                                   // Show only 4 on dashboard
-
-      if (error) {
-        console.error("Error loading campus news:", error);
-        return;
-      }
-
-      setCampusNews(data || []);
-
-      // Check for unread news
-      const { data: viewedNews } = await supabase
-        .from("news_views")
-        .select("news_id")
-        .eq("user_id", userId);
-
-      const viewedIds = new Set((viewedNews || []).map(v => v.news_id));
-      const hasUnread = (data || []).some(n => !viewedIds.has(n.id));
-      setHasUnreadNews(hasUnread);
-    } catch (err) {
-      console.error("loadCampusNews error:", err);
-    }
-  }
-
-  async function loadInitialNews(userId: string, dismissedIdsParam?: Set<string>) {
-    try {
-      const dismissed = dismissedIdsParam || dismissedIds;
       const results: NewsItem[] = [];
 
       const { data: ratings } = await supabase
@@ -256,7 +271,9 @@ export default function Dashboard() {
       }
 
       results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      const filtered = results.filter(item => !dismissed.has(item.id));
+
+      // Filter out dismissed items
+      const filtered = results.filter((item) => !removedItemsRef.current.has(item.id));
       setNews(filtered);
     } catch (err) {
       console.error("loadInitialNews error:", err);
@@ -266,21 +283,142 @@ export default function Dashboard() {
   async function startRealtime(userId: string) {
     try {
       cleanupRealtime();
+
       const channel = supabase.channel(`dashboard-news-${userId}`);
 
-      // ... existing realtime subscriptions ...
-
-      // Subscribe to campus news changes
       channel.on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "campus_news" },
-        async () => {
-          await loadCampusNews(userId);
+        { event: "INSERT", schema: "public", table: "ratings", filter: `to_user_id=eq.${userId}` },
+        (payload: any) => {
+          const r = payload.new;
+          const item: NewsItem = {
+            id: `rating-${r.id}`,
+            type: "rating",
+            title: "Someone rated you ⭐",
+            body: r.comment ?? null,
+            created_at: r.created_at,
+            meta: { overall_xp: r.overall_xp ?? null },
+          };
+          pushNews(item);
+        }
+      );
+
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "user_messages", filter: `to_user_id=eq.${userId}` },
+        async (payload: any) => {
+          const m = payload.new;
+          let name = "Someone";
+          try {
+            const { data } = await supabase.from("profiles").select("full_name").eq("id", m.from_user_id).maybeSingle();
+            name = data?.full_name || name;
+          } catch (e) {}
+          const item: NewsItem = {
+            id: `um-${m.id}`,
+            type: "user_message",
+            title: `Message from ${name}`,
+            body: m.content ?? null,
+            created_at: m.created_at,
+            meta: { from_user_id: m.from_user_id },
+          };
+          pushNews(item);
+        }
+      );
+
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dating_chats" },
+        async (payload: any) => {
+          const c = payload.new;
+          try {
+            const { data: match } = await supabase.from("dating_matches").select("id, user1_id, user2_id").eq("id", c.match_id).maybeSingle();
+            if (!match) return;
+            if (match.user1_id !== userId && match.user2_id !== userId) return;
+            let senderName = "Someone";
+            try {
+              const { data: p } = await supabase.from("profiles").select("full_name").eq("id", c.sender_id).maybeSingle();
+              senderName = p?.full_name || senderName;
+            } catch (e) {}
+            const item: NewsItem = {
+              id: `datingchat-${c.id}`,
+              type: "dating_chat",
+              title: `Dating chat: ${senderName}`,
+              body: c.message ?? null,
+              created_at: c.created_at,
+              meta: { match_id: c.match_id },
+            };
+            pushNews(item);
+          } catch (err) {
+            console.error("dating_chats payload handling error:", err);
+          }
+        }
+      );
+
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "events" },
+        async (payload: any) => {
+          const ev = payload.new;
+          try {
+            const { data: member } = await supabase
+              .from("club_members")
+              .select("id")
+              .eq("club_id", ev.club_id)
+              .eq("user_id", userId)
+              .maybeSingle();
+            if (!member) return;
+            const item: NewsItem = {
+              id: `event-${ev.id}`,
+              type: "club_event",
+              title: `New event: ${ev.title}`,
+              body: ev.description ?? null,
+              created_at: ev.created_at,
+              meta: { club_id: ev.club_id, event_id: ev.id },
+            };
+            pushNews(item);
+          } catch (err) {
+            console.error("events payload handler error:", err);
+          }
+        }
+      );
+
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload: any) => {
+          const m = payload.new;
+          try {
+            const { data: member } = await supabase
+              .from("club_members")
+              .select("id")
+              .eq("club_id", m.club_id)
+              .eq("user_id", userId)
+              .maybeSingle();
+            if (!member) return;
+            let sender = "Someone";
+            try {
+              const { data: p } = await supabase.from("profiles").select("full_name").eq("id", m.user_id).maybeSingle();
+              sender = p?.full_name || sender;
+            } catch (e) {}
+            const item: NewsItem = {
+              id: `clubmsg-${m.id}`,
+              type: "club_message",
+              title: `Club message • ${sender}`,
+              body: m.content ?? null,
+              created_at: m.created_at,
+              meta: { club_id: m.club_id },
+            };
+            pushNews(item);
+          } catch (err) {
+            console.error("messages payload error:", err);
+          }
         }
       );
 
       await channel.subscribe();
+
       realtimeChannelRef.current = channel;
+      console.log("Dashboard realtime subscribed for user:", userId);
     } catch (err) {
       console.error("Failed to start realtime:", err);
     }
@@ -293,22 +431,26 @@ export default function Dashboard() {
     }
   }
 
-  async function resetDismissedItems() {
-    if (!userIdRef.current || !tableExists) return;
-    const { error } = await supabase
-      .from("dismissed_notifications")
-      .delete()
-      .eq("user_id", userIdRef.current);
-
-    if (!error) {
-      const emptySet = new Set<string>();
-      setDismissedIds(emptySet);
-      await loadInitialNews(userIdRef.current, emptySet);
+  function resetDismissedItems() {
+    removedItemsRef.current.clear();
+    localStorage.removeItem("dismissedNews");
+    if (userIdRef.current) {
+      loadInitialNews(userIdRef.current);
     }
   }
 
   function pushNews(item: NewsItem) {
-    if (dismissedIds.has(item.id)) return;
+    // Respect notification preferences
+    if (notificationsPausedRef.current) return;
+
+    // Filter per-type
+    if (item.type === "rating" && !ratingsMsgRef.current) return;
+    if (item.type === "user_message" && !ratingsMsgRef.current) return; // user messages considered in same group
+    if (item.type === "dating_chat" && !datingMsgRef.current) return;
+    if ((item.type === "club_event" || item.type === "club_message") && !clubsMsgRef.current) return;
+
+    if (removedItemsRef.current.has(item.id)) return;
+
     setNews((prev) => {
       if (prev.some((p) => p.id === item.id)) return prev;
       const next = [item, ...prev].slice(0, 200);
@@ -317,28 +459,16 @@ export default function Dashboard() {
     });
   }
 
-  async function removeNewsItem(id: string) {
-    if (!userIdRef.current) return;
-    if (tableExists) {
-      await supabase
-        .from("dismissed_notifications")
-        .insert({ user_id: userIdRef.current, notification_id: id });
-    }
-    setDismissedIds(prev => new Set([...prev, id]));
+  function removeNewsItem(id: string) {
+    removedItemsRef.current.add(id);
+    saveDismissedItems();
     setNews((prev) => prev.filter((n) => n.id !== id));
   }
 
-  async function clearAllNews() {
-    if (!userIdRef.current || news.length === 0) return;
-    if (tableExists) {
-      const rows = news.map(item => ({
-        user_id: userIdRef.current!,
-        notification_id: item.id,
-      }));
-      await supabase.from("dismissed_notifications").upsert(rows, { onConflict: 'user_id,notification_id' });
-    }
-    const newDismissed = new Set([...dismissedIds, ...news.map(n => n.id)]);
-    setDismissedIds(newDismissed);
+  function clearAllNews() {
+    // Add all current news items to dismissed list
+    news.forEach((item) => removedItemsRef.current.add(item.id));
+    saveDismissedItems();
     setNews([]);
   }
 
@@ -368,166 +498,641 @@ export default function Dashboard() {
     }
   }
 
-  const getCategoryIcon = (cat: string) => {
-    switch (cat) {
-      case "academic": return "🎓";
-      case "sports": return "🏆";
-      case "events": return "📅";
-      default: return "📢";
-    }
-  };
+  // Notification preference handlers (persist)
+  function togglePauseNotifications(v?: boolean) {
+    const next = typeof v === "boolean" ? v : !notificationsPaused;
+    setNotificationsPaused(next);
+    notificationsPausedRef.current = next;
+    localStorage.setItem("prefs_notifications_paused", next ? "1" : "0");
+  }
+  function toggleRatingsMessages(v?: boolean) {
+    const next = typeof v === "boolean" ? v : !ratingsMsgEnabled;
+    setRatingsMsgEnabled(next);
+    ratingsMsgRef.current = next;
+    localStorage.setItem("prefs_ratings_messages", next ? "1" : "0");
+  }
+  function toggleDatingMessages(v?: boolean) {
+    const next = typeof v === "boolean" ? v : !datingMsgEnabled;
+    setDatingMsgEnabled(next);
+    datingMsgRef.current = next;
+    localStorage.setItem("prefs_dating_messages", next ? "1" : "0");
+  }
+  function toggleClubsMessages(v?: boolean) {
+    const next = typeof v === "boolean" ? v : !clubsMsgEnabled;
+    setClubsMsgEnabled(next);
+    clubsMsgRef.current = next;
+    localStorage.setItem("prefs_clubs_messages", next ? "1" : "0");
+  }
+
+  // Dark mode placeholder
+  function toggleDarkMode() {
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem("prefs_dark_mode", next ? "1" : "0");
+    // NOTE: actual theming implementation is left to your app-wide theme logic.
+  }
+
+  // Logout (logic already used earlier)
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  // Help submit - mock (replace with your handling)
+  function submitHelp(e?: React.FormEvent) {
+    e?.preventDefault();
+    console.log("Help form:", { helpName, helpEmail, helpMessage });
+    // TODO: send to supabase / email
+    setHelpOpen(false);
+    setHelpName("");
+    setHelpEmail("");
+    setHelpMessage("");
+  }
+
+  // Feedback submit - mock
+  function submitFeedback(e?: React.FormEvent) {
+    e?.preventDefault();
+    console.log("Feedback:", { feedbackName, feedbackEmail, feedbackType, feedbackMessage });
+    // TODO: send to supabase / email
+    setFeedbackOpen(false);
+    setFeedbackName("");
+    setFeedbackEmail("");
+    setFeedbackType("general");
+    setFeedbackMessage("");
+  }
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-r from-purple-500 to-pink-600">
-        <p className="text-white text-lg">Loading dashboard...</p>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-r from-indigo-700 to-purple-600">
+        <p className="text-white text-lg font-medium">Loading dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
-          <h1 className="text-2xl font-extrabold text-indigo-700">Campus5 Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <Link href="/profile" className="font-medium text-gray-700 hover:underline">
-              Welcome, {profileName}
-            </Link>
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                router.push("/login");
-              }}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className={`${darkMode ? "dark" : ""}`}>
+      {/* top-level container: slightly darker bg for contrast */}
+      <div className="min-h-screen bg-gray-100 text-gray-900">
+        <header className="bg-indigo-700 shadow">
+          <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
+            <h1 className="text-2xl font-extrabold text-white">Campus5 Dashboard</h1>
+            <div className="flex items-center gap-3">
+              <Link href="/profile" className="font-medium text-white hover:underline">
+                Welcome, {profileName}
+              </Link>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            <div className="bg-white rounded-xl shadow p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">📢 Advertisements</h3>
-                <span className="text-xs text-gray-500">Featured promotions</span>
-              </div>
-              <AdBanner placement="dashboard" />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Link href="/clubs" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                  <div className="text-3xl group-hover:scale-110 transition-transform">🏆</div>
-                  <div className="mt-2 text-sm font-semibold">Clubs</div>
+              {/* MENU / HAMBURGER ICON */}
+              <button
+                aria-label="Open settings"
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 rounded-md hover:bg-indigo-600/60"
+              >
+                {/* three-line icon (hamburger) */}
+                <div className="w-6 h-6 flex flex-col justify-between">
+                  <span className="block h-[2px] w-5 bg-white"></span>
+                  <span className="block h-[2px] w-5 bg-white"></span>
+                  <span className="block h-[2px] w-5 bg-white"></span>
                 </div>
-              </Link>
-              <Link href="/ratings" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                  <div className="text-3xl group-hover:scale-110 transition-transform">⭐</div>
-                  <div className="mt-2 text-sm font-semibold">Ratings</div>
-                </div>
-              </Link>
-              <Link href="/dating" className="block">
-                <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                  <div className="text-3xl group-hover:scale-110 transition-transform">💌</div>
-                  <div className="mt-2 text-sm font-semibold">Blind Dating</div>
-                </div>
-              </Link>
+              </button>
             </div>
           </div>
+        </header>
 
-          <aside className="space-y-4">
-            <div className="sticky top-6 space-y-4">
-              {/* Latest Updates */}
+        <main className="max-w-6xl mx-auto px-6 py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT: wide area spanning 2 cols */}
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              {/* Advertisements Section with AdBanner */}
               <div className="bg-white rounded-xl shadow p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Latest Updates</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={clearAllNews}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200"
-                    >
-                      Clear
-                    </button>
-                    <span className="text-xs text-gray-500">{news.length}</span>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">📢 Advertisements</h3>
+                  <span className="text-xs text-gray-500">Featured promotions</span>
+                </div>
+
+                {/* Main AdBanner */}
+                <AdBanner placement="dashboard" />
+
+                {/* Fallback message if no ads */}
+                <div id="ad-fallback" className="hidden">
+                  <div className="w-full h-[300px] bg-gradient-to-br from-gray-50 to-gray-200 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-gray-700 font-medium mb-2">Your Ad Here</p>
+                      <a href="/admin/ads" className="text-sm text-indigo-600 hover:underline">
+                        Become a sponsor
+                      </a>
+                    </div>
                   </div>
                 </div>
-                <div className="max-h-[35vh] overflow-y-auto pr-2">
-                  {news.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 text-sm mb-2">No updates</p>
-                      {tableExists && (
-                        <button onClick={resetDismissedItems} className="text-xs text-indigo-600 hover:underline">
-                          Show dismissed
-                        </button>
-                      )}
+              </div>
+
+              <button onClick={resetDismissedItems} className="text-xs text-gray-600 hover:text-gray-800">
+                Show dismissed
+              </button>
+
+              {/* Quick Access Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Link href="/clubs" className="block">
+                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                    <div className="text-3xl group-hover:scale-110 transition-transform">🏆</div>
+                    <div className="mt-2 text-sm font-semibold text-gray-800">Clubs</div>
+                  </div>
+                </Link>
+
+                <Link href="/ratings" className="block">
+                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                    <div className="text-3xl group-hover:scale-110 transition-transform">⭐</div>
+                    <div className="mt-2 text-sm font-semibold text-gray-800">Ratings</div>
+                  </div>
+                </Link>
+
+                <Link href="/dating" className="block">
+                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
+                    <div className="text-3xl group-hover:scale-110 transition-transform">💌</div>
+                    <div className="mt-2 text-sm font-semibold text-gray-800">Blind Dating</div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            {/* RIGHT: Latest Updates */}
+            <aside className="space-y-6">
+              <div className="sticky top-6">
+                <div className="bg-white rounded-xl shadow p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Latest Updates</h3>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={clearAllNews}
+                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+                      >
+                        Clear all
+                      </button>
+                      <span className="text-xs text-gray-500">{news.length} items</span>
                     </div>
+                  </div>
+
+                  {news.length === 0 ? (
+                    <p className="text-gray-600 text-sm">No recent updates.</p>
                   ) : (
-                    <ul className="space-y-2">
+                    <ul className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
                       {news.map((n) => (
-                        <li key={n.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border hover:bg-white transition">
+                        <li
+                          key={n.id}
+                          className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border hover:bg-white transition"
+                        >
+                          <div className="flex-shrink-0">
+                            {n.type === "rating" && (
+                              <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold">
+                                ⭐
+                              </div>
+                            )}
+                            {n.type === "user_message" && (
+                              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                                ✉️
+                              </div>
+                            )}
+                            {n.type === "dating_chat" && (
+                              <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
+                                💬
+                              </div>
+                            )}
+                            {n.type === "club_event" && (
+                              <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">
+                                📅
+                              </div>
+                            )}
+                            {n.type === "club_message" && (
+                              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                                🏷️
+                              </div>
+                            )}
+                          </div>
+
                           <div className="flex-1 min-w-0">
                             <button onClick={() => handleNewsClick(n)} className="text-left w-full">
-                              <p className="text-xs font-semibold text-gray-900 truncate">{n.title}</p>
-                              {n.body && <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{n.body}</p>}
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{n.title}</p>
+                                <time className="text-xs text-gray-400 ml-2">
+                                  {new Date(n.created_at).toLocaleString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </time>
+                              </div>
+                              {n.body && <p className="text-sm text-gray-700 mt-1 line-clamp-3">{n.body}</p>}
                             </button>
                           </div>
-                          <button onClick={() => removeNewsItem(n.id)} className="text-gray-400 hover:text-gray-700 text-sm">✖</button>
+
+                          <div className="ml-3 flex flex-col items-end gap-2">
+                            <button onClick={() => removeNewsItem(n.id)} title="Dismiss" className="text-gray-500 hover:text-gray-700">
+                              ✖
+                            </button>
+                            <button onClick={() => handleNewsClick(n)} className="text-xs text-indigo-600 hover:underline">
+                              Open
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
                   )}
+                </div>
+              </div>
+            </aside>
+          </div>
+        </main>
+
+        {/* Sidebar overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <div className="absolute inset-0 bg-black/30" />
+          </div>
+        )}
+
+        {/* Slide-in panel */}
+        <aside
+          className={`fixed top-0 right-0 z-50 h-full w-[360px] transform bg-white shadow-xl transition-transform ${
+            sidebarOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+          aria-hidden={!sidebarOpen}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold">
+                  {profileName?.charAt(0) ?? "S"}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{profileName}</p>
+                  <p className="text-xs text-gray-500">Member</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  aria-label="Close"
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded hover:bg-gray-100"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1">
+              {/* About */}
+              <button
+                onClick={() => {
+                  // open About modal; DO NOT close the sidebar
+                  setAboutOpen(true);
+                }}
+                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50"
+              >
+                <span className="text-lg">ℹ️</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">About</div>
+                  <div className="text-xs text-gray-500">About this project</div>
+                </div>
+              </button>
+
+              {/* Help Center -> open modal */}
+              <button
+                onClick={() => {
+                  // open Help modal; keep sidebar open
+                  setHelpOpen(true);
+                }}
+                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
+              >
+                <span className="text-lg">❓</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Help Center</div>
+                  <div className="text-xs text-gray-500">Contact / Support</div>
+                </div>
+              </button>
+
+              {/* Send Feedback -> open modal */}
+              <button
+                onClick={() => {
+                  // open Feedback modal; keep sidebar open
+                  setFeedbackOpen(true);
+                }}
+                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
+              >
+                <span className="text-lg">📝</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Send Feedback</div>
+                  <div className="text-xs text-gray-500">Tell us what you think</div>
+                </div>
+              </button>
+
+              {/* Dark / Light Mode */}
+              <div className="flex items-center justify-between w-full p-3 rounded hover:bg-gray-50 mt-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🌓</span>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">Dark / Light Mode</div>
+                    <div className="text-xs text-gray-500">Toggle theme (placeholder)</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleDarkMode()}
+                  className="px-3 py-1 bg-gray-100 rounded text-sm"
+                >
+                  {darkMode ? "Dark" : "Light"}
+                </button>
+              </div>
+
+              {/* Notifications section */}
+              <div className="mt-4 border-t pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔔</span>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Notifications</div>
+                      <div className="text-xs text-gray-500">Manage notification preferences</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">{notificationsPaused ? "Paused" : "On"}</div>
+                </div>
+
+                <div className="flex items-center justify-between p-2">
+                  <div className="text-sm text-gray-800">Pause all notifications</div>
+                  <input
+                    type="checkbox"
+                    checked={notificationsPaused}
+                    onChange={(e) => {
+                      togglePauseNotifications(e.target.checked);
+                    }}
+                  />
+                </div>
+
+                <div className="mt-2 p-2 rounded bg-gray-50">
+                  <div className="flex items-center justify-between p-2">
+                    <div className="text-sm text-gray-800">Ratings & user messages</div>
+                    <input
+                      type="checkbox"
+                      checked={ratingsMsgEnabled}
+                      onChange={(e) => toggleRatingsMessages(e.target.checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <div className="text-sm text-gray-800">Dating messages</div>
+                    <input
+                      type="checkbox"
+                      checked={datingMsgEnabled}
+                      onChange={(e) => toggleDatingMessages(e.target.checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <div className="text-sm text-gray-800">Clubs messages & events</div>
+                    <input
+                      type="checkbox"
+                      checked={clubsMsgEnabled}
+                      onChange={(e) => toggleClubsMessages(e.target.checked)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Campus News */}
-              <div className="bg-white rounded-xl shadow p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">📰 Campus News</h3>
-                  <Link
-                    href="/news"
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
-                  >
-                    View All →
-                    {hasUnreadNews && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}
-                  </Link>
+              {/* Membership Status & History */}
+              <button
+                onClick={() => {
+                  setSidebarOpen(false);
+                  router.push("/membership");
+                }}
+                className="flex items-center gap-3 w-full text-left p-3 mt-4 rounded hover:bg-gray-50"
+              >
+                <span className="text-lg">📜</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Membership Status & History</div>
+                  <div className="text-xs text-gray-500">View your clubs & past activity</div>
                 </div>
-                <div className="max-h-[35vh] overflow-y-auto pr-2">
-                  {campusNews.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 text-sm">No news yet</p>
-                    </div>
-                  ) : (
-                    <ul className="space-y-2">
-                      {campusNews.map((n) => (
-                        <li
-                          key={n.id}
-                          onClick={() => router.push("/news")}
-                          className="p-2 bg-gray-50 rounded-lg border hover:bg-white transition cursor-pointer"
-                        >
-                          <div className="flex items-start gap-2">
-                            <span className="text-lg">{getCategoryIcon(n.category)}</span>
-                            <div className="flex-1">
-                              <p className="text-xs font-semibold text-gray-900">{n.title}</p>
-                              <p className="text-[10px] text-gray-500 mt-1">
-                                {new Date(n.published_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+              </button>
+            </div>
+
+            {/* Footer area with logout */}
+            <div className="p-4 border-t">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-gray-500">Signed in as</div>
+                <div className="text-sm font-medium text-gray-900">{profileName}</div>
+              </div>
+
+              <div className="mt-3">
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Logout
+                </button>
+                <button
+                  onClick={() => {
+                    // account deletion should be a guarded flow; we just route to a page for that.
+                    setSidebarOpen(false);
+                    router.push("/account/delete");
+                  }}
+                  className="w-full mt-2 px-4 py-2 border text-sm rounded text-red-600 hover:bg-red-50"
+                >
+                  Delete account
+                </button>
               </div>
             </div>
-          </aside>
-        </div>
-      </main>
+          </div>
+        </aside>
+
+        {/* ABOUT modal */}
+        {aboutOpen && (
+          <ModalOverlay onClose={() => setAboutOpen(false)}>
+            <div className="w-full bg-white rounded-lg shadow-lg p-6">
+              <div className="flex items-start justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">About Campus5</h3>
+                <button onClick={() => setAboutOpen(false)} className="text-gray-500">
+                  ✕
+                </button>
+              </div>
+              <div className="mt-4 text-sm text-gray-800 space-y-2">
+                <p>
+                  Campus5 is a campus community platform connecting clubs, events, ratings and social
+                  features for students. It includes club management, events (intra/inter), a rating
+                  system, a blind dating feature and an ads/sponsorship module.
+                </p>
+                <p>
+                  This project uses Supabase for backend data (auth, real-time events, and Postgres),
+                  and Next.js for the frontend.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Developer note: add more project-specific details here (vision, team, contact).
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button onClick={() => setAboutOpen(false)} className="px-4 py-2 bg-indigo-600 text-white rounded">
+                  Close
+                </button>
+              </div>
+            </div>
+          </ModalOverlay>
+        )}
+
+        {/* HELP modal */}
+        {helpOpen && (
+          <ModalOverlay onClose={() => setHelpOpen(false)}>
+            <div className="w-full bg-white rounded-lg shadow-lg p-6">
+              <div className="flex items-start justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Help Center</h3>
+                <button onClick={() => setHelpOpen(false)} className="text-gray-500">
+                  ✕
+                </button>
+              </div>
+
+              <form className="mt-4 space-y-4" onSubmit={submitHelp}>
+                <div>
+                  <label className="text-sm text-gray-700">Name</label>
+                  <input
+                    value={helpName}
+                    onChange={(e) => setHelpName(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Email</label>
+                  <input
+                    value={helpEmail}
+                    onChange={(e) => setHelpEmail(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="your@college.edu"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Message</label>
+                  <textarea
+                    value={helpMessage}
+                    onChange={(e) => setHelpMessage(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={6}
+                    placeholder="Describe your issue..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHelpOpen(false)}
+                    className="px-4 py-2 border rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded text-sm">
+                    Send
+                  </button>
+                </div>
+              </form>
+            </div>
+          </ModalOverlay>
+        )}
+
+        {/* FEEDBACK modal */}
+        {feedbackOpen && (
+          <ModalOverlay onClose={() => setFeedbackOpen(false)}>
+            <div className="w-full bg-white rounded-lg shadow-lg p-6">
+              <div className="flex items-start justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Send Feedback</h3>
+                <button onClick={() => setFeedbackOpen(false)} className="text-gray-500">
+                  ✕
+                </button>
+              </div>
+
+              <form className="mt-4 space-y-4" onSubmit={submitFeedback}>
+                <div>
+                  <label className="text-sm text-gray-700">Name</label>
+                  <input
+                    value={feedbackName}
+                    onChange={(e) => setFeedbackName(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Email</label>
+                  <input
+                    value={feedbackEmail}
+                    onChange={(e) => setFeedbackEmail(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="your@college.edu"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-700">Type</label>
+                  <select
+                    value={feedbackType}
+                    onChange={(e) => setFeedbackType(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  >
+                    <option value="general">General</option>
+                    <option value="bug">Bug Report</option>
+                    <option value="feature">Feature Request</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-700">Message</label>
+                  <textarea
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={6}
+                    placeholder="Tell us what you think..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(false)}
+                    className="px-4 py-2 border rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded text-sm">
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            </div>
+          </ModalOverlay>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Helper modal overlay component ---------- */
+/* Renders the dark blurred backdrop and centers children. Click outside closes via onClose. */
+function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={() => onClose()}
+    >
+      {/* dark translucent backdrop with blur */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+      {/* center container: limit width and center content */}
+      <div
+        className="relative z-10 w-full max-w-2xl mx-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
     </div>
   );
 }
