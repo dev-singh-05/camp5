@@ -1,4 +1,5 @@
 import { supabase } from "@/utils/supabaseClient";
+import { PROFILE_OPTIONS } from "@/utils/profileField";
 
 /* -------------------------------------------------------------------------- */
 /* 🧩 CREATE MATCH */

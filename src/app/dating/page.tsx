@@ -3,11 +3,29 @@
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User } from "lucide-react";
 import AdBanner from "@/components/ads";
+import VerificationOverlay from "@/components/VerificationOverlay";
+
+/**
+ * DatingPage (updated)
+ *
+ * Changes & improvements made:
+ * - Adds realtime subscriptions for `dating_verifications` (for the current user)
+ *   so the client sees approve/reject changes instantly without a reload.
+ * - Adds optional subscription to a `notifications` table (best-effort) to re-check
+ *   verification when notifications arrive.
+ * - Keeps all original features and flow intact (testing mode, matching logic, modals).
+ * - Small defensive fixes (use of maybeSingle, guards before using user data).
+ *
+ * NOTE: This file intentionally keeps comments and spacing for clarity and to retain
+ * a comparable line-count / readability with your original file.
+ */
+
+/* ----------------------------- Types ------------------------------------ */
 
 type Match = {
   id: string;
@@ -34,9 +52,17 @@ type Question = {
   category?: string | null;
 };
 
+type VerificationStatus = {
+  status: "not_submitted" | "pending" | "approved" | "rejected";
+  rejection_reason?: string;
+};
+
+/* --------------------------- Component ---------------------------------- */
+
 export default function DatingPage() {
   const router = useRouter();
 
+  /* -------------------------- Local state -------------------------------- */
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -44,16 +70,30 @@ export default function DatingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [userGender, setUserGender] = useState<string | null>(null);
 
+  // Verification state
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
+    status: "not_submitted",
+  });
+  const [showVerificationOverlay, setShowVerificationOverlay] = useState(false);
+
   // 🧪 TESTING MODE - Controlled by environment variable
   const ENABLE_TESTING_MODE = process.env.NEXT_PUBLIC_ENABLE_DATING_TEST === "true";
   const [testingMode, setTestingMode] = useState(false);
 
-  // Request flow state
+  // Request flow
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [candidate, setCandidate] = useState<Profile | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
-  const [pendingMatchType, setPendingMatchType] = useState<"random" | "interest">("random");
+  const [pendingMatchType, setPendingMatchType] = useState<"random" | "interest">(
+    "random"
+  );
+
+  // Refs for subscriptions cleanup
+  const verificationChannelRef = useRef<any>(null);
+  const notificationsChannelRef = useRef<any>(null);
+
+  /* ------------------------- Fetch helpers ------------------------------- */
 
   async function fetchMatches() {
     try {
@@ -66,32 +106,64 @@ export default function DatingPage() {
     }
   }
 
-  useEffect(() => {
-    fetchMatches();
-    fetchProfileCompletion();
-    fetchUserGender();
-  }, []);
+  /**
+   * Check verification status for current user.
+   * Uses maybeSingle to avoid throwing when no rows are found.
+   */
+  async function checkVerificationStatus() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-  useEffect(() => {
-    if (completion > 0 && completion < 50) {
-      toast.error("Please complete at least 50% of your profile before matching 💞", {
-        duration: 2500,
-      });
-      const t = setTimeout(() => {
-        router.push("/dating/dating-profiles");
-      }, 2500);
-      return () => clearTimeout(t);
+      const { data: verification, error } = await supabase
+        .from("dating_verifications")
+        .select("status, rejection_reason")
+        .eq("user_id", user.id)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Defensive: ignore the "no rows" error from PostgREST if present
+      if (error && (error as any).code !== "PGRST116") {
+        console.error("Verification check error:", error);
+        return;
+      }
+
+      if (!verification) {
+        // Not submitted yet
+        setVerificationStatus({ status: "not_submitted" });
+        setShowVerificationOverlay(true);
+      } else {
+        // existing verification found
+        setVerificationStatus({
+          status: verification.status as "pending" | "approved" | "rejected",
+          rejection_reason: verification.rejection_reason,
+        });
+
+        // Hide overlay for other states (pending/rejected/approved)
+        setShowVerificationOverlay(false);
+      }
+    } catch (err) {
+      console.error("Error checking verification:", err);
     }
-  }, [completion, router]);
+  }
+
+  /* ------------------------ Profile utilities ---------------------------- */
 
   async function fetchProfileCompletion() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("age, work, education, branch, gender, location, hometown, height, exercise, drinking, smoking, kids, religion, year, profile_photo")
+        .select(
+          "age, work, education, branch, gender, location, hometown, height, exercise, drinking, smoking, kids, religion, year, profile_photo"
+        )
         .eq("id", user.id)
         .single();
 
@@ -100,8 +172,26 @@ export default function DatingPage() {
         return;
       }
 
-      const fields = ["age", "work", "education", "branch", "gender", "location", "hometown", "height", "exercise", "drinking", "smoking", "kids", "religion", "year", "profile_photo"];
+      const fields = [
+        "age",
+        "work",
+        "education",
+        "branch",
+        "gender",
+        "location",
+        "hometown",
+        "height",
+        "exercise",
+        "drinking",
+        "smoking",
+        "kids",
+        "religion",
+        "year",
+        "profile_photo",
+      ];
+
       const filled = fields.filter((f) => {
+        // @ts-ignore dynamic index: profile object may be typed loosely
         const value = profile[f as keyof typeof profile];
         return value !== undefined && value !== null && value !== "";
       }).length;
@@ -115,20 +205,32 @@ export default function DatingPage() {
 
   async function fetchUserGender() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("gender")
         .eq("id", user.id)
         .maybeSingle();
+
       setUserGender(profile?.gender ?? null);
     } catch (err) {
       console.error("Error fetching user gender:", err);
     }
   }
 
+  /* ------------------------ Matching flow -------------------------------- */
+
   async function handleMatch(type: "random" | "interest") {
+    // Check verification status first
+    if (verificationStatus.status !== "approved") {
+      toast.error("Please complete verification first");
+      return;
+    }
+
     if (completion > 0 && completion < 50) {
       toast.error("Complete at least 50% of your profile before matching 💞");
       router.push("/dating/dating-profiles");
@@ -139,7 +241,9 @@ export default function DatingPage() {
     setPendingMatchType(type);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.push("/login");
         return;
@@ -162,7 +266,7 @@ export default function DatingPage() {
 
       // 🧪 Build exclusion set - ONLY if NOT in testing mode
       const excludedIds = new Set<string>([user.id]);
-      
+
       if (!testingMode) {
         // Find existing matches and pending requests to exclude
         const { data: existingMatches } = await supabase
@@ -175,8 +279,8 @@ export default function DatingPage() {
           .select("requester_id, candidate_id")
           .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
 
-        // ✅ Only exclude the OTHER person in each match/request
-        (existingMatches || []).forEach((m) => {
+        // ✅ Only exclude the OTHER person in each match/request (existingMatches || [])
+        (existingMatches || []).forEach((m: any) => {
           if (m.user1_id === user.id) {
             excludedIds.add(m.user2_id);
           } else {
@@ -184,7 +288,7 @@ export default function DatingPage() {
           }
         });
 
-        (existingRequests || []).forEach((r) => {
+        (existingRequests || []).forEach((r: any) => {
           if (r.requester_id === user.id) {
             excludedIds.add(r.candidate_id);
           } else {
@@ -197,18 +301,25 @@ export default function DatingPage() {
         console.log("🧪 TESTING MODE: Not excluding any users");
       }
 
-      // ✅ BUILD QUERY - fetch ALL candidates first
+      // ✅ BUILD QUERY - fetch ALL verified candidates first
       let candidateQuery = supabase
         .from("profiles")
-        .select("id, full_name, profile_photo, gender, branch, year, height, dating_description, interests");
+        .select(
+          "id, full_name, profile_photo, gender, branch, year, height, dating_description, interests"
+        )
+        .eq("dating_verified", true); // ONLY fetch verified users
 
-      // Apply gender filter
+      // Apply gender filter if the user provided a gender
       if (oppositeGender) {
         candidateQuery = candidateQuery.eq("gender", oppositeGender);
       }
 
       // Apply interest filter for interest-based matching
-      if (type === "interest" && myProfile?.interests && myProfile.interests.length > 0) {
+      if (
+        type === "interest" &&
+        myProfile?.interests &&
+        myProfile.interests.length > 0
+      ) {
         candidateQuery = candidateQuery.overlaps("interests", myProfile.interests);
       }
 
@@ -221,9 +332,7 @@ export default function DatingPage() {
       }
 
       // ✅ FILTER OUT EXCLUDED IDs IN JAVASCRIPT (not SQL)
-      const candidates = (allCandidates || []).filter(
-        (c) => !excludedIds.has(c.id)
-      );
+      const candidates = (allCandidates || []).filter((c: any) => !excludedIds.has(c.id));
 
       console.log("Total candidates after filtering:", candidates.length);
 
@@ -233,7 +342,8 @@ export default function DatingPage() {
       }
 
       // Pick random candidate
-      const selectedCandidate = candidates[Math.floor(Math.random() * candidates.length)];
+      const selectedCandidate =
+        candidates[Math.floor(Math.random() * candidates.length)];
       console.log("Selected candidate:", selectedCandidate.full_name);
       setCandidate(selectedCandidate);
 
@@ -244,7 +354,10 @@ export default function DatingPage() {
         .eq("active", true);
 
       if (selectedCategory) {
-        questionQuery = questionQuery.or(`category.is.null,category.eq.${selectedCategory}`);
+        // allow questions in category or null category
+        questionQuery = questionQuery.or(
+          `category.is.null,category.eq.${selectedCategory}`
+        );
       } else {
         questionQuery = questionQuery.is("category", null);
       }
@@ -268,6 +381,8 @@ export default function DatingPage() {
     }
   }
 
+  /* ----------------------- Request/Send flow ----------------------------- */
+
   async function sendRequest() {
     if (!candidate || !question || !answer.trim()) {
       toast.error("Please answer the question before sending.");
@@ -275,7 +390,9 @@ export default function DatingPage() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { error } = await supabase.from("dating_requests").insert([
@@ -307,14 +424,22 @@ export default function DatingPage() {
     }
   }
 
-  // 🧪 Clear all your dating data for testing
+  /* ---------------------- Testing helpers ------------------------------- */
+
+  // Clear dating data for the current user (testing)
   async function clearMyDatingData() {
-    if (!confirm("⚠️ This will delete ALL your matches, chats, reveals, and requests. Continue?")) {
+    if (
+      !confirm(
+        "⚠️ This will delete ALL your matches, chats, reveals, and requests. Continue?"
+      )
+    ) {
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Get all match IDs for this user
@@ -323,9 +448,9 @@ export default function DatingPage() {
         .select("id")
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      const matchIds = (myMatches || []).map(m => m.id);
+      const matchIds = (myMatches || []).map((m: any) => m.id);
 
-      // Delete in order due to foreign keys
+      // Delete in order due to fks
       if (matchIds.length > 0) {
         await supabase.from("dating_chats").delete().in("match_id", matchIds);
         await supabase.from("dating_reveals").delete().in("match_id", matchIds);
@@ -345,14 +470,286 @@ export default function DatingPage() {
     }
   }
 
-  const profilePlaceholder = "/images/avatar-placeholder.png";
-  const matchingDisabled = creating || (completion > 0 && completion < 50);
+  /* ----------------------- Derived UI state ----------------------------- */
 
-  const shouldHidePhoto = selectedCategory === "serious" || selectedCategory === "fun";
+  const profilePlaceholder = "/images/avatar-placeholder.png";
+  const matchingDisabled =
+    creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved";
+
+  const shouldHidePhoto =
+    selectedCategory === "serious" || selectedCategory === "fun";
   const shouldHideName =
     selectedCategory === "serious" ||
     selectedCategory === "fun" ||
-    (selectedCategory === "mystery" && candidate?.gender?.toLowerCase() === "female");
+    (selectedCategory === "mystery" &&
+      candidate?.gender?.toLowerCase() === "female");
+
+  /* --------------------- Realtime subscriptions ------------------------- */
+
+  // Subscribe to dating_verifications changes for current user so we update instantly
+  useEffect(() => {
+    let mounted = true;
+
+    async function setupSubscription() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Clean previous channel if any
+        if (verificationChannelRef.current) {
+          try {
+            supabase.removeChannel(verificationChannelRef.current);
+          } catch (e) {
+            // ignore remove errors
+          }
+          verificationChannelRef.current = null;
+        }
+
+        // Supabase Realtime via channel (Postgres changes)
+        const channel = supabase
+          .channel(`public:dating_verifications:user=${user.id}`)
+          // inside your setupSubscription() where you create the channel:
+// replace the old .on("postgres_changes", {...}, (payload) => { ... }) handler with:
+
+.on(
+  "postgres_changes",
+  {
+    event: "*", // listen for INSERT, UPDATE, DELETE
+    schema: "public",
+    table: "dating_verifications",
+    filter: `user_id=eq.${user.id}`,
+  },
+  (payload: any) => {
+    // payload shape (runtime) looks like:
+    // { eventType, schema, table, commit_timestamp, new, old }
+    // but TypeScript doesn't know that — so narrow/cast safely.
+
+    if (!mounted) return;
+
+    // Coerce payload.new into a typed object we can access safely
+    const newRow = (payload && (payload as any).new) as
+      | { status?: string; rejection_reason?: string }
+      | undefined;
+
+    const eventType = (payload && (payload as any).eventType) as string | undefined;
+
+    // If a verification row was created/updated/deleted for this user, re-check
+    const newStatus = newRow?.status;
+
+    if (newStatus) {
+      setVerificationStatus({
+        status: newStatus as "pending" | "approved" | "rejected",
+        rejection_reason: newRow?.rejection_reason,
+      });
+
+      // Hide the overlay unless not_submitted (we never set not_submitted via realtime)
+      setShowVerificationOverlay(false);
+    } else if (eventType === "DELETE") {
+      // if deleted, mark as not_submitted
+      setVerificationStatus({ status: "not_submitted" });
+      setShowVerificationOverlay(true);
+    }
+
+    // Also re-fetch anything that depends on verification or profile
+    fetchProfileCompletion();
+    fetchMatches();
+  }
+)
+
+          
+          .subscribe();
+
+        verificationChannelRef.current = channel;
+
+        // Optional: subscribe to notifications table if you use it to inform the user
+        // This is a best-effort subscription: if `notifications` table doesn't exist, it will silently do nothing
+        if (!notificationsChannelRef.current) {
+          try {
+            const notificationsChannel = supabase
+              .channel(`public:notifications:user=${user.id}`)
+              .on(
+                "postgres_changes",
+                {
+                  event: "INSERT",
+                  schema: "public",
+                  table: "notifications",
+                  filter: `user_id=eq.${user.id}`,
+                },
+                (payload) => {
+                  if (!mounted) return;
+                  // On new notification, re-check verification status (useful if admin inserted a notification)
+                  checkVerificationStatus();
+                }
+              )
+              .subscribe();
+            notificationsChannelRef.current = notificationsChannel;
+          } catch (e) {
+            // ignore if notifications table not present or channel creation fails
+            console.warn("Notifications subscription not created:", e);
+            notificationsChannelRef.current = null;
+          }
+        }
+      } catch (e) {
+        console.error("Realtime setup error:", e);
+      }
+    }
+
+    setupSubscription();
+
+    return () => {
+      mounted = false;
+      // cleanup channels
+      if (verificationChannelRef.current) {
+        try {
+          supabase.removeChannel(verificationChannelRef.current);
+        } catch (e) {
+          // ignore
+        }
+      }
+      if (notificationsChannelRef.current) {
+        try {
+          supabase.removeChannel(notificationsChannelRef.current);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+    // we intentionally run this once on mount (empty deps)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ------------------------ Initial load -------------------------------- */
+
+useEffect(() => {
+  let mounted = true;
+  async function setup() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const vChannel = supabase
+      .channel(`public:dating_verifications:user=${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dating_verifications', filter: `user_id=eq.${user.id}`},
+        (payload: any) => {
+          if (!mounted) return;
+          const newRow = (payload && payload.new) as { status?: string; rejection_reason?: string } | undefined;
+          const eventType = payload?.eventType;
+          const newStatus = newRow?.status;
+          if (newStatus) {
+            setVerificationStatus({ status: newStatus as any, rejection_reason: newRow?.rejection_reason });
+            setShowVerificationOverlay(false);
+          } else if (eventType === 'DELETE') {
+            setVerificationStatus({ status: 'not_submitted' });
+            setShowVerificationOverlay(true);
+          }
+          fetchProfileCompletion();
+          fetchMatches();
+        }
+      )
+      .subscribe();
+
+    // optional: notifications subscription
+    const nChannel = supabase
+      .channel(`public:notifications:user=${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+        checkVerificationStatus();
+      })
+      .subscribe();
+
+    // cleanup saved refs in outer scope if needed
+  }
+  setup();
+  return () => { mounted = false; /* remove channels if you saved them */ };
+}, []);
+
+
+  useEffect(() => {
+    checkVerificationStatus();
+    fetchMatches();
+    fetchProfileCompletion();
+    fetchUserGender();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* If profile completion is less than 50, nudge user and redirect */
+  useEffect(() => {
+    if (completion > 0 && completion < 50) {
+      toast.error("Please complete at least 50% of your profile before matching 💞", {
+        duration: 2500,
+      });
+      const t = setTimeout(() => {
+        router.push("/dating/dating-profiles");
+      }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [completion, router]);
+
+  /* --------------------------- UI -------------------------------------- */
+
+  // Show verification overlay if not submitted
+  if (showVerificationOverlay && verificationStatus.status === "not_submitted") {
+    return (
+      <VerificationOverlay
+        onVerificationSubmitted={() => {
+          // after user submits, re-check
+          checkVerificationStatus();
+          setShowVerificationOverlay(false);
+        }}
+      />
+    );
+  }
+
+  // Show pending / approved / rejected screens as in the original flow
+  if (verificationStatus.status === "pending") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
+        <Toaster position="top-center" />
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-4xl">⏳</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Pending</h2>
+          <p className="text-gray-600 mb-4">
+            Your verification is being reviewed by our admin team. This usually takes 24-48 hours.
+          </p>
+          <p className="text-sm text-gray-500">You'll receive a notification once your verification is approved.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStatus.status === "rejected") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
+        <Toaster position="top-center" />
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-4xl">❌</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Rejected</h2>
+          <p className="text-gray-600 mb-4">Unfortunately, your verification was not approved.</p>
+          {verificationStatus.rejection_reason && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-semibold text-red-800 mb-1">Reason:</p>
+              <p className="text-sm text-red-700">{verificationStatus.rejection_reason}</p>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              setVerificationStatus({ status: "not_submitted" });
+              setShowVerificationOverlay(true);
+            }}
+            className="px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 font-medium"
+          >
+            Submit New Verification
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex flex-col">
@@ -386,11 +783,7 @@ export default function DatingPage() {
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
             <div
               className={`h-2.5 rounded-full transition-all duration-500 ${
-                completion < 50
-                  ? "bg-red-400"
-                  : completion < 80
-                  ? "bg-yellow-400"
-                  : "bg-pink-500"
+                completion < 50 ? "bg-red-400" : completion < 80 ? "bg-yellow-400" : "bg-pink-500"
               }`}
               style={{ width: `${completion}%` }}
             />
@@ -410,9 +803,7 @@ export default function DatingPage() {
                   onChange={(e) => setTestingMode(e.target.checked)}
                   className="w-4 h-4 text-pink-500 rounded focus:ring-pink-400"
                 />
-                <span className="text-sm font-medium text-gray-700">
-                  🧪 Testing Mode (Allow re-matching)
-                </span>
+                <span className="text-sm font-medium text-gray-700">🧪 Testing Mode (Allow re-matching)</span>
               </label>
             </div>
             <button
@@ -428,10 +819,7 @@ export default function DatingPage() {
       {/* Main Content */}
       <main className="flex-1 px-6 py-10 max-w-5xl mx-auto w-full">
         <div className="mb-8">
-          <label
-            htmlFor="category"
-            className="block text-lg font-semibold text-gray-700 mb-2"
-          >
+          <label htmlFor="category" className="block text-lg font-semibold text-gray-700 mb-2">
             What are you looking for?
           </label>
           <select
@@ -449,9 +837,7 @@ export default function DatingPage() {
           </select>
 
           {completion > 0 && completion < 50 && (
-            <p className="text-red-500 text-sm mt-2">
-              ⚠️ Your profile is only {completion}% complete — finish it first!
-            </p>
+            <p className="text-red-500 text-sm mt-2">⚠️ Your profile is only {completion}% complete — finish it first!</p>
           )}
         </div>
 
@@ -461,9 +847,7 @@ export default function DatingPage() {
               onClick={() => handleMatch("random")}
               disabled={matchingDisabled}
               className={`flex-1 px-6 py-4 rounded-xl text-white font-semibold shadow-md transition ${
-                matchingDisabled
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-green-500 hover:bg-green-600"
+                matchingDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"
               }`}
             >
               {creating ? "Finding..." : "🎲 Random Match"}
@@ -474,9 +858,7 @@ export default function DatingPage() {
                 onClick={() => handleMatch("interest")}
                 disabled={matchingDisabled}
                 className={`flex-1 px-6 py-4 rounded-xl text-white font-semibold shadow-md transition ${
-                  matchingDisabled
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-sky-500 hover:bg-sky-600"
+                  matchingDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600"
                 }`}
               >
                 {creating ? "Finding..." : "💡 Interests Match"}
@@ -498,9 +880,7 @@ export default function DatingPage() {
                 onClick={() => router.push(`/dating/chat/${match.id}`)}
                 className="h-14 rounded-xl shadow bg-pink-400 hover:bg-pink-500 transition cursor-pointer flex items-center px-6 text-white font-medium"
               >
-                {match.match_type === "random"
-                  ? "🎲 Random Match"
-                  : "💡 Interest Match"}
+                {match.match_type === "random" ? "🎲 Random Match" : "💡 Interest Match"}
               </div>
             ))}
           </div>
@@ -511,30 +891,20 @@ export default function DatingPage() {
       {showRequestModal && candidate && question && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Send Match Request
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Send Match Request</h2>
 
             {/* Candidate Preview */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-start gap-4 mb-3">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                   {shouldHidePhoto ? (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
-                      Hidden
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">Hidden</div>
                   ) : (
-                    <img
-                      src={candidate.profile_photo || profilePlaceholder}
-                      alt="Match"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={candidate.profile_photo || profilePlaceholder} alt="Match" className="w-full h-full object-cover" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-lg">
-                    {shouldHideName ? "Name Hidden" : candidate.full_name}
-                  </p>
+                  <p className="font-semibold text-lg">{shouldHideName ? "Name Hidden" : candidate.full_name}</p>
                   <p className="text-sm text-gray-600">
                     {candidate.gender} • {candidate.year} • {candidate.branch}
                     {candidate.height && ` • ${candidate.height}`}
@@ -543,20 +913,13 @@ export default function DatingPage() {
               </div>
 
               {candidate.dating_description && (
-                <p className="text-sm text-gray-700 italic mb-2">
-                  "{candidate.dating_description}"
-                </p>
+                <p className="text-sm text-gray-700 italic mb-2">"{candidate.dating_description}"</p>
               )}
 
               {candidate.interests && candidate.interests.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {candidate.interests.map((i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs"
-                    >
-                      {i}
-                    </span>
+                    <span key={i} className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{i}</span>
                   ))}
                 </div>
               )}
@@ -564,9 +927,7 @@ export default function DatingPage() {
 
             {/* Question & Answer */}
             <div className="mb-6">
-              <label className="block font-semibold text-gray-700 mb-2">
-                {question.text}
-              </label>
+              <label className="block font-semibold text-gray-700 mb-2">{question.text}</label>
               <textarea
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
@@ -578,27 +939,17 @@ export default function DatingPage() {
 
             {/* Actions */}
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowRequestModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-              >
+              <button onClick={() => setShowRequestModal(false)} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">
                 Cancel
               </button>
-              <button
-                onClick={sendRequest}
-                disabled={!answer.trim()}
-                className={`flex-1 px-4 py-2 rounded-lg text-white ${
-                  !answer.trim()
-                    ? "bg-gray-400"
-                    : "bg-pink-500 hover:bg-pink-600"
-                }`}
-              >
+              <button onClick={sendRequest} disabled={!answer.trim()} className={`flex-1 px-4 py-2 rounded-lg text-white ${!answer.trim() ? "bg-gray-400" : "bg-pink-500 hover:bg-pink-600"}`}>
                 Send Request
               </button>
             </div>
           </div>
         </div>
       )}
+
       <AdBanner placement="dating_page" />
     </div>
   );
