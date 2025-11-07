@@ -88,11 +88,11 @@ export default function AdBanner({ placement }: { placement: string }) {
   const ad = ads[index];
 
   return (
-    <section className="w-full flex justify-center mt-6 mb-8 px-4" role="region" aria-label="Advertisement carousel">
+    <section className="w-full flex justify-center mt-1 mb-8 px-4" role="region" aria-label="Advertisement carousel">
       {/* Increased height + vertical sections */}
-      <div className="relative w-full max-w-5xl h-[380px] sm:h-[470px] md:h-[570px] rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white flex flex-col">
+      <div className="relative w-full max-w-5xl h-[300px] sm:h-[370px] md:h-[570px] rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white flex flex-col">
         {/* TOP: heading/title (small) */}
-        <div className="flex-none px-6 pt-6 pb-3 text-center">
+        <div className="flex-none px-6 pb-3 text-center">
           {ad.title ? (
             <h3 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
               {ad.title}
