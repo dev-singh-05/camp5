@@ -10,21 +10,6 @@ import { User } from "lucide-react";
 import AdBanner from "@/components/ads";
 import VerificationOverlay from "@/components/VerificationOverlay";
 
-/**
- * DatingPage (updated)
- *
- * Changes & improvements made:
- * - Adds realtime subscriptions for `dating_verifications` (for the current user)
- *   so the client sees approve/reject changes instantly without a reload.
- * - Adds optional subscription to a `notifications` table (best-effort) to re-check
- *   verification when notifications arrive.
- * - Keeps all original features and flow intact (testing mode, matching logic, modals).
- * - Small defensive fixes (use of maybeSingle, guards before using user data).
- *
- * NOTE: This file intentionally keeps comments and spacing for clarity and to retain
- * a comparable line-count / readability with your original file.
- */
-
 /* ----------------------------- Types ------------------------------------ */
 
 type Match = {
@@ -108,7 +93,6 @@ export default function DatingPage() {
 
   /**
    * Check verification status for current user.
-   * Uses maybeSingle to avoid throwing when no rows are found.
    */
   async function checkVerificationStatus() {
     try {
@@ -125,24 +109,19 @@ export default function DatingPage() {
         .limit(1)
         .maybeSingle();
 
-      // Defensive: ignore the "no rows" error from PostgREST if present
       if (error && (error as any).code !== "PGRST116") {
         console.error("Verification check error:", error);
         return;
       }
 
       if (!verification) {
-        // Not submitted yet
         setVerificationStatus({ status: "not_submitted" });
         setShowVerificationOverlay(true);
       } else {
-        // existing verification found
         setVerificationStatus({
           status: verification.status as "pending" | "approved" | "rejected",
           rejection_reason: verification.rejection_reason,
         });
-
-        // Hide overlay for other states (pending/rejected/approved)
         setShowVerificationOverlay(false);
       }
     } catch (err) {
@@ -191,7 +170,6 @@ export default function DatingPage() {
       ];
 
       const filled = fields.filter((f) => {
-        // @ts-ignore dynamic index: profile object may be typed loosely
         const value = profile[f as keyof typeof profile];
         return value !== undefined && value !== null && value !== "";
       }).length;
@@ -264,7 +242,7 @@ export default function DatingPage() {
           ? "male"
           : null;
 
-      // 🧪 Build exclusion set - ONLY if NOT in testing mode
+      // Build exclusion set - ONLY if NOT in testing mode
       const excludedIds = new Set<string>([user.id]);
 
       if (!testingMode) {
@@ -279,7 +257,6 @@ export default function DatingPage() {
           .select("requester_id, candidate_id")
           .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
 
-        // ✅ Only exclude the OTHER person in each match/request (existingMatches || [])
         (existingMatches || []).forEach((m: any) => {
           if (m.user1_id === user.id) {
             excludedIds.add(m.user2_id);
@@ -301,13 +278,14 @@ export default function DatingPage() {
         console.log("🧪 TESTING MODE: Not excluding any users");
       }
 
-      // ✅ BUILD QUERY - fetch ALL verified candidates first
+      // BUILD QUERY - fetch ALL verified candidates first
       let candidateQuery = supabase
         .from("profiles")
         .select(
           "id, full_name, profile_photo, gender, branch, year, height, dating_description, interests"
         )
-        .eq("dating_verified", true); // ONLY fetch verified users
+        .eq("dating_verified", true)
+        .neq("id", user.id); // Don't match with yourself
 
       // Apply gender filter if the user provided a gender
       if (oppositeGender) {
@@ -331,7 +309,9 @@ export default function DatingPage() {
         return;
       }
 
-      // ✅ FILTER OUT EXCLUDED IDs IN JAVASCRIPT (not SQL)
+      console.log("All candidates fetched:", allCandidates?.length || 0);
+
+      // FILTER OUT EXCLUDED IDs IN JAVASCRIPT
       const candidates = (allCandidates || []).filter((c: any) => !excludedIds.has(c.id));
 
       console.log("Total candidates after filtering:", candidates.length);
@@ -354,7 +334,6 @@ export default function DatingPage() {
         .eq("active", true);
 
       if (selectedCategory) {
-        // allow questions in category or null category
         questionQuery = questionQuery.or(
           `category.is.null,category.eq.${selectedCategory}`
         );
@@ -426,7 +405,6 @@ export default function DatingPage() {
 
   /* ---------------------- Testing helpers ------------------------------- */
 
-  // Clear dating data for the current user (testing)
   async function clearMyDatingData() {
     if (
       !confirm(
@@ -442,7 +420,6 @@ export default function DatingPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get all match IDs for this user
       const { data: myMatches } = await supabase
         .from("dating_matches")
         .select("id")
@@ -450,7 +427,6 @@ export default function DatingPage() {
 
       const matchIds = (myMatches || []).map((m: any) => m.id);
 
-      // Delete in order due to fks
       if (matchIds.length > 0) {
         await supabase.from("dating_chats").delete().in("match_id", matchIds);
         await supabase.from("dating_reveals").delete().in("match_id", matchIds);
@@ -486,7 +462,6 @@ export default function DatingPage() {
 
   /* --------------------- Realtime subscriptions ------------------------- */
 
-  // Subscribe to dating_verifications changes for current user so we update instantly
   useEffect(() => {
     let mounted = true;
 
@@ -497,100 +472,81 @@ export default function DatingPage() {
         } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Clean previous channel if any
+        // Clean previous channels
         if (verificationChannelRef.current) {
           try {
             supabase.removeChannel(verificationChannelRef.current);
           } catch (e) {
-            // ignore remove errors
+            console.error("Error removing verification channel:", e);
           }
           verificationChannelRef.current = null;
         }
 
-        // Supabase Realtime via channel (Postgres changes)
-        const channel = supabase
+        if (notificationsChannelRef.current) {
+          try {
+            supabase.removeChannel(notificationsChannelRef.current);
+          } catch (e) {
+            console.error("Error removing notifications channel:", e);
+          }
+          notificationsChannelRef.current = null;
+        }
+
+        // Set up verification channel
+        const vChannel = supabase
           .channel(`public:dating_verifications:user=${user.id}`)
-          // inside your setupSubscription() where you create the channel:
-// replace the old .on("postgres_changes", {...}, (payload) => { ... }) handler with:
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "dating_verifications",
+              filter: `user_id=eq.${user.id}`,
+            },
+            (payload: any) => {
+              if (!mounted) return;
 
-.on(
-  "postgres_changes",
-  {
-    event: "*", // listen for INSERT, UPDATE, DELETE
-    schema: "public",
-    table: "dating_verifications",
-    filter: `user_id=eq.${user.id}`,
-  },
-  (payload: any) => {
-    // payload shape (runtime) looks like:
-    // { eventType, schema, table, commit_timestamp, new, old }
-    // but TypeScript doesn't know that — so narrow/cast safely.
+              const newRow = payload?.new as { status?: string; rejection_reason?: string } | undefined;
+              const eventType = payload?.eventType as string | undefined;
+              const newStatus = newRow?.status;
 
-    if (!mounted) return;
+              if (newStatus) {
+                setVerificationStatus({
+                  status: newStatus as "pending" | "approved" | "rejected",
+                  rejection_reason: newRow?.rejection_reason,
+                });
+                setShowVerificationOverlay(false);
+              } else if (eventType === "DELETE") {
+                setVerificationStatus({ status: "not_submitted" });
+                setShowVerificationOverlay(true);
+              }
 
-    // Coerce payload.new into a typed object we can access safely
-    const newRow = (payload && (payload as any).new) as
-      | { status?: string; rejection_reason?: string }
-      | undefined;
-
-    const eventType = (payload && (payload as any).eventType) as string | undefined;
-
-    // If a verification row was created/updated/deleted for this user, re-check
-    const newStatus = newRow?.status;
-
-    if (newStatus) {
-      setVerificationStatus({
-        status: newStatus as "pending" | "approved" | "rejected",
-        rejection_reason: newRow?.rejection_reason,
-      });
-
-      // Hide the overlay unless not_submitted (we never set not_submitted via realtime)
-      setShowVerificationOverlay(false);
-    } else if (eventType === "DELETE") {
-      // if deleted, mark as not_submitted
-      setVerificationStatus({ status: "not_submitted" });
-      setShowVerificationOverlay(true);
-    }
-
-    // Also re-fetch anything that depends on verification or profile
-    fetchProfileCompletion();
-    fetchMatches();
-  }
-)
-
-          
+              fetchProfileCompletion();
+              fetchMatches();
+            }
+          )
           .subscribe();
 
-        verificationChannelRef.current = channel;
+        verificationChannelRef.current = vChannel;
 
-        // Optional: subscribe to notifications table if you use it to inform the user
-        // This is a best-effort subscription: if `notifications` table doesn't exist, it will silently do nothing
-        if (!notificationsChannelRef.current) {
-          try {
-            const notificationsChannel = supabase
-              .channel(`public:notifications:user=${user.id}`)
-              .on(
-                "postgres_changes",
-                {
-                  event: "INSERT",
-                  schema: "public",
-                  table: "notifications",
-                  filter: `user_id=eq.${user.id}`,
-                },
-                (payload) => {
-                  if (!mounted) return;
-                  // On new notification, re-check verification status (useful if admin inserted a notification)
-                  checkVerificationStatus();
-                }
-              )
-              .subscribe();
-            notificationsChannelRef.current = notificationsChannel;
-          } catch (e) {
-            // ignore if notifications table not present or channel creation fails
-            console.warn("Notifications subscription not created:", e);
-            notificationsChannelRef.current = null;
-          }
-        }
+        // Set up notifications channel
+        const nChannel = supabase
+          .channel(`public:notifications:user=${user.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${user.id}`,
+            },
+            () => {
+              if (!mounted) return;
+              checkVerificationStatus();
+            }
+          )
+          .subscribe();
+
+        notificationsChannelRef.current = nChannel;
       } catch (e) {
         console.error("Realtime setup error:", e);
       }
@@ -600,81 +556,33 @@ export default function DatingPage() {
 
     return () => {
       mounted = false;
-      // cleanup channels
       if (verificationChannelRef.current) {
         try {
           supabase.removeChannel(verificationChannelRef.current);
         } catch (e) {
-          // ignore
+          console.error("Cleanup error:", e);
         }
       }
       if (notificationsChannelRef.current) {
         try {
           supabase.removeChannel(notificationsChannelRef.current);
         } catch (e) {
-          // ignore
+          console.error("Cleanup error:", e);
         }
       }
     };
-    // we intentionally run this once on mount (empty deps)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ------------------------ Initial load -------------------------------- */
-
-useEffect(() => {
-  let mounted = true;
-  async function setup() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const vChannel = supabase
-      .channel(`public:dating_verifications:user=${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'dating_verifications', filter: `user_id=eq.${user.id}`},
-        (payload: any) => {
-          if (!mounted) return;
-          const newRow = (payload && payload.new) as { status?: string; rejection_reason?: string } | undefined;
-          const eventType = payload?.eventType;
-          const newStatus = newRow?.status;
-          if (newStatus) {
-            setVerificationStatus({ status: newStatus as any, rejection_reason: newRow?.rejection_reason });
-            setShowVerificationOverlay(false);
-          } else if (eventType === 'DELETE') {
-            setVerificationStatus({ status: 'not_submitted' });
-            setShowVerificationOverlay(true);
-          }
-          fetchProfileCompletion();
-          fetchMatches();
-        }
-      )
-      .subscribe();
-
-    // optional: notifications subscription
-    const nChannel = supabase
-      .channel(`public:notifications:user=${user.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
-        checkVerificationStatus();
-      })
-      .subscribe();
-
-    // cleanup saved refs in outer scope if needed
-  }
-  setup();
-  return () => { mounted = false; /* remove channels if you saved them */ };
-}, []);
-
 
   useEffect(() => {
     checkVerificationStatus();
     fetchMatches();
     fetchProfileCompletion();
     fetchUserGender();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* If profile completion is less than 50, nudge user and redirect */
+  /* If profile completion is less than 50, nudge user */
   useEffect(() => {
     if (completion > 0 && completion < 50) {
       toast.error("Please complete at least 50% of your profile before matching 💞", {
@@ -694,7 +602,6 @@ useEffect(() => {
     return (
       <VerificationOverlay
         onVerificationSubmitted={() => {
-          // after user submits, re-check
           checkVerificationStatus();
           setShowVerificationOverlay(false);
         }}
@@ -702,7 +609,7 @@ useEffect(() => {
     );
   }
 
-  // Show pending / approved / rejected screens as in the original flow
+  // Show pending screen
   if (verificationStatus.status === "pending") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
@@ -721,6 +628,7 @@ useEffect(() => {
     );
   }
 
+  // Show rejected screen
   if (verificationStatus.status === "rejected") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
@@ -751,6 +659,7 @@ useEffect(() => {
     );
   }
 
+  // Main dating page
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex flex-col">
       <Toaster position="top-center" />
@@ -791,7 +700,7 @@ useEffect(() => {
         </div>
       </header>
 
-      {/* 🧪 TESTING MODE CONTROLS - Only visible in development */}
+      {/* Testing mode controls */}
       {ENABLE_TESTING_MODE && (
         <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -893,7 +802,6 @@ useEffect(() => {
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Send Match Request</h2>
 
-            {/* Candidate Preview */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-start gap-4 mb-3">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
@@ -925,7 +833,6 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Question & Answer */}
             <div className="mb-6">
               <label className="block font-semibold text-gray-700 mb-2">{question.text}</label>
               <textarea
@@ -937,7 +844,6 @@ useEffect(() => {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3">
               <button onClick={() => setShowRequestModal(false)} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">
                 Cancel

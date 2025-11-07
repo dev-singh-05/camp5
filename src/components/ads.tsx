@@ -80,60 +80,47 @@ export default function AdBanner({ placement }: { placement: string }) {
   if (loading || !ad) return null;
 
   return (
-    <section className="w-full flex justify-center mt-6 mb-8 px-4" role="region" aria-label="Advertisement carousel">
-      {/* Increased height + vertical sections */}
-      <div className="relative w-full max-w-5xl h-[380px] sm:h-[470px] md:h-[570px] rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white flex flex-col">
-        {/* TOP: heading/title (small) */}
-        <div className="flex-none px-6 pt-6 pb-3 text-center">
-          {ad.title ? (
-            <h3 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
-              {ad.title}
-            </h3>
-          ) : null}
-          {ad.body ? (
-            <p className="mt-1 text-gray-600 text-sm md:text-base line-clamp-2">{ad.body}</p>
-          ) : null}
-        </div>
+    <section 
+      className="w-full flex justify-center mt-6 mb-8 px-4" 
+      role="region" 
+      aria-label="Advertisement"
+    >
+      {/* Ad container */}
+      <div className="relative w-full max-w-5xl h-auto rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white flex flex-col">
+        
+        {/* TOP: heading/title */}
+        {(ad.title || ad.body) && (
+          <div className="flex-none px-6 pt-6 pb-3 text-center">
+            {ad.title && (
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+                {ad.title}
+              </h3>
+            )}
+            {ad.body && (
+              <p className="mt-1 text-gray-600 text-sm md:text-base line-clamp-2">
+                {ad.body}
+              </p>
+            )}
+          </div>
+        )}
 
-        {/* MIDDLE: large image area */}
-        <div className="relative flex-1 mx-4 sm:mx-6 mb-4 rounded-xl overflow-hidden bg-gray-100">
-          {ad.image_path && (
-            // eslint-disable-next-line @next/next/no-img-element
+        {/* MIDDLE: image area */}
+        {ad.image_path && (
+          <div className="relative w-full h-64 sm:h-80 md:h-96 mx-4 sm:mx-6 mb-4 rounded-xl overflow-hidden bg-gray-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={ad.image_path}
               alt={ad.name || ad.title || "Advertisement"}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="w-full h-full object-cover"
               loading="lazy"
             />
-          )}
+            
+            {/* Subtle gradient for contrast */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+          </div>
+        )}
 
-          {/* subtle gradient bottom for control contrast */}
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"/>
-
-          {/* Controls over image (left/right arrows) */}
-          {ads.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={() => setIndex((i) => (i - 1 + ads.length) % ads.length)}
-                aria-label="Previous ad"
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm border border-white/70 backdrop-blur"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setIndex((i) => (i + 1) % ads.length)}
-                aria-label="Next ad"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm border border-white/70 backdrop-blur"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* BOTTOM: CTA + dots (small) */}
+        {/* BOTTOM: CTA */}
         <div className="flex-none px-6 pb-6 pt-2">
           <div className="flex flex-col items-center gap-3">
             {ad.action_url ? (
@@ -141,36 +128,22 @@ export default function AdBanner({ placement }: { placement: string }) {
                 href={ad.action_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-sm"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white px-5 py-2 rounded-md text-sm font-medium shadow-sm transition"
                 aria-label="Learn more about this sponsored content"
               >
                 Learn More
                 <ExternalLink className="w-4 h-4" />
               </a>
             ) : (
-              <span className="inline-block bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-md">Sponsored</span>
-            )}
-
-            {/* Dots */}
-            {ads.length > 1 && (
-              <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-full border border-gray-200">
-                {ads.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setIndex(i)}
-                    aria-label={`Go to ad ${i + 1}`}
-                    className={`w-2.5 h-2.5 rounded-full transition-all ${
-                      i === index ? "bg-gray-800 w-5" : "bg-gray-300 hover:bg-gray-400"
-                    }`}
-                  />
-                ))}
-              </div>
+              <span className="inline-block bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-md">
+                Sponsored
+              </span>
             )}
 
             <span className="text-[11px] text-gray-400">Sponsored</span>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
