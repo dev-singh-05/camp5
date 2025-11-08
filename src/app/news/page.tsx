@@ -61,7 +61,7 @@ export default function NewsPage() {
     
     // Fetch news with proper ordering:
     // 1. Pinned first (pinned DESC means true comes before false)
-    // 2. Then by newest published_at
+    // 2. Then by newest published_at (most recent first)
     let query = supabase
       .from("campus_news")
       .select("*")

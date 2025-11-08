@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import AdBanner from "@/components/ads";
 
-type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message";
+type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message" | "campus_news";
 type NewsItem = {
   id: string;
   type: NewsType;
@@ -15,12 +15,29 @@ type NewsItem = {
   meta?: Record<string, any>;
 };
 
+type CampusNewsArticle = {
+  id: string;
+  title: string;
+  excerpt: string | null;
+  content: string;
+  category: string;
+  published: boolean;
+  featured: boolean;
+  pinned: boolean;
+  image_url: string | null;
+  views: number;
+  created_at: string;
+  published_at: string | null;
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [campusNews, setCampusNews] = useState<CampusNewsArticle[]>([]);
+  const [selectedNewsArticle, setSelectedNewsArticle] = useState<CampusNewsArticle | null>(null);
   const removedItemsRef = useRef<Set<string>>(new Set());
 
   const userIdRef = useRef<string | null>(null);
@@ -60,6 +77,9 @@ export default function Dashboard() {
   const [clubsMsgEnabled, setClubsMsgEnabled] = useState(true);
   const clubsMsgRef = useRef(true);
 
+  const [campusNewsEnabled, setCampusNewsEnabled] = useState(true);
+  const campusNewsRef = useRef(true);
+
   // Dark mode placeholder
   const [darkMode, setDarkMode] = useState(false);
 
@@ -80,6 +100,7 @@ export default function Dashboard() {
     const r = localStorage.getItem("prefs_ratings_messages");
     const d = localStorage.getItem("prefs_dating_messages");
     const c = localStorage.getItem("prefs_clubs_messages");
+    const cn = localStorage.getItem("prefs_campus_news");
     const dm = localStorage.getItem("prefs_dark_mode");
 
     if (paused === "1") {
@@ -97,6 +118,10 @@ export default function Dashboard() {
     if (c === "0") {
       setClubsMsgEnabled(false);
       clubsMsgRef.current = false;
+    }
+    if (cn === "0") {
+      setCampusNewsEnabled(false);
+      campusNewsRef.current = false;
     }
     if (dm === "1") {
       setDarkMode(true);
@@ -131,6 +156,7 @@ export default function Dashboard() {
       setLoading(false);
 
       await loadInitialNews(userId);
+      await loadCampusNews();
       await startRealtime(userId);
     }
 
@@ -142,6 +168,26 @@ export default function Dashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadCampusNews() {
+    try {
+      const { data, error } = await supabase
+        .from("campus_news")
+        .select("*")
+        .eq("published", true)
+        .order("pinned", { ascending: false })
+        .order("published_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load campus news:", error);
+        return;
+      }
+
+      setCampusNews(data || []);
+    } catch (err) {
+      console.error("loadCampusNews error:", err);
+    }
+  }
 
   async function loadInitialNews(userId: string) {
     try {
@@ -415,6 +461,53 @@ export default function Dashboard() {
         }
       );
 
+      // Listen for new campus news articles
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "campus_news" },
+        (payload: any) => {
+          const article = payload.new;
+          if (!article.published) return;
+          
+          // Add to campusNews state
+          setCampusNews((prev) => {
+            const exists = prev.some((n) => n.id === article.id);
+            if (exists) return prev;
+            const updated = [article, ...prev];
+            updated.sort((a, b) => {
+              if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+              return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
+            });
+            return updated;
+          });
+        }
+      );
+
+      // Listen for campus news updates (publish/unpublish)
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "campus_news" },
+        (payload: any) => {
+          const article = payload.new;
+
+          if (!article.published) {
+            // Remove unpublished article from campusNews
+            setCampusNews((prev) => prev.filter((n) => n.id !== article.id));
+          } else {
+            // Add or update published article in campusNews
+            setCampusNews((prev) => {
+              const filtered = prev.filter((n) => n.id !== article.id);
+              const updated = [article, ...filtered];
+              updated.sort((a, b) => {
+                if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+                return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
+              });
+              return updated;
+            });
+          }
+        }
+      );
+
       await channel.subscribe();
 
       realtimeChannelRef.current = channel;
@@ -436,6 +529,7 @@ export default function Dashboard() {
     localStorage.removeItem("dismissedNews");
     if (userIdRef.current) {
       loadInitialNews(userIdRef.current);
+      loadCampusNews();
     }
   }
 
@@ -445,9 +539,10 @@ export default function Dashboard() {
 
     // Filter per-type
     if (item.type === "rating" && !ratingsMsgRef.current) return;
-    if (item.type === "user_message" && !ratingsMsgRef.current) return; // user messages considered in same group
+    if (item.type === "user_message" && !ratingsMsgRef.current) return;
     if (item.type === "dating_chat" && !datingMsgRef.current) return;
     if ((item.type === "club_event" || item.type === "club_message") && !clubsMsgRef.current) return;
+    if (item.type === "campus_news" && !campusNewsRef.current) return;
 
     if (removedItemsRef.current.has(item.id)) return;
 
@@ -466,7 +561,6 @@ export default function Dashboard() {
   }
 
   function clearAllNews() {
-    // Add all current news items to dismissed list
     news.forEach((item) => removedItemsRef.current.add(item.id));
     saveDismissedItems();
     setNews([]);
@@ -493,10 +587,79 @@ export default function Dashboard() {
         if (item.meta?.club_id) router.push(`/clubs/${item.meta.club_id}`);
         else router.push("/clubs");
         break;
+      case "campus_news":
+        router.push(`/news/${item.meta?.article_id}`);
+        break;
       default:
         router.push("/");
     }
   }
+
+  function getCategoryIcon(category: string) {
+    switch (category) {
+      case "academic": return "🎓";
+      case "sports": return "🏆";
+      case "events": return "📅";
+      default: return "📢";
+    }
+  }
+
+  function getCategoryColor(cat: string) {
+    switch (cat) {
+      case "academic":
+        return "bg-blue-100 text-blue-700";
+      case "sports":
+        return "bg-green-100 text-green-700";
+      case "events":
+        return "bg-purple-100 text-purple-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  }
+
+  const openNewsModal = async (article: CampusNewsArticle) => {
+    setSelectedNewsArticle(article);
+
+    // Mark as viewed
+    if (userIdRef.current) {
+      await supabase.rpc("increment_news_views", {
+        news_id_param: article.id,
+        user_id_param: userIdRef.current,
+      });
+
+      // Update local view count
+      setCampusNews((prev) =>
+        prev.map((n) => (n.id === article.id ? { ...n, views: n.views + 1 } : n))
+      );
+    }
+  };
+
+  const closeNewsModal = () => {
+    setSelectedNewsArticle(null);
+  };
+
+  const copyNewsLink = () => {
+    if (selectedNewsArticle) {
+      const url = `${window.location.origin}/news/${selectedNewsArticle.id}`;
+      navigator.clipboard.writeText(url);
+      // You can add toast notification here if you have it
+      console.log("Link copied!");
+    }
+  };
+
+  // Get news to display: pinned first, then newest ones, max 4 total
+  const getDisplayNews = () => {
+    const pinnedNews = campusNews.filter((n) => n.pinned);
+    const unpinnedNews = campusNews.filter((n) => !n.pinned);
+    
+    // Combine: pinned first, then unpinned (both already sorted by date)
+    const combined = [...pinnedNews, ...unpinnedNews];
+    
+    // Return only first 4
+    return combined.slice(0, 4);
+  };
+
+  const displayNews = getDisplayNews();
 
   // Notification preference handlers (persist)
   function togglePauseNotifications(v?: boolean) {
@@ -523,37 +686,40 @@ export default function Dashboard() {
     clubsMsgRef.current = next;
     localStorage.setItem("prefs_clubs_messages", next ? "1" : "0");
   }
+  function toggleCampusNews(v?: boolean) {
+    const next = typeof v === "boolean" ? v : !campusNewsEnabled;
+    setCampusNewsEnabled(next);
+    campusNewsRef.current = next;
+    localStorage.setItem("prefs_campus_news", next ? "1" : "0");
+  }
 
   // Dark mode placeholder
   function toggleDarkMode() {
     const next = !darkMode;
     setDarkMode(next);
     localStorage.setItem("prefs_dark_mode", next ? "1" : "0");
-    // NOTE: actual theming implementation is left to your app-wide theme logic.
   }
 
-  // Logout (logic already used earlier)
+  // Logout
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
   }
 
-  // Help submit - mock (replace with your handling)
+  // Help submit
   function submitHelp(e?: React.FormEvent) {
     e?.preventDefault();
     console.log("Help form:", { helpName, helpEmail, helpMessage });
-    // TODO: send to supabase / email
     setHelpOpen(false);
     setHelpName("");
     setHelpEmail("");
     setHelpMessage("");
   }
 
-  // Feedback submit - mock
+  // Feedback submit
   function submitFeedback(e?: React.FormEvent) {
     e?.preventDefault();
     console.log("Feedback:", { feedbackName, feedbackEmail, feedbackType, feedbackMessage });
-    // TODO: send to supabase / email
     setFeedbackOpen(false);
     setFeedbackName("");
     setFeedbackEmail("");
@@ -571,7 +737,6 @@ export default function Dashboard() {
 
   return (
     <div className={`${darkMode ? "dark" : ""}`}>
-      {/* top-level container: slightly darker bg for contrast */}
       <div className="min-h-screen bg-gray-100 text-gray-900">
         <header className="bg-indigo-700 shadow">
           <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
@@ -581,13 +746,11 @@ export default function Dashboard() {
                 Welcome, {profileName}
               </Link>
 
-              {/* MENU / HAMBURGER ICON */}
               <button
                 aria-label="Open settings"
                 onClick={() => setSidebarOpen(true)}
                 className="p-2 rounded-md hover:bg-indigo-600/60"
               >
-                {/* three-line icon (hamburger) */}
                 <div className="w-6 h-6 flex flex-col justify-between">
                   <span className="block h-[2px] w-5 bg-white"></span>
                   <span className="block h-[2px] w-5 bg-white"></span>
@@ -609,10 +772,8 @@ export default function Dashboard() {
                   <span className="text-xs text-gray-500">Featured promotions</span>
                 </div>
 
-                {/* Main AdBanner */}
                 <AdBanner placement="dashboard" />
 
-                {/* Fallback message if no ads */}
                 <div id="ad-fallback" className="hidden">
                   <div className="w-full h-[300px] bg-gradient-to-br from-gray-50 to-gray-200 rounded-lg flex items-center justify-center">
                     <div className="text-center">
@@ -652,96 +813,250 @@ export default function Dashboard() {
                   </div>
                 </Link>
               </div>
+
             </div>
 
-            {/* RIGHT: Latest Updates */}
+            {/* RIGHT: Latest Updates and Campus News */}
             <aside className="space-y-6">
-              <div className="sticky top-6">
-                <div className="bg-white rounded-xl shadow p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900">Latest Updates</h3>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={clearAllNews}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+              <div className="bg-white rounded-xl shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Latest Updates</h3>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={clearAllNews}
+                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+                    >
+                      Clear all
+                    </button>
+                    <span className="text-xs text-gray-500">{news.length} items</span>
+                  </div>
+                </div>
+
+                {news.length === 0 ? (
+                  <p className="text-gray-600 text-sm">No recent updates.</p>
+                ) : (
+                  <ul className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+                    {news.map((n) => (
+                      <li
+                        key={n.id}
+                        className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border hover:bg-white transition"
                       >
-                        Clear all
-                      </button>
-                      <span className="text-xs text-gray-500">{news.length} items</span>
-                    </div>
+                        <div className="flex-shrink-0">
+                          {n.type === "rating" && (
+                            <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold">
+                              ⭐
+                            </div>
+                          )}
+                          {n.type === "user_message" && (
+                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                              ✉️
+                            </div>
+                          )}
+                          {n.type === "dating_chat" && (
+                            <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
+                              💬
+                            </div>
+                          )}
+                          {n.type === "club_event" && (
+                            <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">
+                              📅
+                            </div>
+                          )}
+                          {n.type === "club_message" && (
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                              🏷️
+                            </div>
+                          )}
+                          {n.type === "campus_news" && (
+                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                              📰
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <button onClick={() => handleNewsClick(n)} className="text-left w-full">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{n.title}</p>
+                              <time className="text-xs text-gray-400 ml-2">
+                                {new Date(n.created_at).toLocaleString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </time>
+                            </div>
+                            {n.body && <p className="text-sm text-gray-700 mt-1 line-clamp-3">{n.body}</p>}
+                            {n.type === "campus_news" && n.meta?.category && (
+                              <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                {getCategoryIcon(n.meta.category)} {n.meta.category}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="ml-3 flex flex-col items-end gap-2">
+                          <button onClick={() => removeNewsItem(n.id)} title="Dismiss" className="text-gray-500 hover:text-gray-700">
+                            ✖
+                          </button>
+                          <button onClick={() => handleNewsClick(n)} className="text-xs text-indigo-600 hover:underline">
+                            Open
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Campus News Section */}
+              {displayNews.length > 0 && (
+                <div className="bg-white rounded-xl shadow p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">📰 Campus News</h3>
+                    <Link href="/news" className="text-sm text-indigo-600 hover:underline">
+                      View all
+                    </Link>
                   </div>
 
-                  {news.length === 0 ? (
-                    <p className="text-gray-600 text-sm">No recent updates.</p>
-                  ) : (
-                    <ul className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                      {news.map((n) => (
-                        <li
-                          key={n.id}
-                          className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border hover:bg-white transition"
-                        >
-                          <div className="flex-shrink-0">
-                            {n.type === "rating" && (
-                              <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold">
-                                ⭐
-                              </div>
-                            )}
-                            {n.type === "user_message" && (
-                              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                                ✉️
-                              </div>
-                            )}
-                            {n.type === "dating_chat" && (
-                              <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
-                                💬
-                              </div>
-                            )}
-                            {n.type === "club_event" && (
-                              <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">
-                                📅
-                              </div>
-                            )}
-                            {n.type === "club_message" && (
-                              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
-                                🏷️
-                              </div>
-                            )}
-                          </div>
+                  <div className="space-y-3">
+                    {displayNews.map((article) => (
+                      <div
+                        key={article.id}
+                        onClick={() => openNewsModal(article)}
+                        className="cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition group border border-gray-100"
+                      >
+                        <div className="flex items-start gap-3">
+                          {article.image_url ? (
+                            <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-200">
+                              <img
+                                src={article.image_url}
+                                alt={article.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex-shrink-0 w-20 h-20 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                              <span className="text-2xl">{getCategoryIcon(article.category)}</span>
+                            </div>
+                          )}
 
                           <div className="flex-1 min-w-0">
-                            <button onClick={() => handleNewsClick(n)} className="text-left w-full">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold text-gray-900 truncate">{n.title}</p>
-                                <time className="text-xs text-gray-400 ml-2">
-                                  {new Date(n.created_at).toLocaleString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </time>
-                              </div>
-                              {n.body && <p className="text-sm text-gray-700 mt-1 line-clamp-3">{n.body}</p>}
-                            </button>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs">{getCategoryIcon(article.category)}</span>
+                              <span className="text-xs text-gray-500 uppercase">{article.category}</span>
+                              {article.pinned && (
+                                <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded">📌</span>
+                              )}
+                            </div>
+                            <h4 className="font-semibold text-sm text-gray-900 group-hover:text-indigo-600 transition line-clamp-2 mb-1">
+                              {article.title}
+                            </h4>
+                            {article.excerpt && (
+                              <p className="text-xs text-gray-600 line-clamp-2 mb-2">{article.excerpt}</p>
+                            )}
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span>👁️ {article.views}</span>
+                              <span>•</span>
+                              <span>{new Date(article.published_at || article.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                            </div>
                           </div>
-
-                          <div className="ml-3 flex flex-col items-end gap-2">
-                            <button onClick={() => removeNewsItem(n.id)} title="Dismiss" className="text-gray-500 hover:text-gray-700">
-                              ✖
-                            </button>
-                            <button onClick={() => handleNewsClick(n)} className="text-xs text-indigo-600 hover:underline">
-                              Open
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </aside>
           </div>
         </main>
+
+        {/* News Detail Modal */}
+        {selectedNewsArticle && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+            onClick={closeNewsModal}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs px-3 py-1 rounded ${getCategoryColor(
+                      selectedNewsArticle.category
+                    )}`}
+                  >
+                    {getCategoryIcon(selectedNewsArticle.category)} {selectedNewsArticle.category}
+                  </span>
+                  {selectedNewsArticle.pinned && (
+                    <span className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded">
+                      📌 Pinned
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={closeNewsModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ✖
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  {selectedNewsArticle.title}
+                </h1>
+
+                <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
+                  <span>
+                    📅{" "}
+                    {new Date(selectedNewsArticle.published_at || selectedNewsArticle.created_at).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <span>👁️ {selectedNewsArticle.views} views</span>
+                </div>
+
+                {selectedNewsArticle.image_url && (
+                  <img
+                    src={selectedNewsArticle.image_url}
+                    alt={selectedNewsArticle.title}
+                    className="w-full h-96 object-cover rounded-lg mb-6"
+                  />
+                )}
+
+                <div className="prose max-w-none">
+                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedNewsArticle.content}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t p-6 flex items-center justify-between">
+                <button
+                  onClick={copyNewsLink}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center gap-2"
+                >
+                  🔗 Copy Link
+                </button>
+                <button
+                  onClick={closeNewsModal}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sidebar overlay */}
         {sidebarOpen && (
@@ -789,7 +1104,6 @@ export default function Dashboard() {
               {/* About */}
               <button
                 onClick={() => {
-                  // open About modal; DO NOT close the sidebar
                   setAboutOpen(true);
                 }}
                 className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50"
@@ -801,10 +1115,9 @@ export default function Dashboard() {
                 </div>
               </button>
 
-              {/* Help Center -> open modal */}
+              {/* Help Center */}
               <button
                 onClick={() => {
-                  // open Help modal; keep sidebar open
                   setHelpOpen(true);
                 }}
                 className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
@@ -816,10 +1129,9 @@ export default function Dashboard() {
                 </div>
               </button>
 
-              {/* Send Feedback -> open modal */}
+              {/* Send Feedback */}
               <button
                 onClick={() => {
-                  // open Feedback modal; keep sidebar open
                   setFeedbackOpen(true);
                 }}
                 className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
@@ -897,6 +1209,14 @@ export default function Dashboard() {
                       onChange={(e) => toggleClubsMessages(e.target.checked)}
                     />
                   </div>
+                  <div className="flex items-center justify-between p-2">
+                    <div className="text-sm text-gray-800">Campus news</div>
+                    <input
+                      type="checkbox"
+                      checked={campusNewsEnabled}
+                      onChange={(e) => toggleCampusNews(e.target.checked)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -932,7 +1252,6 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => {
-                    // account deletion should be a guarded flow; we just route to a page for that.
                     setSidebarOpen(false);
                     router.push("/account/delete");
                   }}
@@ -1108,13 +1427,28 @@ export default function Dashboard() {
             </div>
           </ModalOverlay>
         )}
+
+        <style jsx global>{`
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          .animate-fadeIn {
+            animation: fadeIn 0.2s ease-out;
+          }
+        `}</style>
       </div>
     </div>
   );
 }
 
 /* ---------- Helper modal overlay component ---------- */
-/* Renders the dark blurred backdrop and centers children. Click outside closes via onClose. */
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
@@ -1123,10 +1457,7 @@ function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClos
       aria-modal="true"
       onClick={() => onClose()}
     >
-      {/* dark translucent backdrop with blur */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-      {/* center container: limit width and center content */}
       <div
         className="relative z-10 w-full max-w-2xl mx-auto"
         onClick={(e) => e.stopPropagation()}
