@@ -67,12 +67,18 @@ export default function LeaderboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-10 px-6">
       {/* Top bar with Back button */}
       <div className="max-w-3xl mx-auto mb-6 flex items-center justify-between">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 text-sm"
-        >
-          ← Back
-        </button>
+        <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
 
         <div className="text-center flex-1">
           {/* Title */}

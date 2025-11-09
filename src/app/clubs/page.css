@@ -1,7 +1,3 @@
-/* hide scrollbar for chat */
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
 html {
   height: 100%;
   -webkit-box-sizing: border-box;
@@ -1751,6 +1747,8 @@ body {
 .animated-button-fixed span:nth-child(4) {
   width: 2px;
 }
+
+
 
 /* ---------------------------
   Back-button: safe, non-global styles

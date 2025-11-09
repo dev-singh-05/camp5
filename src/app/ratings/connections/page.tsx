@@ -243,14 +243,20 @@ export default function ConnectionsPage() {
       <div className="max-w-6xl mx-auto">
         {/* 🔹 Back & Title */}
         <div className="flex items-center justify-between mb-6 relative">
-          <button
-            onClick={handleBack}
-            aria-label="Go back"
-            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow flex items-center justify-center"
-          >
-            {/* Only a symbol — no text */}
-            <span className="text-2xl select-none">←</span>
-          </button>
+          <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
           <h1 className="absolute left-1/2 transform -translate-x-1/2 text-3xl font-bold text-gray-900">
             MY CONNECTIONS
           </h1>
@@ -341,11 +347,10 @@ export default function ConnectionsPage() {
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`p-2 rounded-lg text-sm max-w-[70%] relative ${
-                          msg.from_user_id === currentUserId
+                        className={`p-2 rounded-lg text-sm max-w-[70%] relative ${msg.from_user_id === currentUserId
                             ? "bg-blue-500 text-white ml-auto"
                             : "bg-gray-200 text-gray-900"
-                        }`}
+                          }`}
                       >
                         <p>{msg.content}</p>
                         <span className="text-[10px] opacity-70 block mt-1 text-right">
@@ -393,10 +398,10 @@ export default function ConnectionsPage() {
             </h2>
 
             {[{ label: "Confidence", key: "confidence" },
-              { label: "Humbleness", key: "humbleness" },
-              { label: "Friendliness", key: "friendliness" },
-              { label: "Intelligence", key: "intelligence" },
-              { label: "Communication", key: "communication" },
+            { label: "Humbleness", key: "humbleness" },
+            { label: "Friendliness", key: "friendliness" },
+            { label: "Intelligence", key: "intelligence" },
+            { label: "Communication", key: "communication" },
             ].map(({ label, key }) => (
               <div key={key} className="mb-2">
                 <label className="text-xs text-gray-600">{label}</label>
@@ -453,12 +458,20 @@ export default function ConnectionsPage() {
       )}
 
       {/* ➕ Floating Global Rating Button */}
-      <button
+      <a
+        href="#"
+        role="button"
+        aria-label="Open rate modal"
         onClick={() => setIsModalOpen({ id: "global" } as any)}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-2xl rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition"
+        className="animated-button1 animated-button-fixed"
       >
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
         +
-      </button>
+      </a>
 
       {/* 🌍 Global Rating Modal */}
       {isModalOpen && isModalOpen.id === "global" && (
@@ -482,10 +495,10 @@ export default function ConnectionsPage() {
                   <p className="font-medium mb-2">{user.full_name}</p>
 
                   {[{ label: "Confidence", key: "confidence" },
-                    { label: "Humbleness", key: "humbleness" },
-                    { label: "Friendliness", key: "friendliness" },
-                    { label: "Intelligence", key: "intelligence" },
-                    { label: "Communication", key: "communication" },
+                  { label: "Humbleness", key: "humbleness" },
+                  { label: "Friendliness", key: "friendliness" },
+                  { label: "Intelligence", key: "intelligence" },
+                  { label: "Communication", key: "communication" },
                   ].map(({ label, key }) => (
                     <div key={key} className="mb-2">
                       <label className="text-xs text-gray-600">{label}</label>
@@ -610,10 +623,10 @@ function ProfileStats({ user, getAvatar }: any) {
       {stats && (
         <div className="space-y-2">
           {[{ label: "Confidence", key: "avg_confidence" },
-            { label: "Humbleness", key: "avg_humbleness" },
-            { label: "Friendliness", key: "avg_friendliness" },
-            { label: "Intelligence", key: "avg_intelligence" },
-            { label: "Communication", key: "avg_communication" },
+          { label: "Humbleness", key: "avg_humbleness" },
+          { label: "Friendliness", key: "avg_friendliness" },
+          { label: "Intelligence", key: "avg_intelligence" },
+          { label: "Communication", key: "avg_communication" },
           ].map(({ label, key }) => (
             <div key={key}>
               <div className="flex justify-between text-xs text-gray-600 mb-1">

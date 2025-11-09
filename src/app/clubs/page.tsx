@@ -1,5 +1,6 @@
 "use client";
 
+import "./page.css";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
@@ -145,27 +146,27 @@ export default function ClubsPage() {
       return;
     }
 
-if (enteredPass === realPass) {
-  await supabase.from("club_members").insert([{ club_id: joiningClub.id, user_id: user.id }]);
-  
-  // Get user's name
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-  
-  // Send system message to club chat
-  await supabase.from("messages").insert([{
-    club_id: joiningClub.id,
-    user_id: user.id,
-    content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
-  }]);
-  
-  setJoinedClubIds((prev) => [...prev, joiningClub.id]);
-  setShowPassModal(false);
-  return;
-}
+    if (enteredPass === realPass) {
+      await supabase.from("club_members").insert([{ club_id: joiningClub.id, user_id: user.id }]);
+
+      // Get user's name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      // Send system message to club chat
+      await supabase.from("messages").insert([{
+        club_id: joiningClub.id,
+        user_id: user.id,
+        content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
+      }]);
+
+      setJoinedClubIds((prev) => [...prev, joiningClub.id]);
+      setShowPassModal(false);
+      return;
+    }
 
     if (triesLeft - 1 > 0) {
       setTriesLeft(triesLeft - 1);
@@ -239,12 +240,20 @@ if (enteredPass === realPass) {
         {/* Left side: Back + Links */}
         <div className="flex gap-3 items-center">
           {/* 🔙 Back button on the left of My Clubs */}
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-          >
-            ← Back
-          </button>
+          <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
 
           <Link
             href="/clubs/my"
@@ -303,8 +312,8 @@ if (enteredPass === realPass) {
                 joinedClubIds.includes(club.id)
                   ? "joined"
                   : requestedClubIds.includes(club.id)
-                  ? "requested"
-                  : "join"
+                    ? "requested"
+                    : "join"
               }
               onClick={() => {
                 setSelectedClub(club);
@@ -315,12 +324,21 @@ if (enteredPass === realPass) {
       </div>
 
       {/* Floating + button */}
-      <button
+      <a
+        href="#"
+        role="button"
+        aria-label="Open rate modal"
         onClick={() => setShowModal(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
+        className="animated-button1 animated-button-fixed"
       >
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
         +
-      </button>
+      </a>
+
 
       {/* Create Club Modal */}
       {showModal && (

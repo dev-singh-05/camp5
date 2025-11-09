@@ -266,12 +266,20 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50 to-purple-100 py-12 px-4">
       {/* Back Button */}
-      <button
-        onClick={() => router.push("/dashboard")}
-        className="absolute left-10 top-5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:scale-105 transition"
-      >
-        ← Back
-      </button>
+      <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
       <Toaster position="top-right" />
       <div className="max-w-5xl mx-auto bg-gradient-to-br from-[#fefefe] via-[#f8f7fb] to-[#ebe9f5] shadow-2xl rounded-3xl p-10 space-y-10 border border-gray-200 transition-all duration-300 hover:shadow-purple-200 relative">
 

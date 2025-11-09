@@ -324,29 +324,29 @@ export default function LeaderboardPage() {
     const user = userRes.data?.user;
     if (!user) return;
 
-if (pass === realPass) {
-  await supabase.from("club_members").insert([
-    { club_id: currentClubId, user_id: user.id },
-  ]);
-  
-  // Get user's name
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-  
-  // Send system message to club chat
-  await supabase.from("messages").insert([{
-    club_id: currentClubId,
-    user_id: user.id,
-    content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
-  }]);
-  
-  setJoinedClubIds((prev) => [...prev, currentClubId]);
-  setShowJoinModal(false);
-  return;
-}
+    if (pass === realPass) {
+      await supabase.from("club_members").insert([
+        { club_id: currentClubId, user_id: user.id },
+      ]);
+
+      // Get user's name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      // Send system message to club chat
+      await supabase.from("messages").insert([{
+        club_id: currentClubId,
+        user_id: user.id,
+        content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
+      }]);
+
+      setJoinedClubIds((prev) => [...prev, currentClubId]);
+      setShowJoinModal(false);
+      return;
+    }
 
     if (triesLeft > 1) {
       setTriesLeft(triesLeft - 1);
@@ -374,13 +374,20 @@ if (pass === realPass) {
     <div className="p-6 min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            aria-label="Go back"
-            className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-          >
-            ← Back
-          </button>
+          <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">🏆 Club Leaderboard</h1>
         </div>
       </div>
@@ -431,8 +438,8 @@ if (pass === realPass) {
                   joinedClubIds.includes(club.id)
                     ? "joined"
                     : requestedClubIds.includes(club.id)
-                    ? "requested"
-                    : "none"
+                      ? "requested"
+                      : "none"
                 }
                 onClick={() => setSelectedClub(club)}
               />
@@ -448,8 +455,8 @@ if (pass === realPass) {
             joinedClubIds.includes(selectedClub.id)
               ? "joined"
               : requestedClubIds.includes(selectedClub.id)
-              ? "requested"
-              : "none"
+                ? "requested"
+                : "none"
           }
           onClose={() => setSelectedClub(null)}
           onJoin={() => handleJoin(selectedClub.id)}

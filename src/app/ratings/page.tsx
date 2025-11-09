@@ -422,14 +422,22 @@ export default function RatingsPage() {
       <div className="max-w-6xl mx-auto">
         {/* 🔹 Top */}
         <div className="flex gap-4 mb-6 items-center">
-          {/* <-- Back button added to the left of My Connections --> */}
-          <button
-            onClick={() => router.back()}
-            aria-label="Go back"
-            className="p-2 rounded-lg bg-white hover:bg-gray-100 shadow text-sm font-medium"
-          >
-            ← Back
-          </button>
+          {/* <-- Back button styled with custom "btn" style but kept in flex flow --> */}
+          <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
+
 
           <button
             onClick={() => router.push("/ratings/connections")}
@@ -596,7 +604,7 @@ export default function RatingsPage() {
                 <div className="text-center">
                   <p className="text-gray-500 text-base">👈 Select a profile to view details</p>
                 </div>
-                
+
                 {/* Ad Banner Section */}
                 <div className="w-full max-w-md">
                   {isMounted ? (
@@ -791,12 +799,20 @@ export default function RatingsPage() {
       )}
 
       {/* ✅ Floating + Button */}
-      <button
-        onClick={() => setIsGlobalRatingModal(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-2xl rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition"
+      <a
+        href="#"
+        role="button"
+        aria-label="Open rate modal"
+        onClick={(e) => { e.preventDefault(); setIsGlobalRatingModal(true); }}
+        className="animated-button1 animated-button-fixed"
       >
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
         +
-      </button>
+      </a>
     </div>
   );
 }

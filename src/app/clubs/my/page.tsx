@@ -5,10 +5,10 @@ import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 
 // Club type
-type Club = { 
-  id: string; 
-  name: string; 
-  category: string | null; 
+type Club = {
+  id: string;
+  name: string;
+  category: string | null;
   description?: string | null;
 };
 
@@ -234,29 +234,29 @@ export default function MyClubs() {
           : `Wrong passcode. ${tries} tries left:`
       );
       if (pass === null) return;
-if (pass === realPass) {
-  await supabase.from("club_members").insert([
-    { club_id: clubId, user_id: user.id },
-  ]);
-  
-  // Get user's name
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-  
-  // Send system message to club chat
-  await supabase.from("messages").insert([{
-    club_id: clubId,
-    user_id: user.id,
-    content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
-  }]);
-  
-  alert("✅ Joined club!");
-  window.location.reload();
-  return;
-}
+      if (pass === realPass) {
+        await supabase.from("club_members").insert([
+          { club_id: clubId, user_id: user.id },
+        ]);
+
+        // Get user's name
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+
+        // Send system message to club chat
+        await supabase.from("messages").insert([{
+          club_id: clubId,
+          user_id: user.id,
+          content: `🔔 SYSTEM: ${profile?.full_name || "Someone"} joined the club via password`
+        }]);
+
+        alert("✅ Joined club!");
+        window.location.reload();
+        return;
+      }
       tries--;
     }
 
@@ -272,13 +272,20 @@ if (pass === realPass) {
       {/* Header with Back button on the left */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
-            aria-label="Go back"
-          >
-            ← Back
-          </button>
+          <div className="text-box">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated"
+            >
+              ← Back
+            </a>
+          </div>
 
           <h1 className="text-3xl font-bold text-gray-900">My Clubs</h1>
         </div>
@@ -332,13 +339,20 @@ if (pass === realPass) {
       </section>
 
       {/* Floating + button */}
-      <button
+      <a
+        href="#"
+        role="button"
+        aria-label="Open rate modal"
         onClick={() => setShowModal(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
-        aria-label="Create club"
+        className="animated-button1 animated-button-fixed"
       >
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
         +
-      </button>
+      </a>
 
       {/* Club Modal */}
       {selectedClub && (
@@ -348,8 +362,8 @@ if (pass === realPass) {
             joined.find((j) => j.id === selectedClub.id)
               ? "joined"
               : pending.find((p) => p.id === selectedClub.id)
-              ? "requested"
-              : "none"
+                ? "requested"
+                : "none"
           }
           onClose={() => setSelectedClub(null)}
           onJoin={() => handleJoin(selectedClub.id)}
