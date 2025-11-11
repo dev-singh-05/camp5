@@ -15,6 +15,30 @@ type Profile = {
   profile_photo?: string | null;
   branch?: string | null;
   avg_overall_xp?: number | null;
+  gender?: string | null;
+  year?: string | null;
+  location?: string | null;
+  hometown?: string | null;
+  profile_completed?: boolean;
+  age?: number | null;
+  work?: string | null;
+  education?: string | null;
+  exercise?: string | null;
+  education_level?: string | null;
+  drinking?: string | null;
+  smoking?: string | null;
+  kids?: string | null;
+  have_kids?: string | null;
+  zodiac?: string | null;
+  politics?: string | null;
+  religion?: string | null;
+  bio?: string | null;
+  interests?: string[] | null;
+  personality?: string[] | null;
+  gender_locked?: boolean;
+  height_locked?: boolean;
+  year_locked?: boolean;
+  height?: string | null;
 };
 
 type Request = {
@@ -44,6 +68,7 @@ export default function ProfilePage() {
 
   const [showSent, setShowSent] = useState(false);
   const [showReceived, setShowReceived] = useState(false);
+  const [showAllDetails, setShowAllDetails] = useState(false);
 
   const [showRatingsModal, setShowRatingsModal] = useState(false);
   const [ratingsReceived, setRatingsReceived] = useState<Rating[]>([]);
@@ -52,6 +77,14 @@ export default function ProfilePage() {
 
   const [totalConnections, setTotalConnections] = useState<number>(0);
   const [globalRank, setGlobalRank] = useState<number | null>(null);
+
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [tempValue, setTempValue] = useState<any>("");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [fieldToUpdate, setFieldToUpdate] = useState<string | null>(null);
+
+  // Track which fields have been edited
+  const [editedFields, setEditedFields] = useState<Set<string>>(new Set());
 
   const getAvatarUrl = (profile: Profile) => {
     if (profile.profile_photo) return profile.profile_photo;
@@ -73,7 +106,6 @@ export default function ProfilePage() {
 
       const userId = session.user.id;
 
-      // ---- Fetch Profile ----
       let { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -98,9 +130,15 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile(profileData);
         setDescription(profileData.description || "");
+        
+        // Track locked fields as already edited
+        const locked = new Set<string>();
+        if (profileData.gender_locked) locked.add("gender");
+        if (profileData.height_locked) locked.add("height");
+        if (profileData.year_locked) locked.add("year");
+        setEditedFields(locked);
       }
 
-      // ---- Fetch Requests ----
       const { data: sentData } = await supabase
         .from("profile_requests")
         .select(`
@@ -136,7 +174,6 @@ export default function ProfilePage() {
         })) || []
       );
 
-      // ---- Fetch Ratings ----
       const { data: received } = await supabase
         .from("ratings")
         .select("*")
@@ -170,7 +207,6 @@ export default function ProfilePage() {
 
       setRatingsGiven(normalized);
 
-      // ---- Fetch Global Rank ----
       const { data: leaderboard } = await supabase
         .from("profiles")
         .select("id, avg_overall_xp")
@@ -179,7 +215,6 @@ export default function ProfilePage() {
       const rankIndex = leaderboard?.findIndex((p) => p.id === userId);
       if (rankIndex !== undefined && rankIndex >= 0) setGlobalRank(rankIndex + 1);
 
-      // ---- Fetch Total Connections ----
       const { count } = await supabase
         .from("profile_requests")
         .select("*", { count: "exact", head: true })
@@ -249,6 +284,71 @@ export default function ProfilePage() {
     } else toast.error("Failed to update request ❌");
   }
 
+  const handleEditField = (field: string, currentValue: any) => {
+    if (editedFields.has(field)) {
+      toast.error("This field has already been edited and cannot be changed again");
+      return;
+    }
+    setEditingField(field);
+    setTempValue(currentValue || "");
+  };
+
+  const handleConfirmEdit = (field: string) => {
+    setFieldToUpdate(field);
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalUpdate = async () => {
+    if (!profile || !fieldToUpdate) return;
+
+    const updateData: any = { [fieldToUpdate]: tempValue };
+    
+    // Add lock flag for specific fields
+    if (fieldToUpdate === "gender") updateData.gender_locked = true;
+    if (fieldToUpdate === "height") updateData.height_locked = true;
+    if (fieldToUpdate === "year") updateData.year_locked = true;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", profile.id);
+
+    if (!error) {
+      setProfile((p) => (p ? { ...p, ...updateData } : p));
+      setEditedFields((prev) => new Set(prev).add(fieldToUpdate));
+      toast.success(`${fieldToUpdate} updated successfully! This field cannot be edited again.`);
+      setEditingField(null);
+      setShowConfirmModal(false);
+      setFieldToUpdate(null);
+    } else {
+      toast.error("Failed to update field ❌");
+    }
+  };
+
+  const profileFields = [
+    { key: "full_name", label: "Full Name", type: "text" },
+    { key: "enrollment_number", label: "Enrollment Number", type: "text" },
+    { key: "branch", label: "Branch", type: "select", options: ["CSE", "ECE", "IT", "Mechanical", "Civil", "Electrical", "Other"] },
+    { key: "gender", label: "Gender", type: "select", options: ["male", "female", "other"] },
+    { key: "year", label: "Year", type: "text" },
+    { key: "age", label: "Age", type: "number" },
+    { key: "height", label: "Height", type: "text" },
+    { key: "location", label: "Location", type: "text" },
+    { key: "hometown", label: "Hometown", type: "text" },
+    { key: "work", label: "Work", type: "text" },
+    { key: "education", label: "Education", type: "text" },
+    { key: "education_level", label: "Education Level", type: "text" },
+    { key: "exercise", label: "Exercise", type: "text" },
+    { key: "drinking", label: "Drinking", type: "text" },
+    { key: "smoking", label: "Smoking", type: "text" },
+    { key: "kids", label: "Kids", type: "text" },
+    { key: "have_kids", label: "Have Kids", type: "text" },
+    { key: "zodiac", label: "Zodiac Sign", type: "text" },
+    { key: "politics", label: "Politics", type: "text" },
+    { key: "religion", label: "Religion", type: "text" },
+    { key: "bio", label: "Bio", type: "textarea" },
+  ];
+
   if (loading)
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-200">
@@ -265,31 +365,22 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50 to-purple-100 py-12 px-4">
-      {/* Back Button */}
       <div className="text-box">
-            <a
-              href="#"
-              role="button"
-              aria-label="Go back"
-              onClick={(e) => {
-                e.preventDefault();
-                router.back();
-              }}
-              className="btn btn-white btn-animated"
-            >
-              ← Back
-            </a>
-          </div>
-      <Toaster position="top-right" />
-      <div className="max-w-5xl mx-auto bg-gradient-to-br from-[#fefefe] via-[#f8f7fb] to-[#ebe9f5] shadow-2xl rounded-3xl p-10 space-y-10 border border-gray-200 transition-all duration-300 hover:shadow-purple-200 relative">
-
-        {/* Back Button
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="absolute left-10 top-5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:scale-105 transition"
+        <a
+          href="#"
+          role="button"
+          aria-label="Go back"
+          onClick={(e) => {
+            e.preventDefault();
+            router.back();
+          }}
+          className="btn btn-white btn-animated"
         >
           ← Back
-        </button> */}
+        </a>
+      </div>
+      <Toaster position="top-right" />
+      <div className="max-w-5xl mx-auto bg-gradient-to-br from-[#fefefe] via-[#f8f7fb] to-[#ebe9f5] shadow-2xl rounded-3xl p-10 space-y-10 border border-gray-200 transition-all duration-300 hover:shadow-purple-200 relative">
 
         {/* Profile Header */}
         <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-6">
@@ -358,6 +449,101 @@ export default function ProfilePage() {
               Save Changes
             </button>
           </div>
+        </div>
+
+        {/* All Details Section */}
+        <div className="border rounded-lg shadow-sm bg-white/80">
+          <button
+            className="w-full flex justify-between items-center px-4 py-3 bg-gradient-to-r from-purple-100 to-indigo-100 text-gray-900 font-semibold rounded-t-lg"
+            onClick={() => setShowAllDetails(!showAllDetails)}
+          >
+            All Details (One-Time Edit)
+            <span>{showAllDetails ? "▲" : "▼"}</span>
+          </button>
+          {showAllDetails && (
+            <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+              {profileFields.map((field) => {
+                const currentValue = profile[field.key as keyof Profile];
+                const isEdited = editedFields.has(field.key);
+                const isEditing = editingField === field.key;
+
+                return (
+                  <div key={field.key} className="p-4 rounded-lg border bg-gradient-to-r from-gray-50 to-purple-50 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <label className="font-semibold text-gray-900">{field.label}</label>
+                      {isEdited && (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                          Already Edited
+                        </span>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        {field.type === "textarea" ? (
+                          <textarea
+                            value={tempValue}
+                            onChange={(e) => setTempValue(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg p-2 text-gray-900 bg-white focus:ring-2 focus:ring-purple-300"
+                            rows={3}
+                          />
+                        ) : field.type === "select" ? (
+                          <select
+                            value={tempValue}
+                            onChange={(e) => setTempValue(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg p-2 text-gray-900 bg-white focus:ring-2 focus:ring-purple-300"
+                          >
+                            <option value="">Select...</option>
+                            {field.options?.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={field.type}
+                            value={tempValue}
+                            onChange={(e) => setTempValue(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg p-2 text-gray-900 bg-white focus:ring-2 focus:ring-purple-300"
+                          />
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleConfirmEdit(field.key)}
+                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setEditingField(null)}
+                            className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <p className="text-gray-700">
+                          {currentValue !== null && currentValue !== undefined && currentValue !== ""
+                            ? String(currentValue)
+                            : <span className="text-gray-400 italic">Not set</span>
+                          }
+                        </p>
+                        {!isEdited && (
+                          <button
+                            onClick={() => handleEditField(field.key, currentValue)}
+                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Collapsible Sections */}
@@ -443,7 +629,33 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ✅ Ratings Modal */}
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">⚠️ Confirm One-Time Edit</h3>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to update this field? <strong>You can only edit this field once.</strong> After confirming, you won't be able to change it again.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFinalUpdate}
+                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+              >
+                Confirm & Lock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ratings Modal */}
       {showRatingsModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 animate-fadeIn">
           <div className="bg-gradient-to-br from-white via-purple-50 to-indigo-100 rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-gray-200">
@@ -461,19 +673,21 @@ export default function ProfilePage() {
             <div className="flex gap-4 mb-4">
               <button
                 onClick={() => setActiveTab("received")}
-                className={`px-4 py-2 rounded-lg transition ${activeTab === "received"
+                className={`px-4 py-2 rounded-lg transition ${
+                  activeTab === "received"
                     ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white"
                     : "bg-gray-200 text-gray-900"
-                  }`}
+                }`}
               >
                 Ratings Received
               </button>
               <button
                 onClick={() => setActiveTab("given")}
-                className={`px-4 py-2 rounded-lg transition ${activeTab === "given"
+                className={`px-4 py-2 rounded-lg transition ${
+                  activeTab === "given"
                     ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white"
                     : "bg-gray-200 text-gray-900"
-                  }`}
+                }`}
               >
                 Ratings Given
               </button>
@@ -527,7 +741,7 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-        </div>  
+        </div>
       )}
     </div>
   );

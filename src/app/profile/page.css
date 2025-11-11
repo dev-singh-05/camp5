@@ -29,7 +29,7 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #bfa8ff, #9f8eff);
+  background: linear-gradient(to bottom, #bfa8ff, #7561e1);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {

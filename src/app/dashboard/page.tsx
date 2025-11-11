@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import AdBanner from "@/components/ads";
+import TokenBalance from "@/components/tokens/TokenBalance";
+import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
+import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 
 type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message" | "campus_news";
 type NewsItem = {
@@ -13,6 +16,22 @@ type NewsItem = {
   body?: string | null;
   created_at: string;
   meta?: Record<string, any>;
+};
+
+type Profile = {
+  id: string;
+  full_name?: string | null;
+  enrollment_number?: string | null;
+  college_email?: string | null;
+  description?: string | null;
+  profile_photo?: string | null;
+  branch?: string | null;
+  gender?: string | null;
+  year?: string | null;
+  location?: string | null;
+  hometown?: string | null;
+  profile_completed?: boolean;
+  avg_overall_xp?: number | null;
 };
 
 type CampusNewsArticle = {
@@ -29,6 +48,16 @@ type CampusNewsArticle = {
   created_at: string;
   published_at: string | null;
 };
+type ProfileData = {
+  full_name?: string | null;
+  gender?: string | null;
+  year?: string | null;
+  branch?: string | null;
+  location?: string | null;
+  hometown?: string | null;
+  profile_completed?: boolean;
+};
+
 
 export default function Dashboard() {
   const router = useRouter();
@@ -43,11 +72,26 @@ export default function Dashboard() {
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
 
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+const [onboardingData, setOnboardingData] = useState({
+  full_name: "",
+  location: "",
+  hometown: "",
+  year: "",
+  branch: "",
+  gender: ""
+});
+
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // About modal
   const [aboutOpen, setAboutOpen] = useState(false);
+
+
+  const [showTokenBalance, setShowTokenBalance] = useState(false);
+const [showTokenPurchase, setShowTokenPurchase] = useState(false);
+  
 
   // Help & Feedback modals
   const [helpOpen, setHelpOpen] = useState(false);
@@ -145,15 +189,21 @@ export default function Dashboard() {
       const userId = data.user.id;
       userIdRef.current = userId;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data: profileData } = await supabase
+  .from("profiles")
+  .select("full_name, gender, year, branch, profile_completed")
+  .eq("id", userId)
+  .maybeSingle();
 
-      if (!mounted) return;
-      setProfileName(profile?.full_name || "Student");
-      setLoading(false);
+if (!mounted) return;
+setProfileName(profileData?.full_name || "Student");
+
+// Check if profile needs completion
+if (!profileData?.full_name || !profileData?.gender || !profileData?.year || !profileData?.branch) {
+  setShowOnboardingModal(true);
+}
+
+setLoading(false);
 
       await loadInitialNews(userId);
       await loadCampusNews();
@@ -188,6 +238,33 @@ export default function Dashboard() {
       console.error("loadCampusNews error:", err);
     }
   }
+
+  async function handleOnboardingSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  
+  if (!userIdRef.current) return;
+  
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      full_name: onboardingData.full_name,
+      location: onboardingData.location,
+      hometown: onboardingData.hometown,
+      year: onboardingData.year,
+      branch: onboardingData.branch,
+      gender: onboardingData.gender,
+      profile_completed: true
+    })
+    .eq("id", userIdRef.current);
+
+  if (error) {
+    console.error("Profile update failed:", error);
+    return;
+  }
+
+  setProfileName(onboardingData.full_name);
+  setShowOnboardingModal(false);
+}
 
   async function loadInitialNews(userId: string) {
     try {
@@ -739,27 +816,63 @@ export default function Dashboard() {
     <div className={`${darkMode ? "dark" : ""}`}>
       <div className="min-h-screen bg-gray-100 text-gray-900">
         <header className="bg-indigo-700 shadow">
-          <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
-            <h1 className="text-2xl font-extrabold text-white">Campus5 Dashboard</h1>
-            <div className="flex items-center gap-3">
-              <Link href="/profile" className="font-medium text-white hover:underline">
-                Welcome, {profileName}
-              </Link>
+  <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
+    <h1 className="text-2xl font-extrabold text-white">Campus5 Dashboard</h1>
+    
+   <div className="flex items-center gap-3">
+  {/* TOKEN BALANCE - Click to see details */}
+  {userIdRef.current && (
+    <TokenBalance
+      userId={userIdRef.current}
+      onClick={() => setShowTokenBalance(true)}
+    />
+  )}
 
-              <button
-                aria-label="Open settings"
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 rounded-md hover:bg-indigo-600/60"
-              >
-                <div className="w-6 h-6 flex flex-col justify-between">
-                  <span className="block h-[2px] w-5 bg-white"></span>
-                  <span className="block h-[2px] w-5 bg-white"></span>
-                  <span className="block h-[2px] w-5 bg-white"></span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </header>
+  {/* Token Balance Detail Modal */}
+{showTokenBalance && userIdRef.current && (
+  <TokenBalanceModal
+    userId={userIdRef.current}
+    onClose={() => setShowTokenBalance(false)}
+    onAddTokens={() => setShowTokenPurchase(true)}
+  />
+)}
+
+{/* Token Purchase Modal */}
+{showTokenPurchase && userIdRef.current && (
+  <TokenPurchaseModal
+    userId={userIdRef.current}
+    onClose={() => setShowTokenPurchase(false)}
+  />
+)}
+      
+
+      {/* PROFILE BUTTON - Separate */}
+      <button
+        onClick={() => {
+          setSidebarOpen(false);
+          router.push("/profile");
+        }}
+        className="p-2 rounded-md hover:bg-indigo-600/60 text-white"
+        title="View Profile"
+      >
+        👤
+      </button>
+
+      {/* HAMBURGER MENU - Separate */}
+      <button
+        aria-label="Open settings"
+        onClick={() => setSidebarOpen(true)}
+        className="p-2 rounded-md hover:bg-indigo-600/60"
+      >
+        <div className="w-6 h-6 flex flex-col justify-between">
+          <span className="block h-[2px] w-5 bg-white"></span>
+          <span className="block h-[2px] w-5 bg-white"></span>
+          <span className="block h-[2px] w-5 bg-white"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</header>
 
         <main className="max-w-6xl mx-auto px-6 py-10">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -971,6 +1084,106 @@ export default function Dashboard() {
             </aside>
           </div>
         </main>
+
+        {/* Onboarding Modal */}
+{showOnboardingModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Campus5! 🎉</h2>
+      <p className="text-sm text-gray-600 mb-6">Complete your profile to get started</p>
+
+      <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+          <input
+            required
+            value={onboardingData.full_name}
+            onChange={(e) => setOnboardingData({...onboardingData, full_name: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            placeholder="John Doe"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+          <select
+            required
+            value={onboardingData.gender}
+            onChange={(e) => setOnboardingData({...onboardingData, gender: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Current Year *</label>
+          <select
+            required
+            value={onboardingData.year}
+            onChange={(e) => setOnboardingData({...onboardingData, year: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Select year</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Course *</label>
+          <select
+            required
+            value={onboardingData.branch}
+            onChange={(e) => setOnboardingData({...onboardingData, branch: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Select branch</option>
+            <option value="CSE">CSE</option>
+            <option value="ECE">ECE</option>
+            <option value="IT">IT</option>
+            <option value="Mechanical">Mechanical</option>
+            <option value="Civil">Civil</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <input
+            value={onboardingData.location}
+            onChange={(e) => setOnboardingData({...onboardingData, location: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            placeholder="Current city"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Hometown</label>
+          <input
+            value={onboardingData.hometown}
+            onChange={(e) => setOnboardingData({...onboardingData, hometown: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            placeholder="Your hometown"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
+        >
+          Complete Profile
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 
         {/* News Detail Modal */}
         {selectedNewsArticle && (
