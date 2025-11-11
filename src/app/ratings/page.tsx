@@ -5,7 +5,194 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import AdBanner from "@/components/ads";
-import { useSearchParams } from "next/navigation";
+import ProfileStats from "@/components/ProfileStats";
+
+// Import the token purchase modal
+const TokenPurchaseModal = ({ userId, onClose }: { userId: string; onClose: () => void }) => {
+  const [utrNumber, setUtrNumber] = useState("");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setScreenshot(e.target.files[0]);
+    }
+  };
+
+  const uploadScreenshot = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from("token-payments")
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from("token-payments")
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (err) {
+      console.error("uploadScreenshot error:", err);
+      return null;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!utrNumber.trim()) {
+      alert("Please enter UTR number");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      let screenshotUrl: string | null = null;
+
+      if (screenshot) {
+        screenshotUrl = await uploadScreenshot(screenshot);
+        if (!screenshotUrl) {
+          console.warn("Screenshot upload failed, proceeding without it");
+        }
+      }
+
+      const { error } = await supabase
+        .from("token_purchase_requests")
+        .insert({
+          user_id: userId,
+          amount: 0,
+          utr_number: utrNumber,
+          payment_screenshot_url: screenshotUrl,
+          status: "pending",
+        });
+
+      if (error) {
+        console.error("Error creating request:", error);
+        alert("Failed to submit request. Please try again.");
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      console.error("handleSubmit error:", err);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div 
+        className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-6xl mb-4">✅</div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Request Submitted!</h3>
+          <p className="text-gray-600 mb-6">
+            Your token purchase request has been submitted. Tokens will be credited within <strong>30 minutes</strong>.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">💳 Add Tokens</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✖</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+            <div className="text-6xl mb-4">📱</div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Payment QR Code</h3>
+            <p className="text-gray-600 text-sm mb-4">Scan this QR code to make payment</p>
+            <div className="inline-block px-6 py-3 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
+              🚧 QR Code Coming Soon
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              UTR Number / Transaction ID <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={utrNumber}
+              onChange={(e) => setUtrNumber(e.target.value)}
+              placeholder="Enter UTR or Transaction ID"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Payment Screenshot (Optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg cursor-pointer"
+            />
+            {screenshot && (
+              <div className="mt-2 text-sm text-green-600">✓ {screenshot.name}</div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={uploading || !utrNumber.trim()}
+            className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+          >
+            {uploading ? "Submitting..." : "Submit for Review"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 type Profile = {
   id: string;
@@ -39,6 +226,8 @@ type Rating = {
   created_at: string;
 };
 
+const TOKENS_TO_VIEW_STATS = 10;
+
 export default function RatingsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -49,11 +238,20 @@ export default function RatingsPage() {
   const [newMessage, setNewMessage] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [recentReviews, setRecentReviews] = useState<Rating[]>([]);
-  const [connections, setConnections] = useState<Profile[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  // ✅ Rating modal states
+  // Token system states
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [unlockedStats, setUnlockedStats] = useState<Set<string>>(new Set());
+  const [hasRatedUser, setHasRatedUser] = useState<Set<string>>(new Set());
+
+  // Modal states
+  const [showTokenUnlockModal, setShowTokenUnlockModal] = useState(false);
+  const [showTokenPurchaseModal, setShowTokenPurchaseModal] = useState(false);
   const [isProfileRatingModal, setIsProfileRatingModal] = useState(false);
+  const [isGlobalRatingModal, setIsGlobalRatingModal] = useState(false);
+
+  // Rating states
   const [comment, setComment] = useState("");
   const [confidence, setConfidence] = useState(0);
   const [humbleness, setHumbleness] = useState(0);
@@ -62,8 +260,7 @@ export default function RatingsPage() {
   const [communication, setCommunication] = useState(0);
   const [overallXP, setOverallXP] = useState(0);
 
-  // ✅ Global (floating +) modal
-  const [isGlobalRatingModal, setIsGlobalRatingModal] = useState(false);
+  // Global rating states
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [globalComment, setGlobalComment] = useState("");
@@ -78,19 +275,17 @@ export default function RatingsPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const subscriptionRef = useRef<any>(null);
 
-  // ✅ Scroll to bottom on new messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // ✅ Client-side only rendering flag
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // ✅ Current user
+  // Get current user
   useEffect(() => {
     async function getUser() {
       const { data } = await supabase.auth.getUser();
@@ -99,7 +294,54 @@ export default function RatingsPage() {
     getUser();
   }, []);
 
-  // ✅ Fetch profiles
+  // Fetch token balance
+  useEffect(() => {
+    if (!currentUserId) return;
+    async function loadBalance() {
+      const { data } = await supabase
+        .from("user_tokens")
+        .select("balance")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
+      setTokenBalance(data?.balance || 0);
+    }
+    loadBalance();
+  }, [currentUserId]);
+
+  // Check if user has rated someone
+  useEffect(() => {
+    if (!currentUserId) return;
+    async function checkRatings() {
+      const { data } = await supabase
+        .from("ratings")
+        .select("to_user_id")
+        .eq("from_user_id", currentUserId);
+      
+      if (data) {
+        const ratedIds = new Set(data.map(r => r.to_user_id));
+        setHasRatedUser(ratedIds);
+      }
+    }
+    checkRatings();
+  }, [currentUserId]);
+
+  // Check unlocked stats
+  useEffect(() => {
+    if (!currentUserId) return;
+    async function checkUnlocks() {
+      const { data } = await supabase
+        .from("stats_unlocks")
+        .select("profile_id")
+        .eq("user_id", currentUserId);
+      
+      if (data) {
+        const unlockedIds = new Set(data.map(u => u.profile_id));
+        setUnlockedStats(unlockedIds);
+      }
+    }
+    checkUnlocks();
+  }, [currentUserId]);
+
   useEffect(() => {
     async function fetchProfiles() {
       const { data, error } = await supabase.from("profiles").select("*");
@@ -113,7 +355,6 @@ export default function RatingsPage() {
     fetchProfiles();
   }, []);
 
-  // ✅ Fetch requests
   useEffect(() => {
     if (!currentUserId) return;
     async function fetchRequests() {
@@ -127,55 +368,12 @@ export default function RatingsPage() {
     fetchRequests();
   }, [currentUserId]);
 
-  // ✅ Fetch connected profiles (friends only)
-  useEffect(() => {
-    if (!currentUserId) return;
-
-    async function fetchConnections() {
-      const { data: reqs, error } = await supabase
-        .from("profile_requests")
-        .select("*")
-        .eq("status", "accepted")
-        .or(`from_user_id.eq.${currentUserId},to_user_id.eq.${currentUserId}`);
-
-      if (error) {
-        console.error("Connections fetch error:", error);
-        return;
-      }
-
-      const otherUserIds = reqs.map((r: any) =>
-        r.from_user_id === currentUserId ? r.to_user_id : r.from_user_id
-      );
-
-      if (otherUserIds.length === 0) {
-        setConnections([]);
-        return;
-      }
-
-      const { data: connectedProfiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .in("id", otherUserIds);
-
-      if (profileError) {
-        console.error("Profiles fetch error:", profileError);
-        return;
-      }
-
-      setConnections(connectedProfiles || []);
-    }
-
-    fetchConnections();
-  }, [currentUserId]);
-
-  // ✅ Avatar fallback
   const getAvatar = (profile: Profile) => {
     if (profile.profile_photo) return profile.profile_photo;
     const name = encodeURIComponent(profile.full_name || profile.username || "User");
     return `https://ui-avatars.com/api/?name=${name}&background=random&size=128`;
   };
 
-  // ✅ Connection status
   const getRequestStatus = (userId: string): "none" | "requested" | "friends" => {
     const req = requests.find(
       (r) =>
@@ -187,7 +385,10 @@ export default function RatingsPage() {
     return "requested";
   };
 
-  // ✅ Connect/Cancel
+  const canViewStats = (userId: string): boolean => {
+    return unlockedStats.has(userId) || hasRatedUser.has(userId);
+  };
+
   const handleConnectToggle = async (toUserId: string) => {
     if (!currentUserId) {
       toast.error("Login required ❌");
@@ -216,7 +417,6 @@ export default function RatingsPage() {
     }
   };
 
-  // ✅ Fetch recent reviews (last 3)
   async function fetchRecentReviews(userId: string) {
     const { data, error } = await supabase
       .from("ratings")
@@ -227,14 +427,12 @@ export default function RatingsPage() {
     if (!error && data) setRecentReviews(data);
   }
 
-  // ✅ Open chat with realtime — deterministic channel key + safe unsubscribe
   const openChat = async (user: Profile) => {
     setSelectedUser(user);
     setChatOpen(true);
     if (!currentUserId) return;
 
     try {
-      // load past messages
       const { data, error } = await supabase
         .from("user_messages")
         .select("*")
@@ -249,7 +447,6 @@ export default function RatingsPage() {
         setMessages(data || []);
       }
 
-      // unsubscribe old channel if any
       if (subscriptionRef.current) {
         try {
           await supabase.removeChannel(subscriptionRef.current);
@@ -259,7 +456,6 @@ export default function RatingsPage() {
         subscriptionRef.current = null;
       }
 
-      // deterministic channel key so both sides use same channel
       const channelKey = [currentUserId, user.id].sort().join("-");
       const channel = supabase
         .channel(`chat-${channelKey}`)
@@ -268,7 +464,6 @@ export default function RatingsPage() {
           { event: "INSERT", schema: "public", table: "user_messages" },
           (payload) => {
             const msg = payload.new as Message;
-            // only push messages for this conversation
             if (
               (msg.from_user_id === currentUserId && msg.to_user_id === user.id) ||
               (msg.from_user_id === user.id && msg.to_user_id === currentUserId)
@@ -280,17 +475,14 @@ export default function RatingsPage() {
         .subscribe();
 
       subscriptionRef.current = channel;
-      console.log("Subscribed to channel chat-" + channelKey);
     } catch (e) {
       console.error("openChat error:", e);
     }
   };
 
-  // ✅ Send message (optimistic + replace with DB row)
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUserId || !selectedUser) return;
 
-    // create optimistic message so user sees it immediately
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: Message = {
       id: tempId,
@@ -304,7 +496,6 @@ export default function RatingsPage() {
     setNewMessage("");
 
     try {
-      // insert and request returned row
       const { data, error } = await supabase
         .from("user_messages")
         .insert([
@@ -314,77 +505,147 @@ export default function RatingsPage() {
         .single();
 
       if (error) {
-        // rollback optimistic message on failure
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         toast.error("Failed to send ❌");
         console.error("message insert error:", error);
         return;
       }
 
-      // replace optimistic with actual row (if id differs)
       setMessages((prev) => prev.map((m) => (m.id === tempId ? (data as Message) : m)));
     } catch (e) {
-      // unexpected error
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       console.error("handleSendMessage unexpected error:", e);
       toast.error("Failed to send ❌");
     }
   };
 
-  // ✅ Submit Rating (decimal sliders)
+  const handleUnlockWithTokens = async () => {
+    if (!currentUserId || !selectedUser) return;
+    
+    if (tokenBalance < TOKENS_TO_VIEW_STATS) {
+      setShowTokenUnlockModal(false);
+      setShowTokenPurchaseModal(true);
+      return;
+    }
+
+    const newBalance = tokenBalance - TOKENS_TO_VIEW_STATS;
+    await supabase
+      .from("user_tokens")
+      .update({ balance: newBalance })
+      .eq("user_id", currentUserId);
+
+    await supabase
+      .from("token_transactions")
+      .insert([{
+        user_id: currentUserId,
+        amount: -TOKENS_TO_VIEW_STATS,
+        type: "spend",
+        status: "completed",
+        description: `Unlocked stats for ${selectedUser.full_name}`
+      }]);
+
+    await supabase
+      .from("stats_unlocks")
+      .insert([{
+        user_id: currentUserId,
+        profile_id: selectedUser.id,
+        unlocked_via: "tokens"
+      }]);
+
+    setTokenBalance(newBalance);
+    setUnlockedStats(prev => new Set(prev).add(selectedUser.id));
+    setShowTokenUnlockModal(false);
+    toast.success("Stats unlocked! 💎");
+  };
+
   const handleSubmitRating = async (toUserId: string) => {
-    if (!currentUserId) return;
-    const { error } = await supabase.from("ratings").insert([
-      {
-        from_user_id: currentUserId,
-        to_user_id: toUserId,
-        comment,
-        confidence,
-        humbleness,
-        friendliness,
-        intelligence,
-        communication,
-        overall_xp: overallXP,
-      },
-    ]);
-    if (error) toast.error("Failed ❌");
-    else {
+    if (!currentUserId || !comment.trim()) {
+      toast.error("Please add a comment ❌");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("ratings")
+        .insert([{
+          from_user_id: currentUserId,
+          to_user_id: toUserId,
+          comment: comment.trim(),
+          confidence,
+          humbleness,
+          friendliness,
+          intelligence,
+          communication,
+          overall_xp: overallXP
+        }]);
+
+      if (error) {
+        toast.error(`Failed: ${error.message} ❌`);
+        return;
+      }
+
       toast.success("Rating submitted ✅");
       setIsProfileRatingModal(false);
+      setShowTokenUnlockModal(false);
       setComment("");
-      fetchRecentReviews(toUserId);
+      setConfidence(0);
+      setHumbleness(0);
+      setFriendliness(0);
+      setIntelligence(0);
+      setCommunication(0);
+      setOverallXP(0);
+      
+      setHasRatedUser(prev => new Set(prev).add(toUserId));
       await fetchRecentReviews(toUserId);
-      if (selectedUser && selectedUser.id === toUserId) setSelectedUser({ ...selectedUser });
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast.error("Unexpected error occurred ❌");
     }
   };
 
-  // ✅ Global Rating (floating +) with decimal sliders
   const handleSubmitGlobalRating = async (toUserId: string) => {
-    if (!currentUserId) return;
-    const { error } = await supabase.from("ratings").insert([
-      {
-        from_user_id: currentUserId,
-        to_user_id: toUserId,
-        comment: globalComment,
-        confidence: gConfidence,
-        humbleness: gHumbleness,
-        friendliness: gFriendliness,
-        intelligence: gIntelligence,
-        communication: gCommunication,
-        overall_xp: gOverallXP,
-      },
-    ]);
-    if (error) toast.error("Failed ❌");
-    else {
+    if (!currentUserId || !globalComment.trim()) {
+      toast.error("Please add a comment ❌");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("ratings")
+        .insert([{
+          from_user_id: currentUserId,
+          to_user_id: toUserId,
+          comment: globalComment.trim(),
+          confidence: gConfidence,
+          humbleness: gHumbleness,
+          friendliness: gFriendliness,
+          intelligence: gIntelligence,
+          communication: gCommunication,
+          overall_xp: gOverallXP
+        }]);
+
+      if (error) {
+        toast.error(`Failed: ${error.message} ❌`);
+        return;
+      }
+
       toast.success("Rating submitted ✅");
       setGlobalComment("");
+      setGConfidence(0);
+      setGHumbleness(0);
+      setGFriendliness(0);
+      setGIntelligence(0);
+      setGCommunication(0);
+      setGOverallXP(0);
       setSearchQuery("");
       setSearchResults([]);
       setIsGlobalRatingModal(false);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast.error("Unexpected error occurred ❌");
     }
   };
 
-  // ✅ Global search — allows searching any user, but shows connect/rate logic later
   useEffect(() => {
     async function searchProfiles() {
       if (!searchQuery.trim()) {
@@ -402,27 +663,35 @@ export default function RatingsPage() {
         return;
       }
 
-      // Exclude the current user
       const filtered = (data || []).filter((p: any) => p.id !== currentUserId);
       setSearchResults(filtered);
     }
     searchProfiles();
   }, [searchQuery, currentUserId]);
 
-  // ✅ Filtered profiles
   const filteredProfiles = profiles.filter(
     (p) =>
       p.id !== currentUserId &&
       (p.full_name || p.username || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleViewStats = (user: Profile) => {
+    setSelectedUser(user);
+    setChatOpen(false);
+    fetchRecentReviews(user.id);
+    
+    const status = getRequestStatus(user.id);
+    if (status === "friends" && !canViewStats(user.id)) {
+      setShowTokenUnlockModal(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 relative">
       <Toaster position="top-right" />
       <div className="max-w-6xl mx-auto">
-        {/* 🔹 Top */}
+        {/* Top Bar with Token Balance */}
         <div className="flex gap-4 mb-6 items-center">
-          {/* <-- Back button styled with custom "btn" style but kept in flex flow --> */}
           <div className="text-box">
             <a
               href="#"
@@ -438,22 +707,31 @@ export default function RatingsPage() {
             </a>
           </div>
 
-
           <button
             onClick={() => router.push("/ratings/connections")}
             className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
           >
             My Connections
           </button>
+          
           <button
             onClick={() => router.push("/ratings/leaderboard")}
             className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-95 shadow"
           >
             LeaderBoard
           </button>
+
+          {/* Token Balance Display */}
+          <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg border-2 border-purple-200">
+            <span className="text-xl">💎</span>
+            <div>
+              <div className="text-xs text-gray-600">Tokens</div>
+              <div className="text-lg font-bold text-purple-700">{tokenBalance}</div>
+            </div>
+          </div>
         </div>
 
-        {/* 🔹 Search */}
+        {/* Search */}
         <div className="flex items-center bg-white p-3 rounded-lg mb-6 shadow border">
           <span className="mr-3 text-gray-500">🔍</span>
           <input
@@ -465,18 +743,14 @@ export default function RatingsPage() {
           />
         </div>
 
-        {/* 🔹 Layout */}
+        {/* Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* LEFT */}
+          {/* LEFT - Profile List */}
           <div className="space-y-3 h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
             {filteredProfiles.map((profile) => (
               <div
                 key={profile.id}
-                onClick={() => {
-                  setSelectedUser(profile);
-                  setChatOpen(false);
-                  fetchRecentReviews(profile.id);
-                }}
+                onClick={() => handleViewStats(profile)}
                 className="flex items-center justify-between bg-white p-4 rounded-xl shadow cursor-pointer hover:bg-gray-50 transition"
               >
                 <div className="flex items-center gap-3">
@@ -487,36 +761,46 @@ export default function RatingsPage() {
                   />
                   <p className="font-medium text-gray-900">{profile.full_name}</p>
                 </div>
+                {getRequestStatus(profile.id) === "friends" && canViewStats(profile.id) && (
+                  <span className="text-green-500 text-lg">✓</span>
+                )}
               </div>
             ))}
           </div>
 
-          {/* RIGHT: Profile view or Ad Banner */}
+          {/* RIGHT - Profile View */}
           <div className="bg-white rounded-xl shadow h-[600px] flex flex-col relative overflow-hidden">
             {selectedUser ? (
               !chatOpen ? (
                 <div className="p-4 overflow-y-auto">
-                  {/* 🟢 Fetch latest averages */}
-                  <ProfileStats user={selectedUser} getAvatar={getAvatar} fetchRecentReviews={fetchRecentReviews} />
+                  {getRequestStatus(selectedUser.id) === "friends" && canViewStats(selectedUser.id) ? (
+                    <>
+                      <ProfileStats 
+                        user={selectedUser} 
+                        getAvatar={getAvatar}
+                        currentUserId={currentUserId}
+                        connectionStatus={getRequestStatus(selectedUser.id)}
+                        onConnect={() => handleConnectToggle(selectedUser.id)}
+                        onRate={() => {}}
+                        onOpenRating={() => setIsProfileRatingModal(true)}
+                      />
+                      
+                      {/* Reviews */}
+                      <div className="mb-4 mt-4">
+                        <h3 className="font-semibold text-gray-900 mb-2 border-b pb-1">Recent Reviews</h3>
+                        {recentReviews.length > 0 ? (
+                          recentReviews.map((r) => (
+                            <div key={r.id} className="bg-gray-50 p-2 rounded-lg text-sm mb-2 border">
+                              <p className="text-gray-700">{r.comment}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-500 text-sm">No reviews yet</p>
+                        )}
+                      </div>
 
-                  {/* Reviews */}
-                  <div className="mb-4 mt-4">
-                    <h3 className="font-semibold text-gray-900 mb-2 border-b pb-1">Recent Reviews</h3>
-                    {recentReviews.length > 0 ? (
-                      recentReviews.map((r) => (
-                        <div key={r.id} className="bg-gray-50 p-2 rounded-lg text-sm mb-2 border">
-                          <p className="text-gray-700">{r.comment}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-gray-500 text-sm">No reviews yet</p>
-                    )}
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex gap-3">
-                    {getRequestStatus(selectedUser.id) === "friends" ? (
-                      <>
+                      {/* Action Buttons */}
+                      <div className="flex gap-3">
                         <button
                           onClick={() => setIsProfileRatingModal(true)}
                           className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
@@ -529,24 +813,60 @@ export default function RatingsPage() {
                         >
                           Message
                         </button>
-                      </>
-                    ) : getRequestStatus(selectedUser.id) === "requested" ? (
+                      </div>
+                    </>
+                  ) : getRequestStatus(selectedUser.id) === "friends" ? (
+                    // Stats locked - show unlock options
+                    <div className="text-center py-8">
+                      <img
+                        src={getAvatar(selectedUser)}
+                        alt={selectedUser.full_name}
+                        className="w-24 h-24 rounded-full mx-auto mb-4"
+                      />
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedUser.full_name}</h2>
+                      <p className="text-gray-600 mb-6">{selectedUser.description || 'No bio available'}</p>
+                      
+                      <div className="text-6xl mb-4">🔒</div>
+                      <p className="text-gray-600 mb-6">Stats are locked. Unlock to view their ratings!</p>
+                      
                       <button
-                        onClick={() => handleConnectToggle(selectedUser.id)}
-                        className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg shadow transition"
+                        onClick={() => setShowTokenUnlockModal(true)}
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:opacity-90 shadow-lg"
                       >
-                        Request Sent ⏳ (Cancel)
+                        🔓 Unlock Stats
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => handleConnectToggle(selectedUser.id)}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow transition"
-                      >
-                        + Connect
-                      </button>
-                    )}
-                  </div>
-
+                    </div>
+                  ) : (
+                    // Not connected
+                    <div className="text-center py-8">
+                      <img
+                        src={getAvatar(selectedUser)}
+                        alt={selectedUser.full_name}
+                        className="w-24 h-24 rounded-full mx-auto mb-4"
+                      />
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedUser.full_name}</h2>
+                      <p className="text-gray-600 mb-6">{selectedUser.description || 'No bio available'}</p>
+                      
+                      <div className="text-4xl mb-3">🤝</div>
+                      <p className="text-gray-600 mb-4">Connect first to unlock stats</p>
+                      
+                      {getRequestStatus(selectedUser.id) === "requested" ? (
+                        <button
+                          onClick={() => handleConnectToggle(selectedUser.id)}
+                          className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg shadow"
+                        >
+                          Request Sent ⏳ (Cancel)
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleConnectToggle(selectedUser.id)}
+                          className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow"
+                        >
+                          + Connect
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 // Chat UI
@@ -563,10 +883,11 @@ export default function RatingsPage() {
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`p-2 rounded-lg text-sm max-w-[70%] relative ${msg.from_user_id === currentUserId
-                          ? "bg-blue-500 text-white ml-auto"
-                          : "bg-gray-200 text-gray-900"
-                          }`}
+                        className={`p-2 rounded-lg text-sm max-w-[70%] relative ${
+                          msg.from_user_id === currentUserId
+                            ? "bg-blue-500 text-white ml-auto"
+                            : "bg-gray-200 text-gray-900"
+                        }`}
                       >
                         <p>{msg.content}</p>
                         <span className="text-[10px] opacity-70 block mt-1 text-right">
@@ -599,13 +920,12 @@ export default function RatingsPage() {
                 </div>
               )
             ) : (
-              // 🎯 Ad Banner Display - Shows when no profile is selected
+              // No profile selected
               <div className="flex flex-col items-center justify-center h-full p-6 space-y-6">
                 <div className="text-center">
                   <p className="text-gray-500 text-base">👈 Select a profile to view details</p>
                 </div>
 
-                {/* Ad Banner Section */}
                 <div className="w-full max-w-md">
                   {isMounted ? (
                     <AdBanner placement="ratings_page" />
@@ -616,11 +936,72 @@ export default function RatingsPage() {
               </div>
             )}
           </div>
-
         </div>
       </div>
 
-      {/* 🟣 Profile-Specific Rating Modal */}
+      {/* Token Unlock Modal */}
+      {showTokenUnlockModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-center mb-4">Unlock Stats</h2>
+            <p className="text-center text-gray-600 mb-6">
+              Choose how to unlock <strong>{selectedUser.full_name}'s</strong> profile stats
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleUnlockWithTokens}
+                className="w-full p-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-between"
+              >
+                <span>Use {TOKENS_TO_VIEW_STATS} Tokens</span>
+                <span className="text-2xl">💎</span>
+              </button>
+
+              <div className="text-center text-gray-400 text-sm">OR</div>
+
+              <button
+                onClick={() => {
+                  setShowTokenUnlockModal(false);
+                  setIsProfileRatingModal(true);
+                }}
+                className="w-full p-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-between"
+              >
+                <span>Rate Them (Free)</span>
+                <span className="text-2xl">⭐</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowTokenUnlockModal(false)}
+              className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Token Purchase Modal */}
+      {showTokenPurchaseModal && currentUserId && (
+        <TokenPurchaseModal 
+          userId={currentUserId} 
+          onClose={() => {
+            setShowTokenPurchaseModal(false);
+            // Refresh token balance after closing
+            async function refreshBalance() {
+              const { data } = await supabase
+                .from("user_tokens")
+                .select("balance")
+                .eq("user_id", currentUserId)
+                .maybeSingle();
+              if (data) setTokenBalance(data.balance);
+            }
+            refreshBalance();
+          }} 
+        />
+      )}
+
+      {/* Profile Rating Modal */}
       {isProfileRatingModal && selectedUser && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
@@ -684,14 +1065,14 @@ export default function RatingsPage() {
                 onClick={() => handleSubmitRating(selectedUser.id)}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
               >
-                Submit
+                Submit & Unlock
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 🟢 Global Floating + Modal */}
+      {/* Global Rating Modal */}
       {isGlobalRatingModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
@@ -707,7 +1088,7 @@ export default function RatingsPage() {
             />
             <div className="max-h-72 overflow-y-auto space-y-3">
               {searchResults.map((user) => {
-                const status = getRequestStatus(user.id); // 👈 check connection status
+                const status = getRequestStatus(user.id);
                 const isFriend = status === "friends";
 
                 return (
@@ -773,10 +1154,11 @@ export default function RatingsPage() {
                     ) : (
                       <button
                         onClick={() => handleConnectToggle(user.id)}
-                        className={`w-full px-4 py-2 rounded-lg shadow text-sm font-medium ${status === "requested"
-                          ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                          : "bg-green-600 hover:bg-green-700 text-white"
-                          }`}
+                        className={`w-full px-4 py-2 rounded-lg shadow text-sm font-medium ${
+                          status === "requested"
+                            ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                            : "bg-green-600 hover:bg-green-700 text-white"
+                        }`}
                       >
                         {status === "requested" ? "Request Sent ⏳ (Cancel)" : "+ Connect"}
                       </button>
@@ -798,93 +1180,23 @@ export default function RatingsPage() {
         </div>
       )}
 
-      {/* ✅ Floating + Button */}
+      {/* Floating + Button */}
       <a
         href="#"
         role="button"
         aria-label="Open rate modal"
-        onClick={(e) => { e.preventDefault(); setIsGlobalRatingModal(true); }}
+        onClick={(e) => {
+          e.preventDefault();
+          setIsGlobalRatingModal(true);
+        }}
         className="animated-button1 animated-button-fixed"
       >
         <span></span>
         <span></span>
         <span></span>
         <span></span>
-        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
         +
       </a>
-    </div>
-  );
-}
-
-// 🟢 Profile Stats Component — fetches fresh averages and displays nicely
-function ProfileStats({ user, getAvatar, fetchRecentReviews }: any) {
-  const [stats, setStats] = useState<any>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings"
-        )
-        .eq("id", user.id)
-        .single();
-      if (!error && data) setStats(data);
-    }
-    fetchData();
-  }, [user]);
-
-  return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-5 border-b pb-3">
-        <img
-          src={getAvatar(user)}
-          alt={user.full_name}
-          className="w-20 h-20 rounded-full ring-4 ring-indigo-100"
-        />
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">{user.full_name}</h2>
-          {stats ? (
-            <p className="text-sm text-gray-600">
-              ⭐{" "}
-              <span className="font-semibold text-purple-600">
-                {stats.avg_overall_xp?.toFixed(1) || 0}
-              </span>
-              /100 XP • 💬 {stats.total_ratings || 0} Ratings
-            </p>
-          ) : (
-            <p className="text-gray-400 text-sm">Loading stats...</p>
-          )}
-        </div>
-      </div>
-
-      {/* Attribute bars */}
-      {stats && (
-        <div className="space-y-2">
-          {[
-            { label: "Confidence", key: "avg_confidence" },
-            { label: "Humbleness", key: "avg_humbleness" },
-            { label: "Friendliness", key: "avg_friendliness" },
-            { label: "Intelligence", key: "avg_intelligence" },
-            { label: "Communication", key: "avg_communication" },
-          ].map(({ label, key }) => (
-            <div key={key}>
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                <span>{label}</span>
-                <span className="font-medium">{stats[key]?.toFixed(1) || 0}/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-2 rounded-full">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${(stats[key] || 0) * 20}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

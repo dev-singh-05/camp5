@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import ProfileStats from "@/components/ProfileStats";
 
 type Profile = {
   id: string;
@@ -308,7 +309,15 @@ export default function ConnectionsPage() {
                   )}
 
                   {/* 🟢 Profile Stats */}
-                  <ProfileStats user={selectedUser} getAvatar={getAvatar} />
+                 <ProfileStats 
+     user={selectedUser} 
+     getAvatar={getAvatar}
+     currentUserId={currentUserId}
+     connectionStatus="friends"
+     onConnect={() => {}}
+     onRate={() => {}}
+     onOpenRating={() => setIsModalOpen(selectedUser)}
+   />
 
                   {/* Buttons */}
                   <div className="flex gap-3 mt-4">
@@ -568,94 +577,3 @@ export default function ConnectionsPage() {
   );
 }
 
-function ProfileStats({ user, getAvatar }: any) {
-  const [stats, setStats] = useState<any>(null);
-  const [recentReviews, setRecentReviews] = useState<any[]>([]);
-
-  useEffect(() => {
-    async function fetchData() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings"
-        )
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) setStats(data);
-
-      const { data: reviews } = await supabase
-        .from("ratings")
-        .select("comment, created_at")
-        .eq("to_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      setRecentReviews(reviews || []);
-    }
-    fetchData();
-  }, [user]);
-
-  return (
-    <div>
-      <div className="flex items-center gap-4 mb-5 border-b pb-3">
-        <img
-          src={getAvatar(user)}
-          alt={user.full_name}
-          className="w-20 h-20 rounded-full ring-4 ring-indigo-100"
-        />
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">{user.full_name}</h2>
-          {stats ? (
-            <p className="text-sm text-gray-600">
-              ⭐{" "}
-              <span className="font-semibold text-purple-600">
-                {stats.avg_overall_xp?.toFixed(1) || 0}
-              </span>
-              /100 XP • 💬 {stats.total_ratings || 0} Ratings
-            </p>
-          ) : (
-            <p className="text-gray-400 text-sm">Loading stats...</p>
-          )}
-        </div>
-      </div>
-
-      {stats && (
-        <div className="space-y-2">
-          {[{ label: "Confidence", key: "avg_confidence" },
-          { label: "Humbleness", key: "avg_humbleness" },
-          { label: "Friendliness", key: "avg_friendliness" },
-          { label: "Intelligence", key: "avg_intelligence" },
-          { label: "Communication", key: "avg_communication" },
-          ].map(({ label, key }) => (
-            <div key={key}>
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                <span>{label}</span>
-                <span className="font-medium">{stats[key]?.toFixed(1) || 0}/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-2 rounded-full">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${(stats[key] || 0) * 20}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4">
-        <h3 className="font-semibold text-gray-900 mb-2 border-b pb-1">Recent Reviews</h3>
-        {recentReviews.length > 0 ? (
-          recentReviews.map((r, i) => (
-            <div key={i} className="bg-gray-50 p-2 rounded-lg text-sm mb-2 border">
-              <p className="text-gray-700">{r.comment}</p>
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-500 text-sm">No reviews yet</p>
-        )}
-      </div>
-    </div>
-  );
-}
