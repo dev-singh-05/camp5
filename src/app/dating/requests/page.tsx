@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Heart,
+  X,
+  Check,
+  Mail,
+  User,
+  MapPin,
+  GraduationCap,
+  Ruler,
+  Sparkles,
+  MessageCircle,
+  ChevronLeft,
+} from "lucide-react";
 
 type Request = {
   id: string;
@@ -169,102 +183,276 @@ export default function RequestsPage() {
       (category === "mystery" && gender?.toLowerCase() === "female");
   }
 
+  const getCategoryColor = (cat: string) => {
+    switch (cat.toLowerCase()) {
+      case "serious": return "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-400";
+      case "casual": return "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400";
+      case "mystery": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
+      case "fun": return "from-orange-500/20 to-yellow-500/20 border-orange-500/30 text-orange-400";
+      case "friends": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
+      default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
+    }
+  };
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat.toLowerCase()) {
+      case "serious": return "💖";
+      case "casual": return "😎";
+      case "mystery": return "🌸";
+      case "fun": return "🔥";
+      case "friends": return "🫶";
+      default: return "❤️";
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-600">Loading requests...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 text-white overflow-x-hidden">
       <Toaster position="top-center" />
 
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Match Requests</h1>
-          <button onClick={() => router.push("/dating")} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">
-            ← Back
-          </button>
-        </div>
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
 
-        {requests.length === 0 ? (
-          <div className="bg-white rounded-xl shadow p-8 text-center">
-            <p className="text-gray-600">No pending requests right now.</p>
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push("/dating")}
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </motion.button>
+
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-2xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent flex items-center gap-2"
+            >
+              <Mail className="w-6 h-6 text-pink-400" />
+              Match Requests
+            </motion.h1>
+
+            <div className="w-20" /> {/* Spacer */}
           </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 max-w-4xl mx-auto px-6 py-8">
+        {requests.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
+              <Mail className="w-16 h-16 text-white/20 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Pending Requests</h3>
+              <p className="text-white/60">You don't have any match requests right now.</p>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/dating")}
+                className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+              >
+                Go to Dating
+              </motion.button>
+            </div>
+          </motion.div>
         ) : (
-          <div className="space-y-4">
-            {requests.map((req) => (
-              <div key={req.id} className="bg-white rounded-xl shadow p-6">
-                {/* Requester Info */}
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-                    {shouldHidePhoto(req.category) ? (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">Hidden</div>
-                    ) : (
-                      <img src={req.requester?.profile_photo || profilePlaceholder} alt="Requester" className="w-full h-full object-cover" />
-                    )}
+          <div className="space-y-6">
+            {requests.map((req, index) => (
+              <motion.div
+                key={req.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="relative group"
+              >
+                <motion.div
+                  animate={{
+                    boxShadow: [
+                      "0 0 20px rgba(236, 72, 153, 0.2)",
+                      "0 0 30px rgba(236, 72, 153, 0.3)",
+                      "0 0 20px rgba(236, 72, 153, 0.2)",
+                    ],
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
+                />
+                <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+                  {/* Category Badge - Top Right */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-gradient-to-r ${getCategoryColor(req.category)} border font-medium`}>
+                      {getCategoryIcon(req.category)} {req.category}
+                    </span>
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-lg">
-                          {shouldHideName(req.category, req.requester?.gender) ? "Name Hidden" : (req.requester?.full_name || "N/A")}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {req.requester?.gender} • {req.requester?.year} • {req.requester?.branch}
-                          {req.requester?.height && ` • ${req.requester.height}`}
-                        </p>
+                  <div className="p-6">
+                    {/* Requester Profile */}
+                    <div className="flex items-start gap-4 mb-6">
+                      <div className="relative">
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/30 bg-white/5">
+                          {shouldHidePhoto(req.category) ? (
+                            <div className="w-full h-full flex items-center justify-center text-white/40">
+                              <User className="w-8 h-8" />
+                            </div>
+                          ) : (
+                            <img
+                              src={req.requester?.profile_photo || profilePlaceholder}
+                              alt="Requester"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 border-2 border-slate-900 flex items-center justify-center text-lg">
+                          {req.match_type === "random" ? "🎲" : "💡"}
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{req.category}</span>
+
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xl font-bold text-white mb-2">
+                          {shouldHideName(req.category, req.requester?.gender)
+                            ? "Name Hidden"
+                            : req.requester?.full_name || "Anonymous"}
+                        </h3>
+                        
+                        <div className="flex flex-wrap gap-3 text-sm text-white/60 mb-3">
+                          {req.requester?.gender && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-4 h-4" />
+                              {req.requester.gender}
+                            </span>
+                          )}
+                          {req.requester?.year && (
+                            <span className="flex items-center gap-1">
+                              <GraduationCap className="w-4 h-4" />
+                              {req.requester.year}
+                            </span>
+                          )}
+                          {req.requester?.branch && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {req.requester.branch}
+                            </span>
+                          )}
+                          {req.requester?.height && (
+                            <span className="flex items-center gap-1">
+                              <Ruler className="w-4 h-4" />
+                              {req.requester.height}
+                            </span>
+                          )}
+                        </div>
+
+                        {req.requester?.dating_description && (
+                          <p className="text-sm text-white/80 italic mb-3 line-clamp-2">
+                            "{req.requester.dating_description}"
+                          </p>
+                        )}
+
+                        {req.requester?.interests && req.requester.interests.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {req.requester.interests.slice(0, 5).map((interest) => (
+                              <span
+                                key={interest}
+                                className="px-2 py-1 bg-pink-500/20 border border-pink-500/30 text-pink-400 rounded-full text-xs font-medium"
+                              >
+                                {interest}
+                              </span>
+                            ))}
+                            {req.requester.interests.length > 5 && (
+                              <span className="px-2 py-1 bg-white/5 border border-white/10 text-white/60 rounded-full text-xs font-medium">
+                                +{req.requester.interests.length - 5} more
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {req.requester?.dating_description && (
-                      <p className="text-sm text-gray-700 italic mb-2">"{req.requester.dating_description}"</p>
-                    )}
-
-                    {req.requester?.interests && req.requester.interests.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {req.requester.interests.map((i) => (
-                          <span key={i} className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{i}</span>
-                        ))}
+                    {/* Question & Answer Section */}
+                    <div className="mb-6">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl blur" />
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+                          <div className="flex items-start gap-2 mb-3">
+                            <MessageCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="font-semibold text-white mb-2">{req.question_text}</p>
+                              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                                <p className="text-white/80 text-sm">{req.answer}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleDecline(req.id)}
+                        disabled={responding === req.id}
+                        className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/50 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        {responding === req.id ? "Declining..." : "Decline"}
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleAccept(req.id, req.requester_id, req.match_type, req.category)}
+                        disabled={responding === req.id}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <Heart className="w-4 h-4" />
+                        {responding === req.id ? "Accepting..." : "Let's Match"}
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Question & Answer */}
-                <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                  <p className="font-semibold text-gray-800 mb-2">Q: {req.question_text}</p>
-                  <p className="text-gray-700">A: {req.answer}</p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleDecline(req.id)}
-                    disabled={responding === req.id}
-                    className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
-                  >
-                    {responding === req.id ? "..." : "Decline"}
-                  </button>
-                  <button
-                    onClick={() => handleAccept(req.id, req.requester_id, req.match_type, req.category)}
-                    disabled={responding === req.id}
-                    className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg disabled:opacity-50"
-                  >
-                    {responding === req.id ? "Accepting..." : "Let's Match"}
-                  </button>
-                </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

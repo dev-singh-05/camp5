@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { Toaster, toast } from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  ArrowLeft, Edit, Save, X, Upload, Trophy, Users, Calendar,
+  Star, TrendingUp, Crown, Shield, History, Activity, Trash2,
+  MapPin, Clock, Award, Zap, CheckCircle, XCircle, Image as ImageIcon,
+  Lock as LockIcon, AlertCircle, ChevronDown, ChevronUp
+} from "lucide-react";
 
 type Club = {
   id: string;
@@ -35,28 +42,28 @@ export default function ClubProfilePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editPasscode, setEditPasscode] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  // Stats
+  const [showEventHistory, setShowEventHistory] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
+
   const [totalEvents, setTotalEvents] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
   const [clubRank, setClubRank] = useState<number | null>(null);
-  // For history and activity
-const [events, setEvents] = useState<any[]>([]);
-const [messages, setMessages] = useState<any[]>([]);
-const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
+  const [events, setEvents] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
 
-      // Get current user
       const userRes = await supabase.auth.getUser();
       const userId = userRes.data.user?.id ?? null;
       setCurrentUserId(userId);
@@ -66,7 +73,6 @@ const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<stri
         return;
       }
 
-      // Check user role
       const { data: roleData } = await supabase
         .from("club_members")
         .select("role")
@@ -76,18 +82,58 @@ const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<stri
 
       setUserRole(roleData?.role || null);
 
-      // Fetch club data
-    // Fetch club data
-await fetchClubData();
-await fetchMembers();
-await fetchStats();
-await fetchEvents();
-await fetchMessages();
+      await fetchClubData();
+      await fetchMembers();
+      await fetchStats();
+      await fetchEvents();
+      await fetchMessages();
 
-setLoading(false);
+      setLoading(false);
     };
 
     load();
+
+    // ✅ Subscribe to real-time club updates (XP changes)
+    const clubSubscription = supabase
+      .channel(`club-${clubId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clubs',
+          filter: `id=eq.${clubId}`
+        },
+        (payload) => {
+          console.log('✅ Club updated in real-time:', payload);
+          // Refresh stats when club XP is updated
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    // ✅ Subscribe to new messages (including system notifications)
+    const messagesSubscription = supabase
+      .channel(`messages-${clubId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `club_id=eq.${clubId}`
+        },
+        (payload) => {
+          console.log('✅ New message:', payload);
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clubSubscription.unsubscribe();
+      messagesSubscription.unsubscribe();
+    };
   }, [clubId, router]);
 
   const fetchClubData = async () => {
@@ -99,14 +145,16 @@ setLoading(false);
 
     if (error) {
       toast.error("Failed to load club data");
+      console.error("Error fetching club:", error);
       return;
     }
 
+    console.log("📊 Club data loaded:", data);
     setClub(data);
     setEditName(data.name || "");
     setEditDescription(data.description || "");
     setEditCategory(data.category || "");
-    setEditPasscode(""); // Don't show password
+    setEditPasscode("");
   };
 
   const fetchMembers = async () => {
@@ -114,7 +162,7 @@ setLoading(false);
       .from("club_members")
       .select("user_id, role, profiles(full_name, enrollment_number, college_email)")
       .eq("club_id", clubId)
-      .order("role", { ascending: false }); // Admins first
+      .order("role", { ascending: false });
 
     setMembers(
       (data ?? []).map((m: any) => ({
@@ -126,7 +174,9 @@ setLoading(false);
   };
 
   const fetchStats = async () => {
-    // Count total events
+    console.log("📊 Fetching stats for club:", clubId);
+    
+    // ✅ Get event count
     const { count: eventCount } = await supabase
       .from("events")
       .select("*", { count: "exact", head: true })
@@ -134,87 +184,99 @@ setLoading(false);
 
     setTotalEvents(eventCount || 0);
 
-    // Get club XP and rank
-    const { data: xpData } = await supabase
-      .from("club_xp_ledger")
+    // ✅ Get XP directly from clubs table
+    const { data: clubData, error: clubError } = await supabase
+      .from("clubs")
       .select("total_xp")
-      .eq("club_id", clubId)
+      .eq("id", clubId)
       .single();
 
-    setTotalXP(xpData?.total_xp || 0);
+    if (clubError) {
+      console.error("❌ Error fetching club XP:", clubError);
+    } else {
+      console.log(`✅ Club XP from database: ${clubData?.total_xp || 0}`);
+      setTotalXP(clubData?.total_xp || 0);
+    }
 
-    // Get rank
-    const { data: allClubs } = await supabase
-      .from("club_xp_ledger")
-      .select("club_id, total_xp")
+    // ✅ Get rank based on all clubs
+    const { data: allClubs, error: rankError } = await supabase
+      .from("clubs")
+      .select("id, total_xp")
       .order("total_xp", { ascending: false });
 
-    const rank = (allClubs || []).findIndex((c: any) => c.club_id === clubId) + 1;
-    setClubRank(rank > 0 ? rank : null);
+    if (rankError) {
+      console.error("❌ Error fetching club rankings:", rankError);
+    } else {
+      const rank = (allClubs || []).findIndex((c: any) => c.id === clubId) + 1;
+      console.log(`✅ Club rank: ${rank} out of ${allClubs?.length || 0} clubs`);
+      setClubRank(rank > 0 ? rank : null);
+    }
   };
 
   const fetchEvents = async () => {
-  // Fetch events created by this club
-  const { data: ownEvents } = await supabase
-    .from("events")
-    .select("*")
-    .eq("club_id", clubId)
-    .order("event_date", { ascending: false });
+    const { data: ownEvents } = await supabase
+      .from("events")
+      .select("*")
+      .eq("club_id", clubId)
+      .order("event_date", { ascending: false });
 
-  // Fetch inter-club events where this club has ACCEPTED
-  const { data: acceptedInterEvents } = await supabase
-    .from("inter_club_participants")
-    .select(`
-      event_id,
-      events!inner(*)
-    `)
-    .eq("club_id", clubId)
-    .eq("accepted", true)
-    .neq("events.club_id", clubId);
+    const { data: acceptedInterEvents } = await supabase
+      .from("inter_club_participants")
+      .select(`
+        event_id,
+        events!inner(*)
+      `)
+      .eq("club_id", clubId)
+      .eq("accepted", true)
+      .neq("events.club_id", clubId);
 
-  // Merge both event lists
-  const allEvents = [
-    ...(ownEvents || []),
-    ...(acceptedInterEvents || []).map((item: any) => item.events)
-  ];
+    const allEvents = [
+      ...(ownEvents || []),
+      ...(acceptedInterEvents || []).map((item: any) => item.events)
+    ];
 
-  // Remove duplicates
-  const uniqueEvents = Array.from(
-    new Map(allEvents.map(event => [event.id, event])).values()
-  );
+    const uniqueEvents = Array.from(
+      new Map(allEvents.map(event => [event.id, event])).values()
+    );
 
-  setEvents(uniqueEvents);
+    setEvents(uniqueEvents);
 
-  // Fetch participant counts
-  if (uniqueEvents.length > 0) {
-    const counts: Record<string, number> = {};
-    for (const event of uniqueEvents) {
-      const { count } = await supabase
-        .from("event_participants")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", event.id);
-      counts[event.id] = count || 0;
+    if (uniqueEvents.length > 0) {
+      const counts: Record<string, number> = {};
+      for (const event of uniqueEvents) {
+        const { count } = await supabase
+          .from("event_participants")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", event.id);
+        counts[event.id] = count || 0;
+      }
+      setEventParticipantCounts(counts);
     }
-    setEventParticipantCounts(counts);
-  }
-};
+  };
 
-const fetchMessages = async () => {
-  const { data } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("club_id", clubId)
-    .order("created_at", { ascending: true });
+  const fetchMessages = async () => {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("club_id", clubId)
+      .order("created_at", { ascending: true });
 
-  setMessages(data || []);
-};
+    setMessages(data || []);
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleSave = async () => {
     if (!club || userRole !== "admin") return;
 
     let logoUrl = club.logo_url;
 
-    // Upload logo if changed
     if (logoFile) {
       const fileName = `${clubId}_${Date.now()}.${logoFile.name.split(".").pop()}`;
       const { error: uploadError } = await supabase.storage
@@ -230,7 +292,6 @@ const fetchMessages = async () => {
       logoUrl = urlData.publicUrl;
     }
 
-    // Update club data
     const updateData: any = {
       name: editName,
       description: editDescription,
@@ -238,7 +299,6 @@ const fetchMessages = async () => {
       logo_url: logoUrl,
     };
 
-    // Only update password if provided
     if (editPasscode.trim()) {
       updateData.passcode = editPasscode;
     }
@@ -255,22 +315,44 @@ const fetchMessages = async () => {
 
     toast.success("✅ Club profile updated!");
     setIsEditing(false);
-    setEditPasscode(""); // Clear password field
+    setEditPasscode("");
+    setLogoFile(null);
+    setLogoPreview(null);
     await fetchClubData();
   };
 
+  const isHistoryEvent = (event: any) => {
+    return event.status === "approved" || event.status === "rejected";
+  };
+
+  const historyEvents = events.filter(e => isHistoryEvent(e));
+  const activityLogs = messages.filter(msg => 
+    msg.content && msg.content.startsWith("🔔 SYSTEM:")
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading club profile...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+          />
+          <p className="text-white/70 text-lg font-medium">Loading profile...</p>
+        </motion.div>
       </div>
     );
   }
 
   if (!club) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500">Club not found</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+        <p className="text-red-400">Club not found</p>
       </div>
     );
   }
@@ -279,362 +361,485 @@ const fetchMessages = async () => {
   const admins = members.filter((m) => m.role === "admin");
   const regularMembers = members.filter((m) => m.role !== "admin");
 
-  // Helper: Check if event should be in history
-const isHistoryEvent = (event: any) => {
-  return event.status === "approved" || event.status === "rejected";
-};
-
-// Split events into active and history
-const historyEvents = events.filter(e => isHistoryEvent(e));
-
-// Filter system messages for activity log
-const activityLogs = messages.filter(msg => 
-  msg.content && msg.content.startsWith("🔔 SYSTEM:")
-);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white">
       <Toaster />
 
-      {/* Header */}
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <button
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <motion.button
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => router.back()}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
           >
-            ← Back
-          </button>
+            <ArrowLeft className="w-5 h-5" />
+          </motion.button>
 
-          <h1 className="text-3xl font-bold text-gray-900">Club Profile</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
+            Club Profile
+          </h1>
 
-          {isAdmin && !isEditing && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-            >
-              ✏️ Edit Profile
-            </button>
-          )}
-
-          {isAdmin && isEditing && (
+          {isAdmin && (
             <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditName(club.name);
-                  setEditDescription(club.description || "");
-                  setEditCategory(club.category || "");
-                  setEditPasscode("");
-                  setLogoFile(null);
-                }}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                💾 Save Changes
-              </button>
+              {!isEditing ? (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all flex items-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </motion.button>
+              ) : (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditName(club.name);
+                      setEditDescription(club.description || "");
+                      setEditCategory(club.category || "");
+                      setEditPasscode("");
+                      setLogoFile(null);
+                      setLogoPreview(null);
+                    }}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSave}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save
+                  </motion.button>
+                </>
+              )}
             </div>
           )}
         </div>
 
         {/* Main Profile Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-          <div className="flex items-start gap-6">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              {isEditing ? (
-                <div>
-                  <label className="block cursor-pointer">
-                    <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                      {logoFile ? (
-                        <img
-                          src={URL.createObjectURL(logoFile)}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : club.logo_url ? (
-                        <img
-                          src={club.logo_url}
-                          alt="Club logo"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-4xl">🏅</span>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
-                  <p className="text-xs text-gray-500 mt-2 text-center">Click to change</p>
-                </div>
-              ) : (
-                <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                  {club.logo_url ? (
-                    <img
-                      src={club.logo_url}
-                      alt="Club logo"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-4xl">🏅</span>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative group mb-8"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-8">
+            <div className="flex flex-col md:flex-row gap-8">
+              {/* Logo */}
+              <div className="flex-shrink-0">
+                <div className="relative">
+                  <div className="w-40 h-40 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
+                    {logoPreview || club.logo_url ? (
+                      <img
+                        src={logoPreview || club.logo_url!}
+                        alt="Club logo"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Trophy className="w-20 h-20 text-white" />
+                    )}
+                  </div>
+                  {isEditing && (
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-3xl cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+                      <Upload className="w-8 h-8 text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoChange}
+                      />
+                    </label>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Info */}
-            <div className="flex-1">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Club Name</label>
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Category</label>
-                    <select
-                      value={editCategory}
-                      onChange={(e) => setEditCategory(e.target.value)}
-                      className="w-full p-2 border rounded"
-                    >
-                      <option value="">Select category</option>
-                      <option value="Sports">Sports</option>
-                      <option value="Arts">Arts</option>
-                      <option value="Tech">Tech</option>
-                      <option value="General">General</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Description</label>
-                    <textarea
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      rows={4}
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">
-                      Change Password (leave empty to keep current)
-                    </label>
-                    <input
-                      type="password"
-                      value={editPasscode}
-                      onChange={(e) => setEditPasscode(e.target.value)}
-                      placeholder="New password (optional)"
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">{club.name}</h2>
-                  <p className="text-indigo-600 font-semibold mb-4">
-                    {club.category || "Uncategorized"}
-                  </p>
-                  <p className="text-gray-700 mb-4">
-                    {club.description || "No description provided."}
-                  </p>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 mt-6">
-                    <div className="text-center p-3 bg-blue-50 rounded">
-                      <p className="text-2xl font-bold text-blue-600">{totalEvents}</p>
-                      <p className="text-xs text-gray-600">Total Events</p>
+              {/* Info */}
+              <div className="flex-1">
+                {isEditing ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">Club Name</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white transition-all"
+                      />
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded">
-                      <p className="text-2xl font-bold text-green-600">{totalXP}</p>
-                      <p className="text-xs text-gray-600">Total XP</p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">Category</label>
+                      <select
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white transition-all"
+                      >
+                        <option value="">Select category</option>
+                        <option value="Sports">Sports</option>
+                        <option value="Arts">Arts</option>
+                        <option value="Tech">Tech</option>
+                        <option value="General">General</option>
+                      </select>
                     </div>
-                    <div className="text-center p-3 bg-yellow-50 rounded">
-                      <p className="text-2xl font-bold text-yellow-600">
-                        #{clubRank || "N/A"}
-                      </p>
-                      <p className="text-xs text-gray-600">Global Rank</p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">Description</label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        rows={4}
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2 flex items-center gap-2">
+                        <LockIcon className="w-4 h-4" />
+                        Change Password (optional)
+                      </label>
+                      <input
+                        type="password"
+                        value={editPasscode}
+                        onChange={(e) => setEditPasscode(e.target.value)}
+                        placeholder="Leave empty to keep current"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                      />
                     </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div>
+                    <h2 className="text-4xl font-bold text-white mb-2">{club.name}</h2>
+                    <p className="text-purple-400 font-semibold mb-4">{club.category || "Uncategorized"}</p>
+                    <p className="text-white/70 leading-relaxed mb-6">
+                      {club.description || "No description provided."}
+                    </p>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="relative group/stat">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
+                          <Calendar className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-blue-400">{totalEvents}</p>
+                          <p className="text-xs text-white/60">Events</p>
+                        </div>
+                      </div>
+
+                      <div className="relative group/stat">
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
+                          <Zap className="w-6 h-6 text-green-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-green-400">{totalXP}</p>
+                          <p className="text-xs text-white/60">Total XP</p>
+                        </div>
+                      </div>
+
+                      <div className="relative group/stat">
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
+                          <Trophy className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-yellow-400">#{clubRank || "N/A"}</p>
+                          <p className="text-xs text-white/60">Rank</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Members Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Club Members</h3>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="relative group mb-8"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Users className="w-6 h-6 text-purple-400" />
+              Club Members
+            </h3>
 
-          {/* Admins */}
-          <div className="mb-6">
-            <h4 className="text-md font-semibold text-yellow-700 mb-2">👑 Admins</h4>
-            {admins.length === 0 ? (
-              <p className="text-gray-500 text-sm">No admins</p>
-            ) : (
-              <ul className="space-y-2">
-                {admins.map((m) => (
-                  <li key={m.user_id} className="flex items-center gap-3 p-2 bg-yellow-50 rounded">
-                    <span className="text-2xl">👑</span>
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {m.profiles?.full_name || "Unknown"}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {m.profiles?.enrollment_number || "No ID"} •{" "}
-                        {m.profiles?.college_email || "No email"}
-                      </p>
+            {/* Admins */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                <Crown className="w-4 h-4" />
+                Admins
+              </h4>
+              {admins.length === 0 ? (
+                <p className="text-white/40 text-sm">No admins</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {admins.map((m) => (
+                    <div key={m.user_id} className="flex items-center gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+                        <Crown className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-white truncate">
+                          {m.profiles?.full_name || "Unknown"}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          {m.profiles?.enrollment_number || "No ID"}
+                        </p>
+                      </div>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Regular Members */}
-          <div>
-            <h4 className="text-md font-semibold text-gray-700 mb-2">
-              👥 Members ({regularMembers.length})
-            </h4>
-            {regularMembers.length === 0 ? (
-              <p className="text-gray-500 text-sm">No members yet</p>
-            ) : (
-              <ul className="space-y-2">
-                {regularMembers.map((m) => (
-                  <li key={m.user_id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                    <span className="text-2xl">👤</span>
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {m.profiles?.full_name || "Unknown"}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {m.profiles?.enrollment_number || "No ID"} •{" "}
-                        {m.profiles?.college_email || "No email"}
-                      </p>
+            {/* Regular Members */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Members ({regularMembers.length})
+              </h4>
+              {regularMembers.length === 0 ? (
+                <p className="text-white/40 text-sm">No members yet</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {regularMembers.map((m) => (
+                    <div key={m.user_id} className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-white text-sm truncate">
+                          {m.profiles?.full_name || "Unknown"}
+                        </p>
+                        <p className="text-xs text-white/40 truncate">
+                          {m.profiles?.enrollment_number || "No ID"}
+                        </p>
+                      </div>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </motion.div>
+
+        {/* Event History */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          id="history"
+          className="relative group mb-8"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10">
+            <button
+              onClick={() => setShowEventHistory(!showEventHistory)}
+              className="w-full flex justify-between items-center px-6 py-4 hover:bg-white/5 rounded-t-2xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <History className="w-6 h-6 text-green-400" />
+                <h3 className="text-xl font-bold text-white">Event History</h3>
+                <span className="text-sm text-white/40">({historyEvents.length})</span>
+              </div>
+              {showEventHistory ? <ChevronUp className="w-5 h-5 text-white/60" /> : <ChevronDown className="w-5 h-5 text-white/60" />}
+            </button>
+            
+            <AnimatePresence>
+              {showEventHistory && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-6 pb-6 space-y-3 max-h-96 overflow-y-auto">
+                    {historyEvents.length === 0 ? (
+                      <p className="text-white/40 text-sm py-8 text-center">No completed events yet</p>
+                    ) : (
+                      historyEvents.map((e) => (
+                        <div key={e.id} className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                          <div className="flex justify-between items-start mb-3">
+                            <h4 className="font-semibold text-white">{e.title}</h4>
+                            {e.status === "approved" && (
+                              <span className="text-xs px-2 py-1 bg-green-500/20 border border-green-500/30 text-green-400 rounded-full flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Approved
+                              </span>
+                            )}
+                            {e.status === "rejected" && (
+                              <span className="text-xs px-2 py-1 bg-red-500/20 border border-red-500/30 text-red-400 rounded-full flex items-center gap-1">
+                                <XCircle className="w-3 h-3" />
+                                Rejected
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-white/60 mb-3">{e.description || "No description"}</p>
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-white/40">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(e.event_date).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {e.place || "TBD"}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              {e.total_xp_pool} XP
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {eventParticipantCounts[e.id] || 0}/{e.members_required}
+                            </span>
+                          </div>
+                          {e.results_description && (
+                            <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                              <p className="text-xs text-white/80">
+                                <strong className="text-green-400">Results:</strong> {e.results_description}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* Activity Log */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          id="activity"
+          className="relative group mb-8"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10">
+            <button
+              onClick={() => setShowActivityLog(!showActivityLog)}
+              className="w-full flex justify-between items-center px-6 py-4 hover:bg-white/5 rounded-t-2xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Activity className="w-6 h-6 text-blue-400" />
+                <h3 className="text-xl font-bold text-white">Activity Log</h3>
+                <span className="text-sm text-white/40">({activityLogs.length})</span>
+              </div>
+              {showActivityLog ? <ChevronUp className="w-5 h-5 text-white/60" /> : <ChevronDown className="w-5 h-5 text-white/60" />}
+            </button>
+            
+            <AnimatePresence>
+              {showActivityLog && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-6 pb-6 space-y-2 max-h-96 overflow-y-auto">
+                    {activityLogs.length === 0 ? (
+                      <p className="text-white/40 text-sm py-8 text-center">No activity yet</p>
+                    ) : (
+                      activityLogs.slice().reverse().map((log) => (
+                        <div key={log.id} className="p-3 bg-blue-500/10 border-l-4 border-blue-400 rounded-lg">
+                          <p className="text-sm text-white/80">
+                            {log.content.replace("🔔 SYSTEM: ", "")}
+                          </p>
+                          <p className="text-xs text-white/40 mt-1">
+                            {new Date(log.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
         {/* Password Protection Info */}
         {club.passcode && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-            <p className="text-sm text-yellow-800">
-              🔒 This club is password-protected. Only members with the password can join.
-            </p>
-          </div>
-        )}
-        {/* Event History Section */}
-<div id="history" className="bg-white rounded-xl shadow-lg p-6 mb-6">
-  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-    📜 Event History
-  </h3>
-  <div className="space-y-3">
-    {historyEvents.length === 0 ? (
-      <p className="text-gray-500 text-sm">No completed events yet.</p>
-    ) : (
-      historyEvents.map((e) => (
-        <div
-          key={e.id}
-          className="p-4 bg-gray-50 rounded-lg border border-gray-200"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <h4 className="font-semibold text-gray-900">{e.title}</h4>
-            {e.status === "approved" && (
-              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
-                ✅ Approved
-              </span>
-            )}
-            {e.status === "rejected" && (
-              <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
-                ❌ Rejected
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-gray-600 mb-2">{e.description || "No description"}</p>
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span>📅 {new Date(e.event_date).toLocaleDateString()}</span>
-            <span>📍 {e.place || "TBD"}</span>
-            <span>⭐ {e.total_xp_pool} XP</span>
-            <span>
-              👥 {eventParticipantCounts[e.id] || 0}/{e.members_required}
-            </span>
-          </div>
-          {e.results_description && (
-            <div className="mt-3 p-2 bg-green-50 rounded">
-              <p className="text-xs text-gray-700">
-                <strong>Results:</strong> {e.results_description}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="relative group mb-8"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-4">
+              <p className="text-sm text-yellow-400 flex items-center gap-2">
+                <LockIcon className="w-4 h-4" />
+                This club is password-protected
               </p>
             </div>
-          )}
-        </div>
-      ))
-    )}
-  </div>
-</div>
+          </motion.div>
+        )}
 
-{/* Activity Log Section */}
-<div id="activity" className="bg-white rounded-xl shadow-lg p-6 mb-6">
-  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-    📋 Activity Log
-  </h3>
-  <div className="space-y-2 max-h-96 overflow-y-auto">
-    {activityLogs.length === 0 ? (
-      <p className="text-gray-500 text-sm">No activity yet.</p>
-    ) : (
-      activityLogs.slice().reverse().map((log) => (
-        <div
-          key={log.id}
-          className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400"
-        >
-          <p className="text-sm text-gray-800">
-            {log.content.replace("🔔 SYSTEM: ", "")}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {new Date(log.created_at).toLocaleString()}
-          </p>
-        </div>
-      ))
-    )}
-  </div>
-</div>
-
-        {/* Admin Only: Danger Zone */}
+        {/* Danger Zone */}
         {isAdmin && !isEditing && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-red-800 mb-2">⚠️ Danger Zone</h3>
-            <p className="text-sm text-red-700 mb-4">
-              Careful! These actions cannot be undone.
-            </p>
-            <button
-              onClick={() => {
-                if (confirm("Are you sure you want to delete this club? This cannot be undone!")) {
-                  // TODO: Add delete functionality
-                  toast.error("Delete functionality coming soon");
-                }
-              }}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              🗑️ Delete Club
-            </button>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-orange-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-red-500/30 p-6">
+              <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                Danger Zone
+              </h3>
+              <p className="text-sm text-red-400/70 mb-4">
+                Careful! These actions cannot be undone.
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  if (confirm("Are you sure you want to delete this club? This cannot be undone!")) {
+                    toast.error("Delete functionality coming soon");
+                  }
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Club
+              </motion.button>
+            </div>
+          </motion.div>
         )}
       </div>
     </div>

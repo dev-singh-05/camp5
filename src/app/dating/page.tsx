@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
-import { User } from "lucide-react";
+import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
 import AdBanner from "@/components/ads";
 import VerificationOverlay from "@/components/VerificationOverlay";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ----------------------------- Types ------------------------------------ */
 
@@ -42,6 +43,39 @@ type VerificationStatus = {
   rejection_reason?: string;
 };
 
+/* --------------------------- ChatCard Component ------------------------- */
+
+function ChatCard({ match, index, router }: { match: Match; index: number; router: any }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={{ x: 4, scale: 1.01 }}
+      onClick={() => router.push(`/dating/chat/${match.id}`)}
+      className="relative group cursor-pointer"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-xl flex-shrink-0">
+              {match.match_type === "random" ? "🎲" : "💡"}
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                {match.match_type === "random" ? "Random Match" : "Interest Match"}
+              </h3>
+              <p className="text-xs text-white/60">Click to open chat</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0" />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* --------------------------- Component ---------------------------------- */
 
 export default function DatingPage() {
@@ -73,6 +107,9 @@ export default function DatingPage() {
   const [pendingMatchType, setPendingMatchType] = useState<"random" | "interest">(
     "random"
   );
+
+  // Dropdown state for chats
+  const [isChatsExpanded, setIsChatsExpanded] = useState(false);
 
   // Refs for subscriptions cleanup
   const verificationChannelRef = useRef<any>(null);
@@ -612,18 +649,29 @@ export default function DatingPage() {
   // Show pending screen
   if (verificationStatus.status === "pending") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center p-4">
         <Toaster position="top-center" />
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-4xl">⏳</span>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8 max-w-md w-full text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-20 h-20 bg-gradient-to-br from-yellow-500/30 to-orange-500/30 border border-yellow-500/30 rounded-full flex items-center justify-center mx-auto mb-4"
+            >
+              <span className="text-4xl">⏳</span>
+            </motion.div>
+            <h2 className="text-2xl font-bold text-white mb-2">Verification Pending</h2>
+            <p className="text-white/60 mb-4">
+              Your verification is being reviewed by our admin team. This usually takes 24-48 hours.
+            </p>
+            <p className="text-sm text-white/40">You'll receive a notification once your verification is approved.</p>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Pending</h2>
-          <p className="text-gray-600 mb-4">
-            Your verification is being reviewed by our admin team. This usually takes 24-48 hours.
-          </p>
-          <p className="text-sm text-gray-500">You'll receive a notification once your verification is approved.</p>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -631,232 +679,581 @@ export default function DatingPage() {
   // Show rejected screen
   if (verificationStatus.status === "rejected") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center p-4">
         <Toaster position="top-center" />
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-4xl">❌</span>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Rejected</h2>
-          <p className="text-gray-600 mb-4">Unfortunately, your verification was not approved.</p>
-          {verificationStatus.rejection_reason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <p className="text-sm font-semibold text-red-800 mb-1">Reason:</p>
-              <p className="text-sm text-red-700">{verificationStatus.rejection_reason}</p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-pink-500/20 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8 max-w-md w-full text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-500/30 to-pink-500/30 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">❌</span>
             </div>
-          )}
-          <button
-            onClick={() => {
-              setVerificationStatus({ status: "not_submitted" });
-              setShowVerificationOverlay(true);
-            }}
-            className="px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 font-medium"
-          >
-            Submit New Verification
-          </button>
-        </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Verification Rejected</h2>
+            <p className="text-white/60 mb-4">Unfortunately, your verification was not approved.</p>
+            {verificationStatus.rejection_reason && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                <p className="text-sm font-semibold text-red-400 mb-1">Reason:</p>
+                <p className="text-sm text-red-300">{verificationStatus.rejection_reason}</p>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setVerificationStatus({ status: "not_submitted" });
+                setShowVerificationOverlay(true);
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 font-medium transition-all"
+            >
+              Submit New Verification
+            </button>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   // Main dating page
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 text-white overflow-x-hidden">
       <Toaster position="top-center" />
 
-      {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 shadow bg-white gap-3">
-        <div className="flex items-center justify-between w-full sm:w-auto">
-          <h1 className="text-2xl font-bold text-gray-800">Blind Dating</h1>
-          <div className="flex gap-2">
-            <Link
-              href="/dating/requests"
-              className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium"
-            >
-              📨 Requests
-            </Link>
-            <Link
-              href="/dating/dating-profiles"
-              className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition shadow"
-            >
-              <User className="w-5 h-5" />
-            </Link>
-          </div>
-        </div>
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
 
-        <div className="w-full sm:w-1/3 mt-2 sm:mt-0">
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Profile Completion</span>
-            <span className="text-sm font-medium text-gray-700">{completion}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-            <div
-              className={`h-2.5 rounded-full transition-all duration-500 ${
-                completion < 50 ? "bg-red-400" : completion < 80 ? "bg-yellow-400" : "bg-pink-500"
-              }`}
-              style={{ width: `${completion}%` }}
-            />
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
+        <div className="max-w-[1800px] mx-auto px-6 py-4">
+          <div className="flex flex-col lg:flex-row items-center gap-4">
+            {/* Left: Back Button */}
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="w-full lg:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all text-white font-medium"
+            >
+              ← Back
+            </motion.button>
+
+            {/* Center: Profile Completion Bar */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 w-full"
+            >
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-xl blur-lg" />
+                <div className="relative bg-black/30 backdrop-blur-xl rounded-xl border border-white/10 p-4">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium text-white/80">Profile Completion</span>
+                    <span className="text-sm font-bold text-pink-400">{completion}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden border border-white/10">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${completion}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className={`h-3 rounded-full transition-all duration-500 ${
+                        completion < 50
+                          ? "bg-gradient-to-r from-red-500 to-orange-500"
+                          : completion < 80
+                          ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                          : "bg-gradient-to-r from-pink-500 to-rose-500"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Right: Requests & Profile Buttons */}
+            <div className="flex items-center gap-3 w-full lg:w-auto">
+              <Link
+                href="/dating/requests"
+                className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                Requests
+              </Link>
+              <Link
+                href="/dating/dating-profiles"
+                className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center gap-2 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all font-medium"
+              >
+                <User className="w-5 h-5" />
+                Profile
+              </Link>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Testing mode controls */}
       {ENABLE_TESTING_MODE && (
-        <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={testingMode}
-                  onChange={(e) => setTestingMode(e.target.checked)}
-                  className="w-4 h-4 text-pink-500 rounded focus:ring-pink-400"
-                />
-                <span className="text-sm font-medium text-gray-700">🧪 Testing Mode (Allow re-matching)</span>
-              </label>
+        <div className="relative z-10 border-b border-white/5 bg-yellow-500/10 backdrop-blur-xl">
+          <div className="max-w-[1800px] mx-auto px-6 py-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={testingMode}
+                    onChange={(e) => setTestingMode(e.target.checked)}
+                    className="w-4 h-4 text-pink-500 rounded focus:ring-pink-400"
+                  />
+                  <span className="text-sm font-medium text-yellow-300">🧪 Testing Mode (Allow re-matching)</span>
+                </label>
+              </div>
+              <button
+                onClick={clearMyDatingData}
+                className="px-4 py-2 bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 rounded-xl hover:shadow-lg hover:shadow-red-500/30 text-sm font-medium transition-all"
+              >
+                🗑️ Clear All My Dating Data
+              </button>
             </div>
-            <button
-              onClick={clearMyDatingData}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
-            >
-              🗑️ Clear All My Dating Data
-            </button>
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      <main className="flex-1 px-6 py-10 max-w-5xl mx-auto w-full">
-        <div className="mb-8">
-          <label htmlFor="category" className="block text-lg font-semibold text-gray-700 mb-2">
-            What are you looking for?
-          </label>
-          <select
-            id="category"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-pink-400 focus:outline-none bg-white"
-          >
-            <option value="">Select a category</option>
-            <option value="serious">💖 Serious Dating</option>
-            <option value="casual">😎 Casual Dating</option>
-            <option value="mystery">🌸 Mystery Mode (Women First)</option>
-            <option value="fun">🔥 For Fun & Flirty</option>
-            <option value="friends">🫶 Friendship</option>
-          </select>
+      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
+        {/* Category Selection - Always visible at top */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+              <label htmlFor="category" className="block text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-pink-400" />
+                What are you looking for?
+              </label>
+              <select
+                id="category"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white appearance-none cursor-pointer transition-all"
+              >
+                <option value="">Select a category</option>
+                <option value="serious">💖 Serious Dating</option>
+                <option value="casual">😎 Casual Dating</option>
+                <option value="mystery">🌸 Mystery Mode (Women First)</option>
+                <option value="fun">🔥 For Fun & Flirty</option>
+                <option value="friends">🫶 Friendship</option>
+              </select>
 
-          {completion > 0 && completion < 50 && (
-            <p className="text-red-500 text-sm mt-2">⚠️ Your profile is only {completion}% complete — finish it first!</p>
-          )}
-        </div>
+              {completion > 0 && completion < 50 && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-red-400 text-sm mt-3 flex items-center gap-2"
+                >
+                  ⚠️ Your profile is only {completion}% complete — finish it first!
+                </motion.p>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
+        {/* Match Buttons - Show when category selected */}
         {selectedCategory && (
-          <div className="flex flex-col sm:flex-row gap-6 mb-10">
-            <button
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
+          >
+            <motion.button
+              whileHover={{ scale: matchingDisabled ? 1 : 1.02, y: matchingDisabled ? 0 : -4 }}
+              whileTap={{ scale: matchingDisabled ? 1 : 0.98 }}
               onClick={() => handleMatch("random")}
               disabled={matchingDisabled}
-              className={`flex-1 px-6 py-4 rounded-xl text-white font-semibold shadow-md transition ${
-                matchingDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"
-              }`}
+              className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
-              {creating ? "Finding..." : "🎲 Random Match"}
-            </button>
-
-            {selectedCategory !== "fun" && selectedCategory !== "friends" && (
-              <button
-                onClick={() => handleMatch("interest")}
-                disabled={matchingDisabled}
-                className={`flex-1 px-6 py-4 rounded-xl text-white font-semibold shadow-md transition ${
-                  matchingDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600"
+              <motion.div
+                animate={
+                  !matchingDisabled
+                    ? {
+                        boxShadow: [
+                          "0 0 20px rgba(34, 197, 94, 0.2)",
+                          "0 0 30px rgba(34, 197, 94, 0.3)",
+                          "0 0 20px rgba(34, 197, 94, 0.2)",
+                        ],
+                      }
+                    : {}
+                }
+                transition={{ duration: 2, repeat: Infinity }}
+                className={`absolute inset-0 ${
+                  matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                } rounded-2xl blur-lg`}
+              />
+              <div
+                className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                  matchingDisabled
+                    ? "bg-black/20 border-white/5"
+                    : "bg-black/40 border-white/10 hover:border-green-500/50"
                 }`}
               >
-                {creating ? "Finding..." : "💡 Interests Match"}
-              </button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                        matchingDisabled
+                          ? "bg-gray-500/20 border border-gray-500/30"
+                          : "bg-gradient-to-br from-green-500 to-emerald-500"
+                      }`}
+                    >
+                      🎲
+                    </div>
+                    <div className="text-left">
+                      <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                        {creating ? "Finding..." : "Random Match"}
+                      </h3>
+                      <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                        Discover someone new
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                </div>
+              </div>
+            </motion.button>
+
+            {selectedCategory !== "fun" && selectedCategory !== "friends" && (
+              <motion.button
+                whileHover={{ scale: matchingDisabled ? 1 : 1.02, y: matchingDisabled ? 0 : -4 }}
+                whileTap={{ scale: matchingDisabled ? 1 : 0.98 }}
+                onClick={() => handleMatch("interest")}
+                disabled={matchingDisabled}
+                className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <motion.div
+                  animate={
+                    !matchingDisabled
+                      ? {
+                          boxShadow: [
+                            "0 0 20px rgba(14, 165, 233, 0.2)",
+                            "0 0 30px rgba(14, 165, 233, 0.3)",
+                            "0 0 20px rgba(14, 165, 233, 0.2)",
+                          ],
+                        }
+                      : {}
+                  }
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                  } rounded-2xl blur-lg`}
+                />
+                <div
+                  className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                    matchingDisabled
+                      ? "bg-black/20 border-white/5"
+                      : "bg-black/40 border-white/10 hover:border-cyan-500/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                          matchingDisabled
+                            ? "bg-gray-500/20 border border-gray-500/30"
+                            : "bg-gradient-to-br from-cyan-500 to-blue-500"
+                        }`}
+                      >
+                        💡
+                      </div>
+                      <div className="text-left">
+                        <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                          {creating ? "Finding..." : "Interests Match"}
+                        </h3>
+                        <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                          Based on shared interests
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                  </div>
+                </div>
+              </motion.button>
             )}
-          </div>
+          </motion.div>
         )}
 
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">My Connections</h2>
-        {loading ? (
-          <p className="text-gray-600">Loading chats...</p>
-        ) : matches.length === 0 ? (
-          <p className="text-gray-600">No connections yet. Start matching!</p>
-        ) : (
-          <div className="space-y-4">
-            {matches.map((match) => (
-              <div
-                key={match.id}
-                onClick={() => router.push(`/dating/chat/${match.id}`)}
-                className="h-14 rounded-xl shadow bg-pink-400 hover:bg-pink-500 transition cursor-pointer flex items-center px-6 text-white font-medium"
+        {/* My Chats Section with Dropdown */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              {/* Header - Always visible (clickable when chats > 0) */}
+              <motion.div
+                onClick={() => {
+                  if (matches.length > 0) {
+                    setIsChatsExpanded(!isChatsExpanded);
+                  }
+                }}
+                className={`p-6 border-b border-white/10 ${
+                  matches.length > 0 ? "cursor-pointer hover:bg-white/5" : ""
+                } transition-colors`}
               >
-                {match.match_type === "random" ? "🎲 Random Match" : "💡 Interest Match"}
-              </div>
-            ))}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <Users className="w-5 h-5 text-pink-400" />
+                      My Chats
+                      {matches.length > 0 && (
+                        <span className="ml-2 px-2 py-1 bg-pink-500/20 border border-pink-500/30 rounded-full text-xs text-pink-400 font-medium">
+                          {matches.length}
+                        </span>
+                      )}
+                    </h2>
+                  </div>
+                  {matches.length > 0 && (
+                    <motion.div
+                      animate={{ rotate: isChatsExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <ChevronDown className="w-5 h-5 text-white/60" />
+                    </motion.div>
+                  )}
+                </div>
+                <p className="text-sm text-white/60 mt-1">
+                  {matches.length === 0
+                    ? "No chats yet"
+                    : matches.length === 1
+                    ? "You have 1 chat"
+                    : `${isChatsExpanded ? "Showing all chats" : "Click to see all chats"}`}
+                </p>
+              </motion.div>
+
+              {/* Chats List - Conditional rendering based on state */}
+              <AnimatePresence>
+                {loading ? (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-6 text-center">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-12 h-12 border-4 border-pink-500/30 border-t-pink-500 rounded-full mx-auto"
+                      />
+                      <p className="text-white/60 mt-4">Loading chats...</p>
+                    </div>
+                  </motion.div>
+                ) : matches.length === 0 ? (
+                  // Fully collapsed when no chats
+                  null
+                ) : matches.length === 1 ? (
+                  // Show 1 chat with collapse option (always visible but collapsible)
+                  isChatsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-6">
+                        <div className="space-y-3">
+                          <ChatCard match={matches[0]} index={0} router={router} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                ) : (
+                  // Multiple chats: show newest (first) always, rest on expand
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-6">
+                      <div className="space-y-3">
+                        {/* Always show the first (newest) chat */}
+                        <ChatCard match={matches[0]} index={0} router={router} />
+                        
+                        {/* Show rest only when expanded */}
+                        <AnimatePresence>
+                          {isChatsExpanded && matches.slice(1).map((match, index) => (
+                            <motion.div
+                              key={match.id}
+                              initial={{ height: 0, opacity: 0, y: -10 }}
+                              animate={{ height: "auto", opacity: 1, y: 0 }}
+                              exit={{ height: 0, opacity: 0, y: -10 }}
+                              transition={{ delay: index * 0.05 }}
+                            >
+                              <ChatCard match={match} index={index + 1} router={router} />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        )}
+        </motion.div>
+
+        {/* Ad Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <AdBanner placement="dating_page" />
+          </div>
+        </motion.div>
       </main>
 
       {/* Request Modal */}
-      {showRequestModal && candidate && question && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Send Match Request</h2>
-
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-start gap-4 mb-3">
-                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-                  {shouldHidePhoto ? (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">Hidden</div>
-                  ) : (
-                    <img src={candidate.profile_photo || profilePlaceholder} alt="Match" className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-lg">{shouldHideName ? "Name Hidden" : candidate.full_name}</p>
-                  <p className="text-sm text-gray-600">
-                    {candidate.gender} • {candidate.year} • {candidate.branch}
-                    {candidate.height && ` • ${candidate.height}`}
-                  </p>
-                </div>
+      <AnimatePresence>
+        {showRequestModal && candidate && question && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => setShowRequestModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl border border-white/10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Send className="w-5 h-5 text-pink-400" />
+                  Send Match Request
+                </h3>
+                <button
+                  onClick={() => setShowRequestModal(false)}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {candidate.dating_description && (
-                <p className="text-sm text-gray-700 italic mb-2">"{candidate.dating_description}"</p>
-              )}
-
-              {candidate.interests && candidate.interests.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {candidate.interests.map((i) => (
-                    <span key={i} className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{i}</span>
-                  ))}
+              <div className="p-6 space-y-6">
+                {/* Candidate Profile */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-lg" />
+                  <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/5 flex-shrink-0 border border-white/10">
+                        {shouldHidePhoto ? (
+                          <div className="w-full h-full flex items-center justify-center text-white/40 text-sm">
+                            Hidden
+                          </div>
+                        ) : (
+                          <img
+                            src={candidate.profile_photo || profilePlaceholder}
+                            alt="Match"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-xl text-white mb-2">
+                          {shouldHideName ? "Name Hidden" : candidate.full_name}
+                        </p>
+                        <p className="text-sm text-white/60 mb-3">
+                          {candidate.gender} • {candidate.year} • {candidate.branch}
+                          {candidate.height && ` • ${candidate.height}`}
+                        </p>
+                        {candidate.dating_description && (
+                          <p className="text-sm text-white/80 italic mb-3">
+                            "{candidate.dating_description}"
+                          </p>
+                        )}
+                        {candidate.interests && candidate.interests.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.interests.map((interest) => (
+                              <span
+                                key={interest}
+                                className="px-3 py-1 bg-pink-500/20 border border-pink-500/30 text-pink-400 rounded-full text-xs font-medium"
+                              >
+                                {interest}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="mb-6">
-              <label className="block font-semibold text-gray-700 mb-2">{question.text}</label>
-              <textarea
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Type your answer..."
-                className="w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                rows={4}
-              />
-            </div>
+                {/* Question */}
+                <div>
+                  <label className="block font-semibold text-white mb-3 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-yellow-400" />
+                    {question.text}
+                  </label>
+                  <textarea
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="Type your answer..."
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white placeholder-white/40 transition-all resize-none"
+                    rows={6}
+                  />
+                </div>
 
-            <div className="flex gap-3">
-              <button onClick={() => setShowRequestModal(false)} className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">
-                Cancel
-              </button>
-              <button onClick={sendRequest} disabled={!answer.trim()} className={`flex-1 px-4 py-2 rounded-lg text-white ${!answer.trim() ? "bg-gray-400" : "bg-pink-500 hover:bg-pink-600"}`}>
-                Send Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <AdBanner placement="dating_page" />
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowRequestModal(false)}
+                    className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendRequest}
+                    disabled={!answer.trim()}
+                    className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
+                      !answer.trim()
+                        ? "bg-gray-500/20 border border-gray-500/30 text-gray-400 cursor-not-allowed"
+                        : "bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50"
+                    }`}
+                  >
+                    Send Request
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

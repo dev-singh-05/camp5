@@ -6,7 +6,8 @@ import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import AdBanner from "@/components/ads";
-
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, Search, Filter, Plus, X, Star, Lock, ChevronRight } from "lucide-react";
 
 type Club = {
   id: string;
@@ -15,7 +16,7 @@ type Club = {
   description?: string | null;
 };
 
-// ClubCard
+// ClubCard with glassmorphic design
 function ClubCard({
   club,
   rank,
@@ -27,34 +28,105 @@ function ClubCard({
   status?: "joined" | "requested" | "join";
   onClick: () => void;
 }) {
-  return (
-    <div
-      onClick={onClick}
-      className="p-4 bg-gray-100 rounded-xl shadow-md flex items-center justify-between hover:shadow-lg transition cursor-pointer"
-    >
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold">
-          👤
-        </div>
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">{club.name}</h3>
-          <p className="text-sm text-gray-600">{club.category || "Uncategorized"}</p>
-        </div>
-      </div>
+  const getCategoryColor = (cat: string | null) => {
+    switch (cat?.toLowerCase()) {
+      case "sports": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
+      case "arts": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
+      case "tech": return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400";
+      case "general": return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400";
+      default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
+    }
+  };
 
-      <div className="flex flex-col items-end gap-2">
+  const getCategoryIcon = (cat: string | null) => {
+    switch (cat?.toLowerCase()) {
+      case "sports": return "⚽";
+      case "arts": return "🎨";
+      case "tech": return "💻";
+      case "general": return "🌟";
+      default: return "📁";
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="cursor-pointer group relative"
+    >
+      <motion.div
+        animate={{
+          boxShadow: [
+            "0 0 20px rgba(168, 85, 247, 0.2)",
+            "0 0 30px rgba(168, 85, 247, 0.3)",
+            "0 0 20px rgba(168, 85, 247, 0.2)",
+          ],
+        }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg"
+      />
+      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/50 transition-all overflow-hidden">
+        {/* Rank Badge */}
         {rank !== undefined && (
-          <span className="text-sm font-semibold text-gray-500">Rank #{rank}</span>
+          <div className="absolute top-4 right-4 w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/30 flex items-center justify-center">
+            <span className="text-xs font-bold text-purple-300">#{rank}</span>
+          </div>
         )}
-        {status === "joined" ? (
-          <span className="px-3 py-1 bg-green-100 text-green-700 rounded">Joined</span>
-        ) : status === "requested" ? (
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Requested</span>
-        ) : (
-          <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded">Join</span>
-        )}
+
+        <div className="flex items-start gap-4">
+          {/* Club Avatar */}
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform">
+            {getCategoryIcon(club.category)}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Club Name */}
+            <h3 className="text-xl font-bold text-white mb-2 line-clamp-1 group-hover:text-purple-300 transition-colors">
+              {club.name}
+            </h3>
+
+            {/* Category Badge */}
+            {club.category && (
+              <span className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(club.category)} border font-medium mb-3`}>
+                {club.category}
+              </span>
+            )}
+
+            {/* Description */}
+            {club.description && (
+              <p className="text-sm text-white/60 line-clamp-2 mb-3">
+                {club.description}
+              </p>
+            )}
+
+            {/* Status Badge */}
+            <div className="flex items-center justify-between mt-4">
+              {status === "joined" ? (
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-xl">
+                  <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                  <span className="text-sm font-semibold text-green-400">Joined</span>
+                </div>
+              ) : status === "requested" ? (
+                <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
+                  <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                  <span className="text-sm font-semibold text-yellow-400">Requested</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/30 rounded-xl group-hover:bg-indigo-500/30 transition-all">
+                  <Plus className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-semibold text-indigo-400">Join</span>
+                </div>
+              )}
+
+              <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all" />
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -233,297 +305,521 @@ export default function ClubsPage() {
     fetchClubs();
   };
 
+  const filteredClubs = clubs.filter((c) => {
+    const matchesCategory =
+      filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
+    const matchesSearch =
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.category?.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
-    <div className="p-6 min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Topbar */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        {/* Left side: Back + Links */}
-        <div className="flex gap-3 items-center">
-          {/* 🔙 Back button on the left of My Clubs */}
-          <div className="text-box">
-            <a
-              href="#"
-              role="button"
-              aria-label="Go back"
-              onClick={(e) => {
-                e.preventDefault();
-                router.back();
-              }}
-              className="btn btn-white btn-animated"
-            >
-              ← Back
-            </a>
-          </div>
-
-          <Link
-            href="/clubs/my"
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          >
-            My Clubs
-          </Link>
-          <Link
-            href="/clubs/leaderboard"
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Leaderboard
-          </Link>
-        </div>
-
-        {/* Right side: search + filter */}
-        <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search clubs..."
-            className="px-4 py-2 border rounded w-full md:w-64 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <select
-            className="border px-3 py-2 rounded shadow-sm"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            <option value="Sports">Sports</option>
-            <option value="Arts">Arts</option>
-            <option value="Tech">Tech</option>
-            <option value="General">General</option>
-          </select>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+        />
       </div>
 
-      {/* Clubs grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clubs
-          .filter((c) => {
-            const matchesCategory =
-              filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
-            const matchesSearch =
-              c.name.toLowerCase().includes(search.toLowerCase()) ||
-              c.category?.toLowerCase().includes(search.toLowerCase());
-            return matchesCategory && matchesSearch;
-          })
-          .map((club, i) => (
-            <ClubCard
-              key={club.id}
-              club={club}
-              rank={i + 1}
-              status={
-                joinedClubIds.includes(club.id)
-                  ? "joined"
-                  : requestedClubIds.includes(club.id)
-                    ? "requested"
-                    : "join"
-              }
-              onClick={() => {
-                setSelectedClub(club);
-                setSelectedRank(i + 1);
-              }}
-            />
-          ))}
-      </div>
-
-      {/* Floating + button */}
-      <a
-        href="#"
-        role="button"
-        aria-label="Open rate modal"
-        onClick={() => setShowModal(true)}
-        className="animated-button1 animated-button-fixed"
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        {/* You can keep or remove the text label; for the small circle I recommend showing just "+" */}
-        +
-      </a>
-
-
-      {/* Create Club Modal */}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
-            <h3 className="text-xl font-bold mb-4">Create a New Club</h3>
-
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Club Name"
-              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">Select Category</option>
-              <option>Sports</option>
-              <option>Arts</option>
-              <option>Tech</option>
-              <option>General</option>
-            </select>
-
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Club Description"
-              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              rows={3}
-            />
-
-            <input
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              placeholder="Passcode (optional)"
-              className="w-full mb-3 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
+        <div className="max-w-[1800px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.back()}
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                ←
+              </motion.button>
+
+              <motion.h1
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
               >
-                Create
-              </button>
+                Campus Clubs
+              </motion.h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/clubs/my"
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 hover:border-indigo-500/50 rounded-xl font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
+              >
+                My Clubs
+              </Link>
+              <Link
+                href="/clubs/leaderboard"
+                className="px-4 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 hover:border-green-500/50 rounded-xl font-medium hover:shadow-lg hover:shadow-green-500/30 transition-all"
+              >
+                Leaderboard
+              </Link>
             </div>
           </div>
         </div>
-      )}
+      </header>
 
-      {/* Club Details Modal */}
-      {selectedClub && (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-          onClick={() => setSelectedClub(null)}
+      {/* Main Content */}
+      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
+        {/* Search & Filter Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
         >
-          <div
-            className="bg-white p-6 rounded-xl w-full max-w-lg shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold">
-                👤
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedClub.name}</h2>
-                <p className="text-gray-600">
-                  {selectedClub.category || "Uncategorized"}
-                </p>
-              </div>
-            </div>
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search clubs..."
+                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                  />
+                </div>
 
-            <p className="mb-4 text-gray-700">
-              {selectedClub.description || "No description provided."}
-            </p>
-
-            <div className="flex justify-between items-center">
-              {selectedRank && (
-                <span className="text-sm font-semibold text-gray-500">
-                  Rank #{selectedRank}
-                </span>
-              )}
-              {joinedClubIds.includes(selectedClub.id) ? (
-                <button
-                  onClick={() => router.push(`/clubs/${selectedClub.id}`)}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Go Inside
-                </button>
-              ) : requestedClubIds.includes(selectedClub.id) ? (
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded">
-                  Requested
-                </span>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => startJoin(selectedClub)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                {/* Filter */}
+                <div className="relative">
+                  <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="pl-12 pr-8 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white appearance-none cursor-pointer min-w-[200px] transition-all"
                   >
-                    Join
-                  </button>
+                    <option value="all">All Categories</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Arts">Arts</option>
+                    <option value="Tech">Tech</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Results Count */}
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-white/60">
+                  Showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
+                </span>
+                {(search || filter !== "all") && (
                   <button
                     onClick={() => {
-                      setJoiningClub(selectedClub);
-                      setShowRequestModal(true);
+                      setSearch("");
+                      setFilter("all");
                     }}
-                    className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                    className="text-purple-400 hover:text-purple-300 transition-colors"
                   >
-                    Request
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Clubs Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {filteredClubs.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="col-span-full"
+            >
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+                <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
+                  <Users className="w-16 h-16 text-white/20 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">No clubs found</h3>
+                  <p className="text-white/60 mb-6">
+                    {search || filter !== "all"
+                      ? "Try adjusting your search or filters"
+                      : "Be the first to create a club!"}
+                  </p>
+                  {!search && filter === "all" && (
+                    <button
+                      onClick={() => setShowModal(true)}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                    >
+                      Create First Club
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            filteredClubs.map((club, i) => (
+              <ClubCard
+                key={club.id}
+                club={club}
+                rank={i + 1}
+                status={
+                  joinedClubIds.includes(club.id)
+                    ? "joined"
+                    : requestedClubIds.includes(club.id)
+                      ? "requested"
+                      : "join"
+                }
+                onClick={() => {
+                  setSelectedClub(club);
+                  setSelectedRank(i + 1);
+                }}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Ad Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative group mb-8"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <AdBanner placement="clubs_page" />
+          </div>
+        </motion.div>
+      </main>
+
+      {/* Floating Create Button */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowModal(true)}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 flex items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
+      >
+        <Plus className="w-8 h-8 text-white" />
+      </motion.button>
+
+      {/* Create Club Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => setShowModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
+                <h3 className="text-xl font-bold text-white">Create New Club</h3>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Club Name *</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter club name"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Category *</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white transition-all"
+                  >
+                    <option value="">Select Category</option>
+                    <option>Sports</option>
+                    <option>Arts</option>
+                    <option>Tech</option>
+                    <option>General</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Description</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Tell members about your club..."
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all resize-none"
+                    rows={4}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2 flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    Passcode (Optional)
+                  </label>
+                  <input
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    type="password"
+                    placeholder="Leave empty for open club"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                  />
+                  <p className="text-xs text-white/40 mt-2">Members will need this passcode to join</p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreate}
+                    disabled={!name || !category}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Create Club
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Club Details Modal */}
+      <AnimatePresence>
+        {selectedClub && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => setSelectedClub(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
+            >
+              <div className="p-8">
+                <div className="flex items-start gap-6 mb-6">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0">
+                    {selectedClub.category === "Sports" ? "⚽" :
+                     selectedClub.category === "Arts" ? "🎨" :
+                     selectedClub.category === "Tech" ? "💻" :
+                     selectedClub.category === "General" ? "🌟" : "📁"}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-white mb-2">{selectedClub.name}</h2>
+                    {selectedClub.category && (
+                      <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-400 font-medium">
+                        {selectedClub.category}
+                      </span>
+                    )}
+                    {selectedRank && (
+                      <div className="mt-2 text-sm text-white/60">
+                        Rank <span className="text-purple-400 font-semibold">#{selectedRank}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-white/80 mb-2">Description</h3>
+                  <p className="text-white/60 leading-relaxed">
+                    {selectedClub.description || "No description provided."}
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedClub(null)}
+                    className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Close
+                  </button>
+                  {joinedClubIds.includes(selectedClub.id) ? (
+                    <button
+                      onClick={() => router.push(`/clubs/${selectedClub.id}`)}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
+                    >
+                      Enter Club
+                    </button>
+                  ) : requestedClubIds.includes(selectedClub.id) ? (
+                    <div className="flex-1 px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center">
+                      Request Pending
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setJoiningClub(selectedClub);
+                          setShowRequestModal(true);
+                        }}
+                        className="px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 rounded-xl font-medium text-yellow-400 transition-all"
+                      >
+                        Request
+                      </button>
+                      <button
+                        onClick={() => startJoin(selectedClub)}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                      >
+                        Join Now
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Passcode Modal */}
-      {showPassModal && joiningClub && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Enter Passcode</h3>
-            <input
-              type="password"
-              value={enteredPass}
-              onChange={(e) => setEnteredPass(e.target.value)}
-              placeholder="Enter passcode"
-              className="w-full mb-3 p-2 border rounded"
-            />
-            <p className="text-sm text-gray-600 mb-3">Tries left: {triesLeft}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowPassModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePassSubmit}
-                className="px-4 py-2 bg-indigo-600 text-white rounded"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showPassModal && joiningClub && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10"
+            >
+              <div className="p-8">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/30 flex items-center justify-center mx-auto mb-6">
+                  <Lock className="w-8 h-8 text-purple-400" />
+                </div>
+
+                <h3 className="text-xl font-bold text-white text-center mb-2">Enter Passcode</h3>
+                <p className="text-white/60 text-center mb-6">
+                  Join <span className="text-purple-400 font-semibold">{joiningClub.name}</span>
+                </p>
+
+                <div className="mb-4">
+                  <input
+                    type="password"
+                    value={enteredPass}
+                    onChange={(e) => setEnteredPass(e.target.value)}
+                    placeholder="Enter club passcode"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-center text-lg tracking-widest placeholder-white/40 transition-all"
+                    onKeyPress={(e) => e.key === "Enter" && handlePassSubmit()}
+                  />
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-sm text-white/60">
+                      Tries remaining: <span className={`font-semibold ${triesLeft === 1 ? "text-red-400" : "text-purple-400"}`}>{triesLeft}</span>
+                    </span>
+                    {triesLeft < 3 && (
+                      <span className="text-xs text-red-400">Incorrect passcode</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPassModal(false)}
+                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePassSubmit}
+                    disabled={!enteredPass}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Request Modal */}
-      {showRequestModal && joiningClub && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Request Access</h3>
-            <p className="mb-4">
-              You used all attempts. Do you want to send a request to join{" "}
-              <b>{joiningClub.name}</b>?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowRequestModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRequest}
-                className="px-4 py-2 bg-yellow-500 text-white rounded"
-              >
-                Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <AdBanner placement="clubs_page" />
+      <AnimatePresence>
+        {showRequestModal && joiningClub && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10"
+            >
+              <div className="p-8">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/30 to-orange-500/30 border border-yellow-500/30 flex items-center justify-center mx-auto mb-6">
+                  <Star className="w-8 h-8 text-yellow-400" />
+                </div>
 
+                <h3 className="text-xl font-bold text-white text-center mb-2">Request Access</h3>
+                <p className="text-white/60 text-center mb-6">
+                  {triesLeft === 0 ? (
+                    <>You've used all passcode attempts. </>
+                  ) : (
+                    <>Want to skip the passcode? </>
+                  )}
+                  Send a request to join <span className="text-purple-400 font-semibold">{joiningClub.name}</span>
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowRequestModal(false)}
+                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRequest}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                  >
+                    Send Request
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

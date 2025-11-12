@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Pencil,
   MapPin,
@@ -19,6 +20,11 @@ import {
   Camera,
   GraduationCap,
   Sparkles,
+  X,
+  Check,
+  ChevronRight,
+  User,
+  Upload,
 } from "lucide-react";
 
 type Profile = {
@@ -307,200 +313,380 @@ export default function DatingProfileDashboard() {
     "Writing", "Shopping", "Meditation", "Hiking", "Swimming", "Cycling"
   ];
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-600">Loading profile...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
+        />
       </div>
     );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-100 p-6 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 text-white overflow-x-hidden pb-32">
       <Toaster position="top-center" />
 
-      {/* ✅ Persistent Update My Profile Button (bottom center) */}
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
-        <button
-          onClick={async () => {
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) {
-                toast.error("Please log in again.");
-                router.push("/login");
-                return;
-              }
-
-              await fetchProfile();
-              toast.success("Profile updated! Redirecting...");
-              setTimeout(() => router.push("/dating"), 1500);
-            } catch (err) {
-              console.error("Update button error:", err);
-              toast.error("Something went wrong.");
-            }
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
           }}
-          className="px-8 py-3 bg-pink-500 text-white font-semibold rounded-full shadow-lg hover:bg-pink-600 transition"
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+            >
+              ←
+            </motion.button>
+
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-2xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent flex items-center gap-2"
+            >
+              <User className="w-6 h-6 text-pink-400" />
+              My Dating Profile
+            </motion.h1>
+
+            <div className="w-10" /> {/* Spacer for centering */}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 max-w-4xl mx-auto px-6 py-8">
+        {/* Profile Photo Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
         >
-          🔄 Update My Profile
-        </button>
-      </div>
-
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow p-6">
-        {/* Profile Photo Upload */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative">
-            <img
-              src={profile?.profile_photo || "https://via.placeholder.com/120x120.png?text=No+Photo"}
-              alt="Profile"
-              className="w-28 h-28 rounded-full object-cover shadow-md"
-            />
-            <label
-              htmlFor="photoUpload"
-              className="absolute bottom-0 right-0 bg-pink-500 text-white p-2 rounded-full cursor-pointer hover:bg-pink-600 shadow"
-            >
-              <Camera className="w-4 h-4" />
-            </label>
-            <input
-              id="photoUpload"
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          {profile?.gallery_photos?.map((photo, index) => (
-            <div key={index} className="relative">
-              <img
-                src={photo || "https://via.placeholder.com/100x100.png?text=+"}
-                className="w-full h-24 object-cover rounded-xl border"
-              />
-              <label
-                htmlFor={`galleryUpload${index}`}
-                className="absolute bottom-1 right-1 bg-pink-500 text-white p-1 rounded-full cursor-pointer hover:bg-pink-600"
-              >
-                <Camera className="w-4 h-4" />
-              </label>
-              <input
-                id={`galleryUpload${index}`}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleGalleryUpload(e, index)}
-                className="hidden"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Profile Completion Bar */}
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Completion</h2>
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div className="bg-pink-500 h-3 transition-all duration-700" style={{ width: `${completion}%` }} />
-          </div>
-          <p className="text-sm text-gray-500 mt-1">{completion}% complete</p>
-        </div>
-
-        <h1 className="text-2xl font-bold mb-6 text-gray-800">My Dating Profile</h1>
-
-        {/* About You */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-700 mb-3">About You</h2>
-          <div className="divide-y divide-gray-200">
-            {aboutYou.map((item) => (
-              <div
-                key={item.key}
-                className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
-                onClick={() => setActiveField(item.key)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-pink-500">{item.icon}</div>
-                  <span className="font-medium text-gray-800">{item.label}</span>
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-8">
+              {/* Main Profile Photo */}
+              <div className="flex flex-col items-center mb-8">
+                <div className="relative group/photo">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl shadow-pink-500/20"
+                  >
+                    <img
+                      src={profile?.profile_photo || "https://via.placeholder.com/150x150.png?text=No+Photo"}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                  <label
+                    htmlFor="photoUpload"
+                    className="absolute bottom-0 right-0 bg-gradient-to-br from-pink-500 to-rose-500 text-white p-3 rounded-full cursor-pointer hover:shadow-lg hover:shadow-pink-500/50 transition-all border border-white/10"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </label>
+                  <input
+                    id="photoUpload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600">
-                    {(profile as any)[item.key] || <span className="italic text-gray-400">Add</span>}
-                  </span>
-                  <Pencil className="w-4 h-4 text-gray-400" />
-                </div>
+                <p className="text-sm text-white/60 mt-4">Upload your profile photo</p>
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* More About You */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-700 mb-3">More About You</h2>
-          <div className="divide-y divide-gray-200">
-            {moreAbout.map((item) => (
-              <div
-                key={item.key}
-                className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
-                onClick={() => setActiveField(item.key)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-pink-500">{item.icon}</div>
-                  <span className="font-medium text-gray-800">{item.label}</span>
+              {/* Gallery Photos */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-pink-400" />
+                  Photo Gallery
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {profile?.gallery_photos?.map((photo, index) => (
+                    <motion.div
+                      key={index}
+                      whileHover={{ scale: 1.05 }}
+                      className="relative group/gallery"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-xl blur opacity-0 group-hover/gallery:opacity-100 transition-opacity" />
+                      <div className="relative aspect-square rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt={`Gallery ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Upload className="w-8 h-8 text-white/40" />
+                          </div>
+                        )}
+                        <label
+                          htmlFor={`galleryUpload${index}`}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover/gallery:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
+                        >
+                          <Camera className="w-6 h-6 text-white" />
+                        </label>
+                        <input
+                          id={`galleryUpload${index}`}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleGalleryUpload(e, index)}
+                          className="hidden"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600">
-                    {(profile as any)[item.key] || <span className="italic text-gray-400">Add</span>}
-                  </span>
-                  <Pencil className="w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ✅ Dating Section */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-700 mb-3">Dating Preferences</h2>
-          <div className="divide-y divide-gray-200">
-            {/* Dating Description */}
-            <div
-              className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
-              onClick={() => setShowDescriptionModal(true)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-pink-500"><Heart /></div>
-                <span className="font-medium text-gray-800">Dating Bio</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600 text-sm max-w-xs truncate">
-                  {profile?.dating_description || <span className="italic text-gray-400">Add</span>}
-                </span>
-                <Pencil className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
-
-            {/* Interests */}
-            <div
-              className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition px-2 rounded-lg"
-              onClick={() => setShowInterestsModal(true)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-pink-500"><Sparkles /></div>
-                <span className="font-medium text-gray-800">Interests</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600 text-sm">
-                  {profile?.interests && profile.interests.length > 0 
-                    ? `${profile.interests.length} selected` 
-                    : <span className="italic text-gray-400">Add</span>}
-                </span>
-                <Pencil className="w-4 h-4 text-gray-400" />
               </div>
             </div>
           </div>
-        </section>
-      </div>
+        </motion.div>
 
-      {/* Continue Button */}
+        {/* Profile Completion */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-xl blur-lg" />
+            <div className="relative bg-black/30 backdrop-blur-xl rounded-xl border border-white/10 p-6">
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-white/80">Profile Completion</span>
+                <span className="text-sm font-bold text-pink-400">{completion}%</span>
+              </div>
+              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden border border-white/10">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${completion}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className={`h-3 rounded-full transition-all duration-500 ${
+                    completion < 50
+                      ? "bg-gradient-to-r from-red-500 to-orange-500"
+                      : completion < 80
+                      ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                      : "bg-gradient-to-r from-pink-500 to-rose-500"
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* About You Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="p-6 border-b border-white/10">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-pink-400" />
+                  About You
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-2">
+                  {aboutYou.map((item, index) => (
+                    <motion.div
+                      key={item.key}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ x: 4, scale: 1.01 }}
+                      onClick={() => setActiveField(item.key)}
+                      className="relative group/item cursor-pointer"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                              {item.icon}
+                            </div>
+                            <div>
+                              <p className="font-medium text-white">{item.label}</p>
+                              <p className="text-sm text-white/60">
+                                {(profile as any)[item.key] || <span className="italic">Not set</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* More About You Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="p-6 border-b border-white/10">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Star className="w-5 h-5 text-pink-400" />
+                  More About You
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-2">
+                  {moreAbout.map((item, index) => (
+                    <motion.div
+                      key={item.key}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ x: 4, scale: 1.01 }}
+                      onClick={() => setActiveField(item.key)}
+                      className="relative group/item cursor-pointer"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                              {item.icon}
+                            </div>
+                            <div>
+                              <p className="font-medium text-white">{item.label}</p>
+                              <p className="text-sm text-white/60">
+                                {(profile as any)[item.key] || <span className="italic">Not set</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Dating Preferences Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="p-6 border-b border-white/10">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-pink-400" />
+                  Dating Preferences
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-2">
+                  {/* Dating Bio */}
+                  <motion.div
+                    whileHover={{ x: 4, scale: 1.01 }}
+                    onClick={() => setShowDescriptionModal(true)}
+                    className="relative group/item cursor-pointer"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                            <Heart />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-white">Dating Bio</p>
+                            <p className="text-sm text-white/60 truncate">
+                              {profile?.dating_description || <span className="italic">Not set</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all flex-shrink-0" />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Interests */}
+                  <motion.div
+                    whileHover={{ x: 4, scale: 1.01 }}
+                    onClick={() => setShowInterestsModal(true)}
+                    className="relative group/item cursor-pointer"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                            <Sparkles />
+                          </div>
+                          <div>
+                            <p className="font-medium text-white">Interests</p>
+                            <p className="text-sm text-white/60">
+                              {profile?.interests && profile.interests.length > 0
+                                ? `${profile.interests.length} selected`
+                                : <span className="italic">Not set</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </main>
+
+      {/* Fixed Bottom Button */}
       {essentialsFilled && (
-        <div className="fixed bottom-4 left-0 w-full flex justify-center z-40">
-          <button
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-6"
+        >
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={async () => {
               if (!profile) return;
               const { error } = await supabase
@@ -514,159 +700,260 @@ export default function DatingProfileDashboard() {
                 setTimeout(() => router.push("/dating"), 2000);
               }
             }}
-            className="px-6 py-3 bg-pink-500 text-white font-semibold rounded-xl hover:bg-pink-600 shadow-lg transition"
+            className="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl font-semibold hover:shadow-2xl hover:shadow-pink-500/50 transition-all text-lg flex items-center gap-2"
           >
-            Continue to Dating 💞
-          </button>
-        </div>
+            <Heart className="w-5 h-5" />
+            Continue to Dating
+          </motion.button>
+        </motion.div>
       )}
 
-      {/* Regular Fields Popup Modal */}
-      {activeField && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-80 text-center">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">
-              {aboutYou.concat(moreAbout).find((f) => f.key === activeField)?.label}
-            </h3>
-
-            {OPTIONS[activeField as keyof typeof OPTIONS] ? (
-              <div className="space-y-2 mb-4">
-                {OPTIONS[activeField as keyof typeof OPTIONS].map((opt) => (
-                  <button
-                    key={opt}
-                    disabled={saving}
-                    onClick={() => handleSelect(activeField, opt)}
-                    className="w-full py-2 rounded-lg border hover:bg-pink-50 text-gray-700 font-medium transition"
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3 mb-4">
-                <input
-                  type={activeField === "age" ? "number" : "text"}
-                  placeholder={`Enter your ${activeField}`}
-                  value={manualValue}
-                  onChange={(e) => setManualValue(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <button
-                  disabled={!manualValue || saving}
-                  onClick={() => handleSelect(activeField, manualValue)}
-                  className="w-full py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 font-medium transition"
-                >
-                  Save
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                setActiveField(null);
-                setManualValue("");
-              }}
-              className="w-full mt-2 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
+      {/* Field Edit Modal */}
+      <AnimatePresence>
+        {activeField && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => {
+              setActiveField(null);
+              setManualValue("");
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 max-h-[80vh] overflow-y-auto"
             >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ✅ Interests Modal */}
-      {showInterestsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Select Your Interests</h3>
-            <p className="text-sm text-gray-600 mb-4">Choose up to 10 interests</p>
-
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {INTEREST_OPTIONS.map((interest) => (
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
+                <h3 className="text-xl font-bold text-white">
+                  {aboutYou.concat(moreAbout).find((f) => f.key === activeField)?.label}
+                </h3>
                 <button
-                  key={interest}
                   onClick={() => {
-                    if (selectedInterests.includes(interest)) {
-                      setSelectedInterests(selectedInterests.filter((i) => i !== interest));
-                    } else {
-                      if (selectedInterests.length < 10) {
-                        setSelectedInterests([...selectedInterests, interest]);
-                      } else {
-                        toast.error("Maximum 10 interests allowed");
-                      }
-                    }
+                    setActiveField(null);
+                    setManualValue("");
                   }}
-                  className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
-                    selectedInterests.includes(interest)
-                      ? "bg-pink-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
                 >
-                  {interest}
+                  <X className="w-5 h-5" />
                 </button>
-              ))}
-            </div>
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setSelectedInterests(profile?.interests || []);
-                  setShowInterestsModal(false);
-                }}
-                className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveInterests}
-                disabled={saving}
-                className="flex-1 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 font-medium transition disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Interests"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="p-6 space-y-3">
+                {OPTIONS[activeField as keyof typeof OPTIONS] ? (
+                  OPTIONS[activeField as keyof typeof OPTIONS].map((opt) => (
+                    <motion.button
+                      key={opt}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={saving}
+                      onClick={() => handleSelect(activeField, opt)}
+                      className="w-full py-3 rounded-xl bg-white/5 hover:bg-pink-500/20 border border-white/10 hover:border-pink-500/50 text-white font-medium transition-all disabled:opacity-50"
+                    >
+                      {opt}
+                    </motion.button>
+                  ))
+                ) : (
+                  <>
+                    <input
+                      type={activeField === "age" ? "number" : "text"}
+                      placeholder={`Enter your ${activeField}`}
+                      value={manualValue}
+                      onChange={(e) => setManualValue(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={!manualValue || saving}
+                      onClick={() => handleSelect(activeField, manualValue)}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </motion.button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ✅ Dating Description Modal */}
-      {showDescriptionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-lg w-full">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Dating Bio</h3>
-            <p className="text-sm text-gray-600 mb-4">Tell potential matches about yourself</p>
+      {/* Interests Modal */}
+      <AnimatePresence>
+        {showInterestsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => {
+              setSelectedInterests(profile?.interests || []);
+              setShowInterestsModal(false);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl border border-white/10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-pink-400" />
+                    Select Your Interests
+                  </h3>
+                  <p className="text-sm text-white/60 mt-1">Choose up to 10 interests</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedInterests(profile?.interests || []);
+                    setShowInterestsModal(false);
+                  }}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <textarea
-              value={datingDescription}
-              onChange={(e) => setDatingDescription(e.target.value)}
-              placeholder="e.g., Love traveling, coffee addict, looking for genuine connections..."
-              rows={5}
-              maxLength={200}
-              className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none"
-            />
-            <p className="text-xs text-gray-500 mt-1 text-right">{datingDescription.length}/200</p>
+              <div className="p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                  {INTEREST_OPTIONS.map((interest) => {
+                    const isSelected = selectedInterests.includes(interest);
+                    return (
+                      <motion.button
+                        key={interest}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedInterests(selectedInterests.filter((i) => i !== interest));
+                          } else {
+                            if (selectedInterests.length < 10) {
+                              setSelectedInterests([...selectedInterests, interest]);
+                            } else {
+                              toast.error("Maximum 10 interests allowed");
+                            }
+                          }
+                        }}
+                        className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                          isSelected
+                            ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg shadow-pink-500/30 border border-pink-500/50"
+                            : "bg-white/5 text-white/80 hover:bg-white/10 border border-white/10"
+                        }`}
+                      >
+                        {interest}
+                      </motion.button>
+                    );
+                  })}
+                </div>
 
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setDatingDescription(profile?.dating_description || "");
-                  setShowDescriptionModal(false);
-                }}
-                className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveDatingDescription}
-                disabled={saving}
-                className="flex-1 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 font-medium transition disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Bio"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedInterests(profile?.interests || []);
+                      setShowInterestsModal(false);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveInterests}
+                    disabled={saving}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50 text-white font-semibold transition-all disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : `Save (${selectedInterests.length}/10)`}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Dating Description Modal */}
+      <AnimatePresence>
+        {showDescriptionModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => {
+              setDatingDescription(profile?.dating_description || "");
+              setShowDescriptionModal(false);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
+            >
+              <div className="border-b border-white/10 p-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-pink-400" />
+                    Dating Bio
+                  </h3>
+                  <p className="text-sm text-white/60 mt-1">Tell potential matches about yourself</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setDatingDescription(profile?.dating_description || "");
+                    setShowDescriptionModal(false);
+                  }}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <textarea
+                  value={datingDescription}
+                  onChange={(e) => setDatingDescription(e.target.value)}
+                  placeholder="e.g., Love traveling, coffee addict, looking for genuine connections..."
+                  rows={6}
+                  maxLength={200}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white placeholder-white/40 transition-all resize-none"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-white/40">Share what makes you unique</p>
+                  <p className="text-xs text-white/60">{datingDescription.length}/200</p>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setDatingDescription(profile?.dating_description || "");
+                      setShowDescriptionModal(false);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDatingDescription}
+                    disabled={saving}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50 text-white font-semibold transition-all disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Bio"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
