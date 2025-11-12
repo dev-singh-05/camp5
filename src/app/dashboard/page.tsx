@@ -1,12 +1,33 @@
 "use client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { motion, AnimatePresence } from "framer-motion";
 import AdBanner from "@/components/ads";
-import TokenBalance from "@/components/tokens/TokenBalance";
 import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
+import { 
+  Users, 
+  Heart, 
+  Star, 
+  Bell, 
+  Menu, 
+  X, 
+  TrendingUp,
+  Newspaper,
+  Calendar,
+  MessageSquare,
+  Award,
+  Sparkles,
+  ChevronDown,
+  ExternalLink,
+  Coins,
+  HelpCircle,
+  Info,
+  Send
+} from "lucide-react";
 
 type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message" | "campus_news";
 type NewsItem = {
@@ -16,22 +37,6 @@ type NewsItem = {
   body?: string | null;
   created_at: string;
   meta?: Record<string, any>;
-};
-
-type Profile = {
-  id: string;
-  full_name?: string | null;
-  enrollment_number?: string | null;
-  college_email?: string | null;
-  description?: string | null;
-  profile_photo?: string | null;
-  branch?: string | null;
-  gender?: string | null;
-  year?: string | null;
-  location?: string | null;
-  hometown?: string | null;
-  profile_completed?: boolean;
-  avg_overall_xp?: number | null;
 };
 
 type CampusNewsArticle = {
@@ -48,86 +53,65 @@ type CampusNewsArticle = {
   created_at: string;
   published_at: string | null;
 };
-type ProfileData = {
-  full_name?: string | null;
-  gender?: string | null;
-  year?: string | null;
-  branch?: string | null;
-  location?: string | null;
-  hometown?: string | null;
-  profile_completed?: boolean;
-};
-
 
 export default function Dashboard() {
   const router = useRouter();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [news, setNews] = useState<NewsItem[]>([]);
   const [campusNews, setCampusNews] = useState<CampusNewsArticle[]>([]);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState<CampusNewsArticle | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Dropdown states
+  const [updatesExpanded, setUpdatesExpanded] = useState(true);
+  const [newsExpanded, setNewsExpanded] = useState(true);
+  
   const removedItemsRef = useRef<Set<string>>(new Set());
-
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
 
+  // Token balance state
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
+
+  // Modals
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-const [onboardingData, setOnboardingData] = useState({
-  full_name: "",
-  location: "",
-  hometown: "",
-  year: "",
-  branch: "",
-  gender: ""
-});
-
-  // Sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // About modal
+  const [onboardingData, setOnboardingData] = useState({
+    full_name: "",
+    location: "",
+    hometown: "",
+    year: "",
+    branch: "",
+    gender: ""
+  });
   const [aboutOpen, setAboutOpen] = useState(false);
-
-
-  const [showTokenBalance, setShowTokenBalance] = useState(false);
-const [showTokenPurchase, setShowTokenPurchase] = useState(false);
-  
-
-  // Help & Feedback modals
   const [helpOpen, setHelpOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [showTokenBalance, setShowTokenBalance] = useState(false);
+  const [showTokenPurchase, setShowTokenPurchase] = useState(false);
 
-  // Help form state
+  // Form states
   const [helpName, setHelpName] = useState("");
   const [helpEmail, setHelpEmail] = useState("");
   const [helpMessage, setHelpMessage] = useState("");
-
-  // Feedback form state
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackType, setFeedbackType] = useState("general");
 
-  // Notification preference toggles (persisted)
+  // Notification preferences
   const [notificationsPaused, setNotificationsPaused] = useState(false);
   const notificationsPausedRef = useRef(false);
-
   const [ratingsMsgEnabled, setRatingsMsgEnabled] = useState(true);
   const ratingsMsgRef = useRef(true);
-
   const [datingMsgEnabled, setDatingMsgEnabled] = useState(true);
   const datingMsgRef = useRef(true);
-
   const [clubsMsgEnabled, setClubsMsgEnabled] = useState(true);
   const clubsMsgRef = useRef(true);
-
   const [campusNewsEnabled, setCampusNewsEnabled] = useState(true);
   const campusNewsRef = useRef(true);
 
-  // Dark mode placeholder
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Load dismissed items from localStorage
+  // Load dismissed items and preferences from localStorage
   useEffect(() => {
     const dismissed = localStorage.getItem("dismissedNews");
     if (dismissed) {
@@ -139,13 +123,11 @@ const [showTokenPurchase, setShowTokenPurchase] = useState(false);
       }
     }
 
-    // Load notification prefs
     const paused = localStorage.getItem("prefs_notifications_paused");
     const r = localStorage.getItem("prefs_ratings_messages");
     const d = localStorage.getItem("prefs_dating_messages");
     const c = localStorage.getItem("prefs_clubs_messages");
     const cn = localStorage.getItem("prefs_campus_news");
-    const dm = localStorage.getItem("prefs_dark_mode");
 
     if (paused === "1") {
       setNotificationsPaused(true);
@@ -167,12 +149,8 @@ const [showTokenPurchase, setShowTokenPurchase] = useState(false);
       setCampusNewsEnabled(false);
       campusNewsRef.current = false;
     }
-    if (dm === "1") {
-      setDarkMode(true);
-    }
   }, []);
 
-  // Save dismissed items to localStorage whenever they change
   const saveDismissedItems = () => {
     localStorage.setItem("dismissedNews", JSON.stringify([...removedItemsRef.current]));
   };
@@ -190,21 +168,34 @@ const [showTokenPurchase, setShowTokenPurchase] = useState(false);
       userIdRef.current = userId;
 
       const { data: profileData } = await supabase
-  .from("profiles")
-  .select("full_name, gender, year, branch, profile_completed")
-  .eq("id", userId)
-  .maybeSingle();
+        .from("profiles")
+        .select("full_name, gender, year, branch, profile_completed")
+        .eq("id", userId)
+        .maybeSingle();
 
-if (!mounted) return;
-setProfileName(profileData?.full_name || "Student");
+      if (!mounted) return;
+      setProfileName(profileData?.full_name || "Student");
 
-// Check if profile needs completion
-if (!profileData?.full_name || !profileData?.gender || !profileData?.year || !profileData?.branch) {
-  setShowOnboardingModal(true);
-}
+      if (!profileData?.full_name || !profileData?.gender || !profileData?.year || !profileData?.branch) {
+        setShowOnboardingModal(true);
+      }
 
-setLoading(false);
+      // Load token balance - FIXED: using user_tokens table
+      const { data: tokenData, error: tokenError } = await supabase
+        .from("user_tokens")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
 
+      if (tokenError) {
+        console.error("Failed to load token balance:", tokenError);
+      }
+
+      if (mounted) {
+        setTokenBalance(tokenData?.balance || 0);
+      }
+
+      setLoading(false);
       await loadInitialNews(userId);
       await loadCampusNews();
       await startRealtime(userId);
@@ -216,55 +207,34 @@ setLoading(false);
       mounted = false;
       cleanupRealtime();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadCampusNews() {
-    try {
-      const { data, error } = await supabase
-        .from("campus_news")
-        .select("*")
-        .eq("published", true)
-        .order("pinned", { ascending: false })
-        .order("published_at", { ascending: false });
-
-      if (error) {
-        console.error("Failed to load campus news:", error);
-        return;
-      }
-
-      setCampusNews(data || []);
-    } catch (err) {
-      console.error("loadCampusNews error:", err);
-    }
-  }
-
   async function handleOnboardingSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  
-  if (!userIdRef.current) return;
-  
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: onboardingData.full_name,
-      location: onboardingData.location,
-      hometown: onboardingData.hometown,
-      year: onboardingData.year,
-      branch: onboardingData.branch,
-      gender: onboardingData.gender,
-      profile_completed: true
-    })
-    .eq("id", userIdRef.current);
+    e.preventDefault();
+    
+    if (!userIdRef.current) return;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: onboardingData.full_name,
+        location: onboardingData.location,
+        hometown: onboardingData.hometown,
+        year: onboardingData.year,
+        branch: onboardingData.branch,
+        gender: onboardingData.gender,
+        profile_completed: true
+      })
+      .eq("id", userIdRef.current);
 
-  if (error) {
-    console.error("Profile update failed:", error);
-    return;
+    if (error) {
+      console.error("Profile update failed:", error);
+      return;
+    }
+
+    setProfileName(onboardingData.full_name);
+    setShowOnboardingModal(false);
   }
-
-  setProfileName(onboardingData.full_name);
-  setShowOnboardingModal(false);
-}
 
   async function loadInitialNews(userId: string) {
     try {
@@ -281,7 +251,7 @@ setLoading(false);
         results.push({
           id: `rating-${r.id}`,
           type: "rating",
-          title: "Someone rated you ⭐",
+          title: "New rating received",
           body: r.comment ?? null,
           created_at: r.created_at,
           meta: { overall_xp: r.overall_xp ?? null },
@@ -395,7 +365,6 @@ setLoading(false);
 
       results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      // Filter out dismissed items
       const filtered = results.filter((item) => !removedItemsRef.current.has(item.id));
       setNews(filtered);
     } catch (err) {
@@ -403,10 +372,30 @@ setLoading(false);
     }
   }
 
+  async function loadCampusNews() {
+    try {
+      const { data, error } = await supabase
+        .from("campus_news")
+        .select("*")
+        .eq("published", true)
+        .order("pinned", { ascending: false })
+        .order("published_at", { ascending: false })
+        .limit(6);
+
+      if (error) {
+        console.error("Failed to load campus news:", error);
+        return;
+      }
+
+      setCampusNews(data || []);
+    } catch (err) {
+      console.error("loadCampusNews error:", err);
+    }
+  }
+
   async function startRealtime(userId: string) {
     try {
       cleanupRealtime();
-
       const channel = supabase.channel(`dashboard-news-${userId}`);
 
       channel.on(
@@ -450,103 +439,11 @@ setLoading(false);
 
       channel.on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "dating_chats" },
-        async (payload: any) => {
-          const c = payload.new;
-          try {
-            const { data: match } = await supabase.from("dating_matches").select("id, user1_id, user2_id").eq("id", c.match_id).maybeSingle();
-            if (!match) return;
-            if (match.user1_id !== userId && match.user2_id !== userId) return;
-            let senderName = "Someone";
-            try {
-              const { data: p } = await supabase.from("profiles").select("full_name").eq("id", c.sender_id).maybeSingle();
-              senderName = p?.full_name || senderName;
-            } catch (e) {}
-            const item: NewsItem = {
-              id: `datingchat-${c.id}`,
-              type: "dating_chat",
-              title: `Dating chat: ${senderName}`,
-              body: c.message ?? null,
-              created_at: c.created_at,
-              meta: { match_id: c.match_id },
-            };
-            pushNews(item);
-          } catch (err) {
-            console.error("dating_chats payload handling error:", err);
-          }
-        }
-      );
-
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "events" },
-        async (payload: any) => {
-          const ev = payload.new;
-          try {
-            const { data: member } = await supabase
-              .from("club_members")
-              .select("id")
-              .eq("club_id", ev.club_id)
-              .eq("user_id", userId)
-              .maybeSingle();
-            if (!member) return;
-            const item: NewsItem = {
-              id: `event-${ev.id}`,
-              type: "club_event",
-              title: `New event: ${ev.title}`,
-              body: ev.description ?? null,
-              created_at: ev.created_at,
-              meta: { club_id: ev.club_id, event_id: ev.id },
-            };
-            pushNews(item);
-          } catch (err) {
-            console.error("events payload handler error:", err);
-          }
-        }
-      );
-
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        async (payload: any) => {
-          const m = payload.new;
-          try {
-            const { data: member } = await supabase
-              .from("club_members")
-              .select("id")
-              .eq("club_id", m.club_id)
-              .eq("user_id", userId)
-              .maybeSingle();
-            if (!member) return;
-            let sender = "Someone";
-            try {
-              const { data: p } = await supabase.from("profiles").select("full_name").eq("id", m.user_id).maybeSingle();
-              sender = p?.full_name || sender;
-            } catch (e) {}
-            const item: NewsItem = {
-              id: `clubmsg-${m.id}`,
-              type: "club_message",
-              title: `Club message • ${sender}`,
-              body: m.content ?? null,
-              created_at: m.created_at,
-              meta: { club_id: m.club_id },
-            };
-            pushNews(item);
-          } catch (err) {
-            console.error("messages payload error:", err);
-          }
-        }
-      );
-
-      // Listen for new campus news articles
-      channel.on(
-        "postgres_changes",
         { event: "INSERT", schema: "public", table: "campus_news" },
         (payload: any) => {
           const article = payload.new;
           if (!article.published) return;
-          
-          // Add to campusNews state
+
           setCampusNews((prev) => {
             const exists = prev.some((n) => n.id === article.id);
             if (exists) return prev;
@@ -555,12 +452,11 @@ setLoading(false);
               if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
               return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
             });
-            return updated;
+            return updated.slice(0, 6);
           });
         }
       );
 
-      // Listen for campus news updates (publish/unpublish)
       channel.on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "campus_news" },
@@ -568,10 +464,8 @@ setLoading(false);
           const article = payload.new;
 
           if (!article.published) {
-            // Remove unpublished article from campusNews
             setCampusNews((prev) => prev.filter((n) => n.id !== article.id));
           } else {
-            // Add or update published article in campusNews
             setCampusNews((prev) => {
               const filtered = prev.filter((n) => n.id !== article.id);
               const updated = [article, ...filtered];
@@ -585,10 +479,18 @@ setLoading(false);
         }
       );
 
-      await channel.subscribe();
+      // Add listener for token balance updates
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "user_tokens", filter: `user_id=eq.${userId}` },
+        (payload: any) => {
+          const updated = payload.new;
+          setTokenBalance(updated.balance || 0);
+        }
+      );
 
+      await channel.subscribe();
       realtimeChannelRef.current = channel;
-      console.log("Dashboard realtime subscribed for user:", userId);
     } catch (err) {
       console.error("Failed to start realtime:", err);
     }
@@ -601,20 +503,9 @@ setLoading(false);
     }
   }
 
-  function resetDismissedItems() {
-    removedItemsRef.current.clear();
-    localStorage.removeItem("dismissedNews");
-    if (userIdRef.current) {
-      loadInitialNews(userIdRef.current);
-      loadCampusNews();
-    }
-  }
-
   function pushNews(item: NewsItem) {
-    // Respect notification preferences
     if (notificationsPausedRef.current) return;
 
-    // Filter per-type
     if (item.type === "rating" && !ratingsMsgRef.current) return;
     if (item.type === "user_message" && !ratingsMsgRef.current) return;
     if (item.type === "dating_chat" && !datingMsgRef.current) return;
@@ -672,39 +563,15 @@ setLoading(false);
     }
   }
 
-  function getCategoryIcon(category: string) {
-    switch (category) {
-      case "academic": return "🎓";
-      case "sports": return "🏆";
-      case "events": return "📅";
-      default: return "📢";
-    }
-  }
-
-  function getCategoryColor(cat: string) {
-    switch (cat) {
-      case "academic":
-        return "bg-blue-100 text-blue-700";
-      case "sports":
-        return "bg-green-100 text-green-700";
-      case "events":
-        return "bg-purple-100 text-purple-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  }
-
   const openNewsModal = async (article: CampusNewsArticle) => {
     setSelectedNewsArticle(article);
 
-    // Mark as viewed
     if (userIdRef.current) {
       await supabase.rpc("increment_news_views", {
         news_id_param: article.id,
         user_id_param: userIdRef.current,
       });
 
-      // Update local view count
       setCampusNews((prev) =>
         prev.map((n) => (n.id === article.id ? { ...n, views: n.views + 1 } : n))
       );
@@ -715,30 +582,35 @@ setLoading(false);
     setSelectedNewsArticle(null);
   };
 
-  const copyNewsLink = () => {
-    if (selectedNewsArticle) {
-      const url = `${window.location.origin}/news/${selectedNewsArticle.id}`;
-      navigator.clipboard.writeText(url);
-      // You can add toast notification here if you have it
-      console.log("Link copied!");
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "academic": return "🎓";
+      case "sports": return "🏆";
+      case "events": return "📅";
+      default: return "📢";
     }
   };
 
-  // Get news to display: pinned first, then newest ones, max 4 total
-  const getDisplayNews = () => {
-    const pinnedNews = campusNews.filter((n) => n.pinned);
-    const unpinnedNews = campusNews.filter((n) => !n.pinned);
-    
-    // Combine: pinned first, then unpinned (both already sorted by date)
-    const combined = [...pinnedNews, ...unpinnedNews];
-    
-    // Return only first 4
-    return combined.slice(0, 4);
+  const getCategoryColor = (cat: string) => {
+    switch (cat) {
+      case "academic": return "from-blue-500/20 to-cyan-500/20 text-cyan-400";
+      case "sports": return "from-green-500/20 to-emerald-500/20 text-emerald-400";
+      case "events": return "from-purple-500/20 to-pink-500/20 text-pink-400";
+      default: return "from-gray-500/20 to-slate-500/20 text-slate-400";
+    }
   };
 
-  const displayNews = getDisplayNews();
+  const getNewsIcon = (type: NewsType) => {
+    switch (type) {
+      case "rating": return <Star className="w-4 h-4" />;
+      case "user_message": return <MessageSquare className="w-4 h-4" />;
+      case "dating_chat": return <Heart className="w-4 h-4" />;
+      case "club_event": return <Calendar className="w-4 h-4" />;
+      case "club_message": return <Bell className="w-4 h-4" />;
+      default: return <Newspaper className="w-4 h-4" />;
+    }
+  };
 
-  // Notification preference handlers (persist)
   function togglePauseNotifications(v?: boolean) {
     const next = typeof v === "boolean" ? v : !notificationsPaused;
     setNotificationsPaused(next);
@@ -770,20 +642,11 @@ setLoading(false);
     localStorage.setItem("prefs_campus_news", next ? "1" : "0");
   }
 
-  // Dark mode placeholder
-  function toggleDarkMode() {
-    const next = !darkMode;
-    setDarkMode(next);
-    localStorage.setItem("prefs_dark_mode", next ? "1" : "0");
-  }
-
-  // Logout
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
   }
 
-  // Help submit
   function submitHelp(e?: React.FormEvent) {
     e?.preventDefault();
     console.log("Help form:", { helpName, helpEmail, helpMessage });
@@ -793,7 +656,6 @@ setLoading(false);
     setHelpMessage("");
   }
 
-  // Feedback submit
   function submitFeedback(e?: React.FormEvent) {
     e?.preventDefault();
     console.log("Feedback:", { feedbackName, feedbackEmail, feedbackType, feedbackMessage });
@@ -806,761 +668,956 @@ setLoading(false);
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-r from-indigo-700 to-purple-600">
-        <p className="text-white text-lg font-medium">Loading dashboard...</p>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+          />
+          <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className={`${darkMode ? "dark" : ""}`}>
-      <div className="min-h-screen bg-gray-100 text-gray-900">
-        <header className="bg-indigo-700 shadow">
-  <div className="max-w-6xl mx-auto flex justify-between items-center px-6 py-4">
-    <h1 className="text-2xl font-extrabold text-white">Campus5 Dashboard</h1>
-    
-   <div className="flex items-center gap-3">
-  {/* TOKEN BALANCE - Click to see details */}
-  {userIdRef.current && (
-    <TokenBalance
-      userId={userIdRef.current}
-      onClick={() => setShowTokenBalance(true)}
-    />
-  )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
 
-  {/* Token Balance Detail Modal */}
-{showTokenBalance && userIdRef.current && (
-  <TokenBalanceModal
-    userId={userIdRef.current}
-    onClose={() => setShowTokenBalance(false)}
-    onAddTokens={() => setShowTokenPurchase(true)}
-  />
-)}
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
+        <div className="max-w-[1800px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
+            >
+              Welcome to Campus5
+            </motion.h1>
 
-{/* Token Purchase Modal */}
-{showTokenPurchase && userIdRef.current && (
-  <TokenPurchaseModal
-    userId={userIdRef.current}
-    onClose={() => setShowTokenPurchase(false)}
-  />
-)}
-      
+            <div className="flex items-center gap-4">
+              {/* Token Balance */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowTokenBalance(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
+              >
+                <Coins className="w-4 h-4 text-yellow-400" />
+                <span className="text-sm font-semibold text-yellow-400">{tokenBalance}</span>
+                <span className="text-xs text-yellow-400/70">Tokens</span>
+              </motion.button>
 
-      {/* PROFILE BUTTON - Separate */}
-      <button
-        onClick={() => {
-          setSidebarOpen(false);
-          router.push("/profile");
-        }}
-        className="p-2 rounded-md hover:bg-indigo-600/60 text-white"
-        title="View Profile"
-      >
-        👤
-      </button>
+              {/* Profile */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/profile")}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+              >
+                {profileName?.charAt(0) || "U"}
+              </motion.button>
 
-      {/* HAMBURGER MENU - Separate */}
-      <button
-        aria-label="Open settings"
-        onClick={() => setSidebarOpen(true)}
-        className="p-2 rounded-md hover:bg-indigo-600/60"
-      >
-        <div className="w-6 h-6 flex flex-col justify-between">
-          <span className="block h-[2px] w-5 bg-white"></span>
-          <span className="block h-[2px] w-5 bg-white"></span>
-          <span className="block h-[2px] w-5 bg-white"></span>
+              {/* Menu */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSidebarOpen(true)}
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+              >
+                <Menu className="w-5 h-5" />
+              </motion.button>
+            </div>
+          </div>
         </div>
-      </button>
-    </div>
-  </div>
-</header>
+      </header>
 
-        <main className="max-w-6xl mx-auto px-6 py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* LEFT: wide area spanning 2 cols */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
-              {/* Advertisements Section with AdBanner */}
-              <div className="bg-white rounded-xl shadow p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">📢 Advertisements</h3>
-                  <span className="text-xs text-gray-500">Featured promotions</span>
+      {/* Main Content */}
+      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-3">
+        <div className="grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
+          {/* Left Sidebar: Navigation Cards */}
+          <div className="col-span-3 space-y-4">
+            {/* Clubs */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              whileHover={{ scale: 1.02, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/clubs")}
+              className="cursor-pointer group relative"
+            >
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 20px rgba(168, 85, 247, 0.3)",
+                    "0 0 40px rgba(168, 85, 247, 0.5)",
+                    "0 0 20px rgba(168, 85, 247, 0.3)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg"
+              />
+              <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:border-purple-500/50 transition-all">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-1">Clubs</h3>
+                    <p className="text-xs text-white/60">Community</p>
+                  </div>
                 </div>
+              </div>
+            </motion.div>
 
-                <AdBanner placement="dashboard" />
+            {/* Dating */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              whileHover={{ scale: 1.02, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/dating")}
+              className="cursor-pointer group relative"
+            >
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 20px rgba(236, 72, 153, 0.3)",
+                    "0 0 40px rgba(236, 72, 153, 0.5)",
+                    "0 0 20px rgba(236, 72, 153, 0.3)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg"
+              />
+              <div className="relative bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl rounded-2xl border border-pink-500/30 p-6 hover:border-pink-500/50 transition-all">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Heart className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-1">Dating</h3>
+                    <p className="text-xs text-white/60">Connect</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
 
-                <div id="ad-fallback" className="hidden">
-                  <div className="w-full h-[300px] bg-gradient-to-br from-gray-50 to-gray-200 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-gray-700 font-medium mb-2">Your Ad Here</p>
-                      <a href="/admin/ads" className="text-sm text-indigo-600 hover:underline">
-                        Become a sponsor
-                      </a>
+            {/* Rating */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ scale: 1.02, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/ratings")}
+              className="cursor-pointer group relative"
+            >
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 20px rgba(34, 211, 238, 0.3)",
+                    "0 0 40px rgba(34, 211, 238, 0.5)",
+                    "0 0 20px rgba(34, 211, 238, 0.3)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg"
+              />
+              <div className="relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-xl rounded-2xl border border-cyan-500/30 p-6 hover:border-cyan-500/50 transition-all">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Star className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-1">Rating</h3>
+                    <p className="text-xs text-white/60">Review</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Center: Featured/Ads Section */}
+          <div className="col-span-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-cyan-500/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all" />
+              <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    📢 Featured
+                  </h3>
+                  <span className="text-xs text-white/50 px-3 py-1 bg-white/5 rounded-full">Sponsored</span>
+                </div>
+                
+                <div>
+                  <AdBanner placement="dashboard" />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right Sidebar: Updates & News */}
+          <div className="col-span-3 space-y-4">
+            {/* Updates Card with Dropdown */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="relative group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl" />
+              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-cyan-500/30 transition-all">
+                <button
+                  onClick={() => setUpdatesExpanded(!updatesExpanded)}
+                  className="flex items-center justify-between w-full mb-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-base font-bold text-white">Updates</h3>
+                      <span className="text-xs text-white/40">{news.length} items</span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <button onClick={resetDismissedItems} className="text-xs text-gray-600 hover:text-gray-800">
-                Show dismissed
-              </button>
-
-              {/* Quick Access Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Link href="/clubs" className="block">
-                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                    <div className="text-3xl group-hover:scale-110 transition-transform">🏆</div>
-                    <div className="mt-2 text-sm font-semibold text-gray-800">Clubs</div>
-                  </div>
-                </Link>
-
-                <Link href="/ratings" className="block">
-                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                    <div className="text-3xl group-hover:scale-110 transition-transform">⭐</div>
-                    <div className="mt-2 text-sm font-semibold text-gray-800">Ratings</div>
-                  </div>
-                </Link>
-
-                <Link href="/dating" className="block">
-                  <div className="h-24 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center hover:shadow-lg transition cursor-pointer group">
-                    <div className="text-3xl group-hover:scale-110 transition-transform">💌</div>
-                    <div className="mt-2 text-sm font-semibold text-gray-800">Blind Dating</div>
-                  </div>
-                </Link>
-              </div>
-
-            </div>
-
-            {/* RIGHT: Latest Updates and Campus News */}
-            <aside className="space-y-6">
-              <div className="bg-white rounded-xl shadow p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Latest Updates</h3>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={clearAllNews}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                    >
-                      Clear all
-                    </button>
-                    <span className="text-xs text-gray-500">{news.length} items</span>
-                  </div>
-                </div>
-
-                {news.length === 0 ? (
-                  <p className="text-gray-600 text-sm">No recent updates.</p>
-                ) : (
-                  <ul className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-                    {news.map((n) => (
-                      <li
-                        key={n.id}
-                        className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border hover:bg-white transition"
-                      >
-                        <div className="flex-shrink-0">
-                          {n.type === "rating" && (
-                            <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold">
-                              ⭐
-                            </div>
-                          )}
-                          {n.type === "user_message" && (
-                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                              ✉️
-                            </div>
-                          )}
-                          {n.type === "dating_chat" && (
-                            <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
-                              💬
-                            </div>
-                          )}
-                          {n.type === "club_event" && (
-                            <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">
-                              📅
-                            </div>
-                          )}
-                          {n.type === "club_message" && (
-                            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
-                              🏷️
-                            </div>
-                          )}
-                          {n.type === "campus_news" && (
-                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-                              📰
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <button onClick={() => handleNewsClick(n)} className="text-left w-full">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold text-gray-900 truncate">{n.title}</p>
-                              <time className="text-xs text-gray-400 ml-2">
-                                {new Date(n.created_at).toLocaleString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </time>
-                            </div>
-                            {n.body && <p className="text-sm text-gray-700 mt-1 line-clamp-3">{n.body}</p>}
-                            {n.type === "campus_news" && n.meta?.category && (
-                              <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                                {getCategoryIcon(n.meta.category)} {n.meta.category}
-                              </span>
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="ml-3 flex flex-col items-end gap-2">
-                          <button onClick={() => removeNewsItem(n.id)} title="Dismiss" className="text-gray-500 hover:text-gray-700">
-                            ✖
-                          </button>
-                          <button onClick={() => handleNewsClick(n)} className="text-xs text-indigo-600 hover:underline">
-                            Open
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Campus News Section */}
-              {displayNews.length > 0 && (
-                <div className="bg-white rounded-xl shadow p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">📰 Campus News</h3>
-                    <Link href="/news" className="text-sm text-indigo-600 hover:underline">
-                      View all
-                    </Link>
-                  </div>
-
-                  <div className="space-y-3">
-                    {displayNews.map((article) => (
-                      <div
-                        key={article.id}
-                        onClick={() => openNewsModal(article)}
-                        className="cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition group border border-gray-100"
-                      >
-                        <div className="flex items-start gap-3">
-                          {article.image_url ? (
-                            <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-200">
-                              <img
-                                src={article.image_url}
-                                alt={article.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex-shrink-0 w-20 h-20 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                              <span className="text-2xl">{getCategoryIcon(article.category)}</span>
-                            </div>
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs">{getCategoryIcon(article.category)}</span>
-                              <span className="text-xs text-gray-500 uppercase">{article.category}</span>
-                              {article.pinned && (
-                                <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded">📌</span>
-                              )}
-                            </div>
-                            <h4 className="font-semibold text-sm text-gray-900 group-hover:text-indigo-600 transition line-clamp-2 mb-1">
-                              {article.title}
-                            </h4>
-                            {article.excerpt && (
-                              <p className="text-xs text-gray-600 line-clamp-2 mb-2">{article.excerpt}</p>
-                            )}
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                              <span>👁️ {article.views}</span>
-                              <span>•</span>
-                              <span>{new Date(article.published_at || article.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </aside>
-          </div>
-        </main>
-
-        {/* Onboarding Modal */}
-{showOnboardingModal && (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60">
-    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Campus5! 🎉</h2>
-      <p className="text-sm text-gray-600 mb-6">Complete your profile to get started</p>
-
-      <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-          <input
-            required
-            value={onboardingData.full_name}
-            onChange={(e) => setOnboardingData({...onboardingData, full_name: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            placeholder="John Doe"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
-          <select
-            required
-            value={onboardingData.gender}
-            onChange={(e) => setOnboardingData({...onboardingData, gender: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select gender</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Current Year *</label>
-          <select
-            required
-            value={onboardingData.year}
-            onChange={(e) => setOnboardingData({...onboardingData, year: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select year</option>
-            <option value="1st Year">1st Year</option>
-            <option value="2nd Year">2nd Year</option>
-            <option value="3rd Year">3rd Year</option>
-            <option value="4th Year">4th Year</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Course *</label>
-          <select
-            required
-            value={onboardingData.branch}
-            onChange={(e) => setOnboardingData({...onboardingData, branch: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select branch</option>
-            <option value="CSE">CSE</option>
-            <option value="ECE">ECE</option>
-            <option value="IT">IT</option>
-            <option value="Mechanical">Mechanical</option>
-            <option value="Civil">Civil</option>
-            <option value="Electrical">Electrical</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-          <input
-            value={onboardingData.location}
-            onChange={(e) => setOnboardingData({...onboardingData, location: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            placeholder="Current city"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hometown</label>
-          <input
-            value={onboardingData.hometown}
-            onChange={(e) => setOnboardingData({...onboardingData, hometown: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            placeholder="Your hometown"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
-        >
-          Complete Profile
-        </button>
-      </form>
-    </div>
-  </div>
-)}
-
-        {/* News Detail Modal */}
-        {selectedNewsArticle && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
-            onClick={closeNewsModal}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs px-3 py-1 rounded ${getCategoryColor(
-                      selectedNewsArticle.category
-                    )}`}
+                  <motion.div
+                    animate={{ rotate: updatesExpanded ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
                   >
+                    <ChevronDown className="w-5 h-5 text-white/60" />
+                  </motion.div>
+                </button>
+
+                <AnimatePresence>
+                  {updatesExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex items-center justify-between mb-3 pt-2 border-t border-white/5">
+                        <Link href="/updates" className="text-sm text-cyan-400 hover:text-cyan-300">
+                          View all
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllNews();
+                          }}
+                          className="text-xs text-white/40 hover:text-white/60"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        {news.length === 0 ? (
+                          <p className="text-white/40 text-sm text-center py-8">No recent updates</p>
+                        ) : (
+                          news.slice(0, 5).map((item, index) => (
+                            <motion.div
+                              key={item.id}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              whileHover={{ x: 4, scale: 1.02 }}
+                              className="group/item cursor-pointer"
+                            >
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-cyan-500/30 transition-all">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                                    {getNewsIcon(item.type)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <button
+                                        onClick={() => handleNewsClick(item)}
+                                        className="flex-1 text-left"
+                                      >
+                                        <h4 className="font-semibold text-sm text-white mb-1 line-clamp-1 group-hover/item:text-cyan-400 transition-colors">
+                                          {item.title}
+                                        </h4>
+                                        {item.body && (
+                                          <p className="text-xs text-white/60 line-clamp-2">{item.body}</p>
+                                        )}
+                                        <time className="text-xs text-white/40 mt-1 block">
+                                          {new Date(item.created_at).toLocaleDateString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                          })}
+                                        </time>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeNewsItem(item.id);
+                                        }}
+                                        className="text-white/40 hover:text-white/80 flex-shrink-0"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            
+            
+
+            {/* News Card with Dropdown */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="relative group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/30 transition-all">
+                <button
+                  onClick={() => setNewsExpanded(!newsExpanded)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <Newspaper className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-bold text-white">News</h3>
+                      <span className="text-xs text-white/40">{campusNews.length} articles</span>
+                    </div>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: newsExpanded ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown className="w-5 h-5 text-white/60" />
+                  </motion.div>
+                </button>
+
+                <AnimatePresence>
+                  {newsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
+                        <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300">
+                          View all
+                        </Link>
+                      </div>
+
+                      <div className="space-y-3">
+                        {campusNews.length === 0 ? (
+                          <p className="text-white/40 text-sm text-center py-8">No recent news</p>
+                        ) : (
+                          campusNews.slice(0, 4).map((article, index) => (
+                            <motion.div
+                              key={article.id}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              whileHover={{ x: 4, scale: 1.02 }}
+                              onClick={() => openNewsModal(article)}
+                              className="group/item cursor-pointer"
+                            >
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/5 hover:border-purple-500/30 transition-all">
+                                <div className="flex items-start gap-3">
+                                  {article.image_url ? (
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                                      <img
+                                        src={article.image_url}
+                                        alt={article.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-2xl group-hover/item:scale-110 transition-transform`}>
+                                      {getCategoryIcon(article.category)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
+                                        {article.category}
+                                      </span>
+                                      {article.pinned && (
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                          📌
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h4 className="font-semibold text-sm text-white mb-1 line-clamp-2 group-hover/item:text-purple-400 transition-colors">
+                                      {article.title}
+                                    </h4>
+                                    {article.excerpt && (
+                                      <p className="text-xs text-white/60 line-clamp-1">{article.excerpt}</p>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-2 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        👁️ {article.views}
+                                      </span>
+                                      <span>•</span>
+                                      <time>
+                                        {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </time>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </main>
+
+      {/* All Modals */}
+      
+      {/* Onboarding Modal */}
+      <AnimatePresence>
+        {showOnboardingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-white/10 max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="text-2xl font-bold text-white mb-2">Welcome to Campus5! 🎉</h2>
+              <p className="text-sm text-white/60 mb-6">Complete your profile to get started</p>
+
+              <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Full Name *</label>
+                  <input
+                    required
+                    value={onboardingData.full_name}
+                    onChange={(e) => setOnboardingData({...onboardingData, full_name: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Gender *</label>
+                  <select
+                    required
+                    value={onboardingData.gender}
+                    onChange={(e) => setOnboardingData({...onboardingData, gender: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Current Year *</label>
+                  <select
+                    required
+                    value={onboardingData.year}
+                    onChange={(e) => setOnboardingData({...onboardingData, year: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                  >
+                    <option value="">Select year</option>
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Branch/Course *</label>
+                  <select
+                    required
+                    value={onboardingData.branch}
+                    onChange={(e) => setOnboardingData({...onboardingData, branch: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                  >
+                    <option value="">Select branch</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Location</label>
+                  <input
+                    value={onboardingData.location}
+                    onChange={(e) => setOnboardingData({...onboardingData, location: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                    placeholder="Current city"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Hometown</label>
+                  <input
+                    value={onboardingData.hometown}
+                    onChange={(e) => setOnboardingData({...onboardingData, hometown: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                    placeholder="Your hometown"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                >
+                  Complete Profile
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Token Balance Modal */}
+      {showTokenBalance && userIdRef.current && (
+        <TokenBalanceModal
+          userId={userIdRef.current}
+          onClose={() => setShowTokenBalance(false)}
+          onAddTokens={() => setShowTokenPurchase(true)}
+        />
+      )}
+
+      {/* Token Purchase Modal */}
+      {showTokenPurchase && userIdRef.current && (
+        <TokenPurchaseModal
+          userId={userIdRef.current}
+          onClose={() => setShowTokenPurchase(false)}
+        />
+      )}
+
+      {/* News Detail Modal */}
+      <AnimatePresence>
+        {selectedNewsArticle && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeNewsModal}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-white/10"
+            >
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(selectedNewsArticle.category)} font-medium`}>
                     {getCategoryIcon(selectedNewsArticle.category)} {selectedNewsArticle.category}
                   </span>
                   {selectedNewsArticle.pinned && (
-                    <span className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded">
+                    <span className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
                       📌 Pinned
                     </span>
                   )}
                 </div>
                 <button
                   onClick={closeNewsModal}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
                 >
-                  ✖
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="p-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <div className="p-8">
+                <h1 className="text-3xl font-bold text-white mb-4">
                   {selectedNewsArticle.title}
                 </h1>
 
-                <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-                  <span>
-                    📅{" "}
-                    {new Date(selectedNewsArticle.published_at || selectedNewsArticle.created_at).toLocaleDateString("en-US", {
+                <div className="flex items-center gap-4 text-sm text-white/60 mb-6">
+                  <span className="flex items-center gap-1">
+                    📅 {new Date(selectedNewsArticle.published_at || selectedNewsArticle.created_at).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
                       year: "numeric",
                     })}
                   </span>
-                  <span>👁️ {selectedNewsArticle.views} views</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    👁️ {selectedNewsArticle.views} views
+                  </span>
                 </div>
 
                 {selectedNewsArticle.image_url && (
                   <img
                     src={selectedNewsArticle.image_url}
                     alt={selectedNewsArticle.title}
-                    className="w-full h-96 object-cover rounded-lg mb-6"
+                    className="w-full h-96 object-cover rounded-xl mb-6"
                   />
                 )}
 
-                <div className="prose max-w-none">
-                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <div className="prose prose-invert max-w-none">
+                  <div className="text-white/80 whitespace-pre-wrap leading-relaxed">
                     {selectedNewsArticle.content}
                   </div>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="border-t p-6 flex items-center justify-between">
+              <div className="border-t border-white/10 p-6 flex items-center justify-between bg-slate-900/50">
                 <button
-                  onClick={copyNewsLink}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center gap-2"
+                  onClick={() => {
+                    const url = `${window.location.origin}/news/${selectedNewsArticle.id}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 transition-all"
                 >
-                  🔗 Copy Link
+                  <ExternalLink className="w-4 h-4" />
+                  Copy Link
                 </button>
                 <button
                   onClick={closeNewsModal}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
                 >
                   Close
                 </button>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* Sidebar overlay */}
+      {/* Sidebar Menu */}
+      <AnimatePresence>
         {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-40"
-            role="dialog"
-            aria-modal="true"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <div className="absolute inset-0 bg-black/30" />
-          </div>
-        )}
-
-        {/* Slide-in panel */}
-        <aside
-          className={`fixed top-0 right-0 z-50 h-full w-[360px] transform bg-white shadow-xl transition-transform ${
-            sidebarOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-          aria-hidden={!sidebarOpen}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold">
-                  {profileName?.charAt(0) ?? "S"}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{profileName}</p>
-                  <p className="text-xs text-gray-500">Member</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  aria-label="Close"
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 rounded hover:bg-gray-100"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 overflow-y-auto flex-1">
-              {/* About */}
-              <button
-                onClick={() => {
-                  setAboutOpen(true);
-                }}
-                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50"
-              >
-                <span className="text-lg">ℹ️</span>
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">About</div>
-                  <div className="text-xs text-gray-500">About this project</div>
-                </div>
-              </button>
-
-              {/* Help Center */}
-              <button
-                onClick={() => {
-                  setHelpOpen(true);
-                }}
-                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
-              >
-                <span className="text-lg">❓</span>
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">Help Center</div>
-                  <div className="text-xs text-gray-500">Contact / Support</div>
-                </div>
-              </button>
-
-              {/* Send Feedback */}
-              <button
-                onClick={() => {
-                  setFeedbackOpen(true);
-                }}
-                className="flex items-center gap-3 w-full text-left p-3 rounded hover:bg-gray-50 mt-2"
-              >
-                <span className="text-lg">📝</span>
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">Send Feedback</div>
-                  <div className="text-xs text-gray-500">Tell us what you think</div>
-                </div>
-              </button>
-
-              {/* Dark / Light Mode */}
-              <div className="flex items-center justify-between w-full p-3 rounded hover:bg-gray-50 mt-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">🌓</span>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">Dark / Light Mode</div>
-                    <div className="text-xs text-gray-500">Toggle theme (placeholder)</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => toggleDarkMode()}
-                  className="px-3 py-1 bg-gray-100 rounded text-sm"
-                >
-                  {darkMode ? "Dark" : "Light"}
-                </button>
-              </div>
-
-              {/* Notifications section */}
-              <div className="mt-4 border-t pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🔔</span>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 20 }}
+              className="fixed top-0 right-0 z-50 h-full w-[360px] bg-slate-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl overflow-y-auto"
+            >
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between p-6 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
+                      {profileName?.charAt(0) || "U"}
+                    </div>
                     <div>
-                      <div className="text-sm font-semibold text-gray-900">Notifications</div>
-                      <div className="text-xs text-gray-500">Manage notification preferences</div>
+                      <p className="text-sm font-semibold text-white">{profileName}</p>
+                      <p className="text-xs text-white/60">Student Member</p>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">{notificationsPaused ? "Paused" : "On"}</div>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                <div className="flex items-center justify-between p-2">
-                  <div className="text-sm text-gray-800">Pause all notifications</div>
-                  <input
-                    type="checkbox"
-                    checked={notificationsPaused}
-                    onChange={(e) => {
-                      togglePauseNotifications(e.target.checked);
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  <button
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      router.push("/profile");
                     }}
-                  />
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/30 transition-all text-left"
+                  >
+                    <Award className="w-5 h-5 text-purple-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-white">View Profile</div>
+                      <div className="text-xs text-white/60">Manage your account</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      router.push("/membership");
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-500/30 transition-all text-left"
+                  >
+                    <Bell className="w-5 h-5 text-cyan-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-white">Membership</div>
+                      <div className="text-xs text-white/60">Status & history</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAboutOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 transition-all text-left"
+                  >
+                    <Info className="w-5 h-5 text-blue-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-white">About</div>
+                      <div className="text-xs text-white/60">About this project</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setHelpOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-green-500/30 transition-all text-left"
+                  >
+                    <HelpCircle className="w-5 h-5 text-green-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-white">Help Center</div>
+                      <div className="text-xs text-white/60">Contact / Support</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFeedbackOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-yellow-500/30 transition-all text-left"
+                  >
+                    <Send className="w-5 h-5 text-yellow-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-white">Send Feedback</div>
+                      <div className="text-xs text-white/60">Tell us what you think</div>
+                    </div>
+                  </button>
+
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-white/60" />
+                        <div>
+                          <div className="text-sm font-semibold text-white">Notifications</div>
+                          <div className="text-xs text-white/40">{notificationsPaused ? "Paused" : "Active"}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 bg-white/5 rounded-xl p-3">
+                      <div className="flex items-center justify-between p-2">
+                        <div className="text-sm text-white">Pause all</div>
+                        <input
+                          type="checkbox"
+                          checked={notificationsPaused}
+                          onChange={(e) => togglePauseNotifications(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2">
+                        <div className="text-sm text-white/80">Ratings & messages</div>
+                        <input
+                          type="checkbox"
+                          checked={ratingsMsgEnabled}
+                          onChange={(e) => toggleRatingsMessages(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2">
+                        <div className="text-sm text-white/80">Dating messages</div>
+                        <input
+                          type="checkbox"
+                          checked={datingMsgEnabled}
+                          onChange={(e) => toggleDatingMessages(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2">
+                        <div className="text-sm text-white/80">Clubs & events</div>
+                        <input
+                          type="checkbox"
+                          checked={clubsMsgEnabled}
+                          onChange={(e) => toggleClubsMessages(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2">
+                        <div className="text-sm text-white/80">Campus news</div>
+                        <input
+                          type="checkbox"
+                          checked={campusNewsEnabled}
+                          onChange={(e) => toggleCampusNews(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-2 p-2 rounded bg-gray-50">
-                  <div className="flex items-center justify-between p-2">
-                    <div className="text-sm text-gray-800">Ratings & user messages</div>
-                    <input
-                      type="checkbox"
-                      checked={ratingsMsgEnabled}
-                      onChange={(e) => toggleRatingsMessages(e.target.checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-2">
-                    <div className="text-sm text-gray-800">Dating messages</div>
-                    <input
-                      type="checkbox"
-                      checked={datingMsgEnabled}
-                      onChange={(e) => toggleDatingMessages(e.target.checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-2">
-                    <div className="text-sm text-gray-800">Clubs messages & events</div>
-                    <input
-                      type="checkbox"
-                      checked={clubsMsgEnabled}
-                      onChange={(e) => toggleClubsMessages(e.target.checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-2">
-                    <div className="text-sm text-gray-800">Campus news</div>
-                    <input
-                      type="checkbox"
-                      checked={campusNewsEnabled}
-                      onChange={(e) => toggleCampusNews(e.target.checked)}
-                    />
-                  </div>
+                <div className="p-4 border-t border-white/10 space-y-2">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 rounded-xl font-semibold text-red-400 transition-all"
+                  >
+                    Logout
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      router.push("/account/delete");
+                    }}
+                    className="w-full px-4 py-2 text-sm text-red-400/70 hover:text-red-400 transition-colors"
+                  >
+                    Delete account
+                  </button>
                 </div>
               </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-              {/* Membership Status & History */}
-              <button
-                onClick={() => {
-                  setSidebarOpen(false);
-                  router.push("/membership");
-                }}
-                className="flex items-center gap-3 w-full text-left p-3 mt-4 rounded hover:bg-gray-50"
-              >
-                <span className="text-lg">📜</span>
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">Membership Status & History</div>
-                  <div className="text-xs text-gray-500">View your clubs & past activity</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Footer area with logout */}
-            <div className="p-4 border-t">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-gray-500">Signed in as</div>
-                <div className="text-sm font-medium text-gray-900">{profileName}</div>
-              </div>
-
-              <div className="mt-3">
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  Logout
-                </button>
-                <button
-                  onClick={() => {
-                    setSidebarOpen(false);
-                    router.push("/account/delete");
-                  }}
-                  className="w-full mt-2 px-4 py-2 border text-sm rounded text-red-600 hover:bg-red-50"
-                >
-                  Delete account
-                </button>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* ABOUT modal */}
+      {/* About, Help, Feedback Modals */}
+      <AnimatePresence>
         {aboutOpen && (
           <ModalOverlay onClose={() => setAboutOpen(false)}>
-            <div className="w-full bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-start justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">About Campus5</h3>
-                <button onClick={() => setAboutOpen(false)} className="text-gray-500">
-                  ✕
+            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">About Campus5</h3>
+                <button onClick={() => setAboutOpen(false)} className="text-white/60 hover:text-white">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="mt-4 text-sm text-gray-800 space-y-2">
+              <div className="text-sm text-white/80 space-y-3">
                 <p>
                   Campus5 is a campus community platform connecting clubs, events, ratings and social
-                  features for students. It includes club management, events (intra/inter), a rating
-                  system, a blind dating feature and an ads/sponsorship module.
-                </p>
-                <p>
-                  This project uses Supabase for backend data (auth, real-time events, and Postgres),
-                  and Next.js for the frontend.
-                </p>
-                <p className="text-xs text-gray-500">
-                  Developer note: add more project-specific details here (vision, team, contact).
+                  features for students.
                 </p>
               </div>
-
               <div className="mt-6 flex justify-end">
-                <button onClick={() => setAboutOpen(false)} className="px-4 py-2 bg-indigo-600 text-white rounded">
+                <button 
+                  onClick={() => setAboutOpen(false)} 
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                >
                   Close
                 </button>
               </div>
             </div>
           </ModalOverlay>
         )}
+      </AnimatePresence>
 
-        {/* HELP modal */}
+      <AnimatePresence>
         {helpOpen && (
           <ModalOverlay onClose={() => setHelpOpen(false)}>
-            <div className="w-full bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-start justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Help Center</h3>
-                <button onClick={() => setHelpOpen(false)} className="text-gray-500">
-                  ✕
+            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Help Center</h3>
+                <button onClick={() => setHelpOpen(false)} className="text-white/60 hover:text-white">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-
-              <form className="mt-4 space-y-4" onSubmit={submitHelp}>
+              <form className="space-y-4" onSubmit={submitHelp}>
                 <div>
-                  <label className="text-sm text-gray-700">Name</label>
+                  <label className="text-sm text-white/80 block mb-1">Name</label>
                   <input
                     value={helpName}
                     onChange={(e) => setHelpName(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
                     placeholder="Your name"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Email</label>
+                  <label className="text-sm text-white/80 block mb-1">Email</label>
                   <input
                     value={helpEmail}
                     onChange={(e) => setHelpEmail(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
                     placeholder="your@college.edu"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Message</label>
+                  <label className="text-sm text-white/80 block mb-1">Message</label>
                   <textarea
                     value={helpMessage}
                     onChange={(e) => setHelpMessage(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    rows={6}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                    rows={4}
                     placeholder="Describe your issue..."
                   />
                 </div>
-
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setHelpOpen(false)}
-                    className="px-4 py-2 border rounded text-sm"
+                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white hover:bg-white/10 transition-all"
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded text-sm">
+                  <button 
+                    type="submit" 
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                  >
                     Send
                   </button>
                 </div>
@@ -1568,115 +1625,101 @@ setLoading(false);
             </div>
           </ModalOverlay>
         )}
+      </AnimatePresence>
 
-        {/* FEEDBACK modal */}
+      <AnimatePresence>
         {feedbackOpen && (
           <ModalOverlay onClose={() => setFeedbackOpen(false)}>
-            <div className="w-full bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-start justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Send Feedback</h3>
-                <button onClick={() => setFeedbackOpen(false)} className="text-gray-500">
-                  ✕
+            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Send Feedback</h3>
+                <button onClick={() => setFeedbackOpen(false)} className="text-white/60 hover:text-white">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-
-              <form className="mt-4 space-y-4" onSubmit={submitFeedback}>
+              <form className="space-y-4" onSubmit={submitFeedback}>
                 <div>
-                  <label className="text-sm text-gray-700">Name</label>
+                  <label className="text-sm text-white/80 block mb-1">Name</label>
                   <input
                     value={feedbackName}
                     onChange={(e) => setFeedbackName(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
                     placeholder="Your name"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Email</label>
+                  <label className="text-sm text-white/80 block mb-1">Email</label>
                   <input
                     value={feedbackEmail}
                     onChange={(e) => setFeedbackEmail(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
                     placeholder="your@college.edu"
                   />
                 </div>
-
                 <div>
-                  <label className="text-sm text-gray-700">Type</label>
+                  <label className="text-sm text-white/80 block mb-1">Type</label>
                   <select
                     value={feedbackType}
                     onChange={(e) => setFeedbackType(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
                   >
                     <option value="general">General</option>
                     <option value="bug">Bug Report</option>
                     <option value="feature">Feature Request</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="text-sm text-gray-700">Message</label>
+                  <label className="text-sm text-white/80 block mb-1">Message</label>
                   <textarea
                     value={feedbackMessage}
                     onChange={(e) => setFeedbackMessage(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    rows={6}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
+                    rows={4}
                     placeholder="Tell us what you think..."
                   />
                 </div>
-
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setFeedbackOpen(false)}
-                    className="px-4 py-2 border rounded text-sm"
+                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white hover:bg-white/10 transition-all"
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded text-sm">
-                    Submit Feedback
+                  <button 
+                    type="submit" 
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                  >
+                    Submit
                   </button>
                 </div>
               </form>
             </div>
           </ModalOverlay>
         )}
-
-        <style jsx global>{`
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: scale(0.95);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
-          }
-          .animate-fadeIn {
-            animation: fadeIn 0.2s ease-out;
-          }
-        `}</style>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
 
-/* ---------- Helper modal overlay component ---------- */
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div
-      className="fixed inset-0 z-60 flex items-center justify-center px-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={() => onClose()}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
         className="relative z-10 w-full max-w-2xl mx-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

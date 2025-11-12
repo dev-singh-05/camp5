@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Upload, CheckCircle, Info, AlertCircle, Smartphone, Image as ImageIcon } from "lucide-react";
 
 type TokenPurchaseModalProps = {
   userId: string;
@@ -23,12 +25,10 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      // Remove the payment-screenshots/ prefix - just use the filename
       const filePath = fileName;
 
       console.log("Uploading to:", filePath);
 
-      // Upload to token-payments bucket (matches your Supabase setup)
       const { error: uploadError } = await supabase.storage
         .from("token-payments")
         .upload(filePath, file, {
@@ -41,7 +41,6 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         return null;
       }
 
-      // Get public URL from the same bucket
       const { data } = supabase.storage
         .from("token-payments")
         .getPublicUrl(filePath);
@@ -67,7 +66,6 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
     try {
       let screenshotUrl: string | null = null;
 
-      // Try to upload screenshot if provided
       if (screenshot) {
         screenshotUrl = await uploadScreenshot(screenshot);
         if (!screenshotUrl) {
@@ -75,12 +73,11 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         }
       }
 
-      // Create purchase request
       const { error } = await supabase
         .from("token_purchase_requests")
         .insert({
           user_id: userId,
-          amount: 0, // Admin will update this
+          amount: 0,
           utr_number: utrNumber,
           payment_screenshot_url: screenshotUrl,
           status: "pending",
@@ -103,155 +100,258 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
 
   if (submitted) {
     return (
-      <div 
-        className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       >
-        <div 
-          className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center"
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative w-full max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="text-6xl mb-4">✅</div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">
-            Request Submitted!
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Your token purchase request has been submitted for admin review. 
-            Tokens will be credited within <strong>30 minutes</strong> after approval.
-          </p>
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl blur-xl" />
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">ℹ️</span>
-              <div className="text-sm text-gray-700">
-                <p className="font-semibold mb-2">What happens next?</p>
-                <ul className="space-y-1 text-xs">
-                  <li>• Admin will verify your payment</li>
-                  <li>• Tokens will be added to your account</li>
-                  <li>• You'll see updated balance automatically</li>
-                </ul>
+          <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8 text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", delay: 0.2 }}
+              className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6"
+            >
+              <CheckCircle className="w-10 h-10 text-white" />
+            </motion.div>
+
+            <h3 className="text-2xl font-bold text-white mb-3">
+              Request Submitted!
+            </h3>
+            <p className="text-white/70 mb-6">
+              Your token purchase request has been submitted for admin review. 
+              Tokens will be credited within <span className="text-green-400 font-semibold">30 minutes</span> after approval.
+            </p>
+            
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-white/80">
+                  <p className="font-semibold mb-2 text-white">What happens next?</p>
+                  <ul className="space-y-1.5 text-xs text-white/70">
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Admin will verify your payment
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Tokens will be added to your account
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      You'll see updated balance automatically
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition"
-          >
-            Close & Continue Using App
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={onClose}
+              className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-green-500/50"
+            >
+              Close & Continue Using App
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
     );
   }
 
   return (
-    <div 
-      className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">💳 Add Tokens</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            ✖
-          </button>
-        </div>
-
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* QR Code Section */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
-            <div className="text-6xl mb-4">📱</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Payment QR Code
-            </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Scan this QR code to make payment
-            </p>
-            <div className="inline-block px-6 py-3 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
-              🚧 QR Code Coming Soon
-            </div>
-          </div>
-
-          {/* UTR Number Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              UTR Number / Transaction ID <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={utrNumber}
-              onChange={(e) => setUtrNumber(e.target.value)}
-              placeholder="Enter UTR or Transaction ID"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter the UTR/Transaction ID from your payment app
-            </p>
-          </div>
-
-          {/* Screenshot Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Payment Screenshot (Optional)
-            </label>
-            <div className="relative">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-              />
-            </div>
-            {screenshot && (
-              <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
-                <span>✓</span>
-                <span>{screenshot.name}</span>
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              Upload a screenshot of your payment for faster verification
-            </p>
-          </div>
-
-          {/* Info Note */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">💡</span>
-              <div className="text-sm text-gray-700">
-                <p className="font-semibold mb-1">Note:</p>
-                <p>Your request will be submitted successfully even if the screenshot upload fails. The UTR number is mandatory for verification.</p>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative w-full max-w-lg max-h-[90vh] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+          
+          {/* Main container */}
+          <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20" />
+              <div className="relative p-6 border-b border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Add Tokens</h2>
+                    <p className="text-sm text-white/60">Complete payment & submit</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
               </div>
             </div>
+
+            {/* Body - scrollable */}
+            <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="p-6 space-y-6">
+                {/* QR Code Section */}
+                <div className="bg-white/5 border border-dashed border-white/20 rounded-xl p-8 text-center">
+                  <motion.div
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30"
+                  >
+                    <Smartphone className="w-8 h-8 text-purple-400" />
+                  </motion.div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Payment QR Code
+                  </h3>
+                  <p className="text-white/60 text-sm mb-4">
+                    Scan this QR code to make payment
+                  </p>
+                  <div className="inline-block px-6 py-3 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-xl font-semibold text-sm">
+                    🚧 QR Code Coming Soon
+                  </div>
+                </div>
+
+                {/* UTR Number Field */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    UTR Number / Transaction ID <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={utrNumber}
+                    onChange={(e) => setUtrNumber(e.target.value)}
+                    placeholder="Enter UTR or Transaction ID"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder:text-white/40 transition-all"
+                    required
+                  />
+                  <p className="text-xs text-white/50 mt-2 flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Enter the UTR/Transaction ID from your payment app
+                  </p>
+                </div>
+
+                {/* Screenshot Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Payment Screenshot <span className="text-white/40 text-xs">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="screenshot-upload"
+                    />
+                    <label
+                      htmlFor="screenshot-upload"
+                      className="w-full px-4 py-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-xl flex items-center justify-center gap-3 cursor-pointer transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ImageIcon className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <div className="text-sm font-medium text-white">
+                          {screenshot ? screenshot.name : "Choose screenshot"}
+                        </div>
+                        <div className="text-xs text-white/50">
+                          {screenshot ? "Click to change" : "PNG, JPG up to 10MB"}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                  {screenshot && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-2 flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>File selected successfully</span>
+                    </motion.div>
+                  )}
+                  <p className="text-xs text-white/50 mt-2 flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Upload screenshot for faster verification
+                  </p>
+                </div>
+
+                {/* Info Note */}
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-white/80">
+                      <p className="font-semibold mb-1 text-white">Note:</p>
+                      <p className="text-xs text-white/70">
+                        Your request will be submitted successfully even if the screenshot upload fails. 
+                        The UTR number is mandatory for verification.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer with buttons */}
+              <div className="border-t border-white/10 p-6 bg-black/20 space-y-3">
+                <button
+                  type="submit"
+                  disabled={uploading || !utrNumber.trim()}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-purple-500/50 flex items-center justify-center gap-2"
+                >
+                  {uploading ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                      />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      <span>Submit for Review</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={uploading || !utrNumber.trim()}
-            className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
-          >
-            {uploading ? "Submitting..." : "Submit for Review"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </form>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

@@ -21,17 +21,22 @@ type Event = {
   clubs: {
     name: string;
   } | null;
+  requires_staking?: boolean;
+  staking_deadline?: string | null;
+  is_first_match?: boolean;
+  admin_xp_pool?: number | null;
 };
 
 type InterClubParticipant = {
   club_id: string;
   position: number | null;
-  xp_awarded: number | null;   // ← add this
+  xp_awarded: number | null;
   clubs: {
     name: string;
   } | null;
+  staked_xp?: number | null;
+  stake_locked?: boolean | null;
 };
-
 
 export default function AdminEventsPage() {
   const router = useRouter();
@@ -42,6 +47,7 @@ export default function AdminEventsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [stakingDetails, setStakingDetails] = useState<any>(null);
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -96,40 +102,57 @@ export default function AdminEventsPage() {
     setLoading(false);
   };
 
+  const fetchStakingDetails = async (eventId: string) => {
+    const { data, error } = await supabase.rpc('get_event_staking_status', {
+      p_event_id: eventId
+    });
+    
+    if (error) {
+      console.error("Error fetching staking details:", error);
+      return null;
+    }
+    
+    setStakingDetails(data);
+    return data;
+  };
+
   const viewEventDetails = async (event: Event) => {
     setSelectedEvent(event);
 
     if (event.event_type === "inter") {
- const { data } = await supabase
-  .from("inter_club_participants")
-  .select("club_id, position, xp_awarded, clubs!inner(name)") // ← xp_awarded added
-  .eq("event_id", event.id);
+      const { data } = await supabase
+        .from("inter_club_participants")
+        .select("club_id, position, xp_awarded, staked_xp, stake_locked, clubs!inner(name)")
+        .eq("event_id", event.id);
 
-
-      // Transform the data to match our type
-      const transformedData = (data || []).map((participant: any) => ({
-        ...participant,
-        clubs: Array.isArray(participant.clubs) && participant.clubs.length > 0
-          ? participant.clubs[0]
-          : participant.clubs
-      }));
-
-      setInterClubData(transformedData);
+      if (data) {
+        const transformedData = data.map((participant: any) => ({
+          ...participant,
+          clubs: Array.isArray(participant.clubs) && participant.clubs.length > 0
+            ? participant.clubs[0]
+            : participant.clubs
+        }));
+        setInterClubData(transformedData);
+      }
+      
+      // Fetch staking details if it's a staking event
+      if (event.requires_staking) {
+        await fetchStakingDetails(event.id);
+      }
     }
   };
 
-const calculatePositionXP = (
-  position: number,
-  totalXP: number,
-  totalClubs: number
-) => {
-  const n = Math.max(1, totalClubs);            // safety
-  const pool = totalXP;
-  const totalWeights = (n * (n + 1)) / 2;       // n(n+1)/2
-  const weight = n - position + 1;              // n, n-1, ..., 1
-  return Math.round((pool * weight) / totalWeights);
-};
-
+  const calculatePositionXP = (
+    position: number,
+    totalXP: number,
+    totalClubs: number
+  ) => {
+    const n = Math.max(1, totalClubs);
+    const pool = totalXP;
+    const totalWeights = (n * (n + 1)) / 2;
+    const weight = n - position + 1;
+    return Math.round((pool * weight) / totalWeights);
+  };
 
   const addXPToClub = async (clubId: string, xp: number) => {
     const { data: existing } = await supabase
@@ -154,84 +177,99 @@ const calculatePositionXP = (
     }
   };
 
-  // FIXED: Admin approval handler for inter-club events
-// Place this in src/app/admin/events/page.tsx
+  const handleApprove = async () => {
+    if (!selectedEvent || !currentUserId) return;
 
-const handleApprove = async () => {
-  if (!selectedEvent || !currentUserId) return;
+    try {
+      // ✅ FOR INTER-CLUB EVENTS: Use the new RPC function
+      if (selectedEvent.event_type === "inter") {
+        // Call the XP distribution function
+        const { data: distributionResult, error: distError } = await supabase.rpc(
+          'distribute_inter_club_xp',
+          {
+            p_event_id: selectedEvent.id,
+            p_admin_user_id: currentUserId
+          }
+        );
 
-  try {
-    let xpMessage = "";
-
-    // Award XP
-    if (selectedEvent.event_type === "intra") {
-      await addXPToClub(selectedEvent.club_id, selectedEvent.total_xp_pool);
-      xpMessage = `Event "${selectedEvent.title}" approved! Your club earned ${selectedEvent.total_xp_pool} XP! 🎉`;
-      
-      await supabase.from("messages").insert([{
-        club_id: selectedEvent.club_id,
-        user_id: currentUserId,
-        content: `🔔 SYSTEM: ${xpMessage}`
-      }]);
-
-    } else if (selectedEvent.event_type === "inter") {
-      // ✅ FIX: Always use the pre-calculated xp_awarded from event completion
-      // Don't recalculate - trust the creator's distribution
-      
-      for (const participant of interClubData) {
-        // Skip clubs without positions (didn't participate/accept)
-        if (!participant.position) continue;
-        
-        // ✅ CRITICAL: Use the xp_awarded that was saved during event completion
-        const xp = participant.xp_awarded ?? 0;
-        
-        // Safety check: xp_awarded must exist
-        if (!xp) {
-          console.error(`❌ Missing xp_awarded for club ${participant.club_id}`);
-          toast.error(`Missing XP data for ${participant.clubs?.name}`);
+        if (distError || !distributionResult.success) {
+          toast.error(distributionResult?.error || "Failed to distribute XP");
+          console.error(distError);
           return;
         }
 
-        // Update ledger
-        await addXPToClub(participant.club_id, xp);
+        // Notify each club with their winnings
+        for (const result of distributionResult.distribution) {
+          const positionEmoji =
+            result.position === 1 ? "🥇" :
+            result.position === 2 ? "🥈" :
+            result.position === 3 ? "🥉" : `#${result.position}`;
 
-        // Notify club
-        const positionEmoji =
-          participant.position === 1 ? "🥇" :
-          participant.position === 2 ? "🥈" :
-          participant.position === 3 ? "🥉" : `#${participant.position}`;
+          let message = `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" approved! `;
+          message += `Your club placed ${positionEmoji} and `;
+          
+          if (selectedEvent.is_first_match) {
+            message += `won ${result.winnings} XP from admin pool! 🎉`;
+          } else {
+            message += `won ${result.winnings} XP `;
+            message += `(staked ${result.staked} XP, `;
+            message += result.net_winnings >= 0 
+              ? `net gain: +${result.net_winnings} XP) 🎉` 
+              : `net loss: ${result.net_winnings} XP)`;
+          }
 
+          await supabase.from("messages").insert([{
+            club_id: result.club_id,
+            user_id: currentUserId,
+            content: message
+          }]);
+        }
+
+        toast.success(
+          selectedEvent.is_first_match
+            ? "✅ First match approved! Admin XP distributed."
+            : `✅ Event approved! Total pool of ${distributionResult.total_pool} XP distributed.`
+        );
+        
+      } else {
+        // ✅ FOR INTRA-CLUB EVENTS: Keep existing logic
+        await addXPToClub(selectedEvent.club_id, selectedEvent.total_xp_pool);
+        
+        const xpMessage = `Event "${selectedEvent.title}" approved! Your club earned ${selectedEvent.total_xp_pool} XP! 🎉`;
+        
         await supabase.from("messages").insert([{
-          club_id: participant.club_id,
+          club_id: selectedEvent.club_id,
           user_id: currentUserId,
-          content: `🔔 SYSTEM: Inter-club event "${selectedEvent.title}" approved! Your club placed ${positionEmoji} and earned ${xp} XP! 🎉`
+          content: `🔔 SYSTEM: ${xpMessage}`
         }]);
+        
+        toast.success("✅ Event approved! XP awarded.");
       }
-    }
 
-    // Update event status
-    const { error } = await supabase
-      .from("events")
-      .update({
-        status: "approved",
-        reviewed_by: currentUserId,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", selectedEvent.id);
+      // Update event status
+      const { error: updateError } = await supabase
+        .from("events")
+        .update({
+          status: "approved",
+          reviewed_by: currentUserId,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", selectedEvent.id);
 
-    if (error) {
+      if (updateError) {
+        toast.error("Failed to update event status");
+        console.error(updateError);
+        return;
+      }
+
+      setSelectedEvent(null);
+      await fetchPendingEvents();
+    } catch (err) {
+      console.error("Error approving event:", err);
       toast.error("Failed to approve event");
-      return;
     }
+  };
 
-    toast.success("✅ Event approved! XP awarded and clubs notified.");
-    setSelectedEvent(null);
-    await fetchPendingEvents();
-  } catch (err) {
-    console.error("Error approving event:", err);
-    toast.error("Failed to approve event");
-  }
-};
   const handleReject = async () => {
     if (!selectedEvent || !currentUserId) return;
 
@@ -396,6 +434,72 @@ const handleApprove = async () => {
                 </div>
               </div>
 
+              {/* First Match Indicator */}
+              {selectedEvent.event_type === "inter" && selectedEvent.is_first_match && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2 text-blue-800">🆕 First-Time Match</h3>
+                  <div className="text-sm text-gray-700">
+                    <p className="mb-2">
+                      <span className="font-semibold">Admin XP Pool:</span> {selectedEvent.admin_xp_pool} XP
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      This is the first match between these clubs. The admin-provided XP pool 
+                      will be distributed based on rankings.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Staking Information (for inter-club events with staking) */}
+              {selectedEvent.event_type === "inter" && selectedEvent.requires_staking && stakingDetails && (
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-3 text-yellow-800">💰 XP Staking Status</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Clubs Staked:</span>
+                      <span>{stakingDetails.clubs_staked} / {stakingDetails.total_clubs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Total Pool:</span>
+                      <span className="font-bold text-yellow-700">{stakingDetails.total_staked} XP</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold">All Staked:</span>
+                      <span className={stakingDetails.all_staked ? "text-green-600" : "text-red-600"}>
+                        {stakingDetails.all_staked ? "✓ Yes" : "✗ No"}
+                      </span>
+                    </div>
+                    
+                    {selectedEvent.staking_deadline && (
+                      <div className="flex justify-between">
+                        <span className="font-semibold">Deadline:</span>
+                        <span className="text-xs">{new Date(selectedEvent.staking_deadline).toLocaleString()}</span>
+                      </div>
+                    )}
+                    
+                    <div className="mt-3 pt-3 border-t border-yellow-200">
+                      <p className="font-semibold mb-2">Club Stakes:</p>
+                      {stakingDetails.clubs.map((club: any) => (
+                        <div key={club.club_id} className="flex justify-between text-xs py-1">
+                          <span>{club.club_name}</span>
+                          <span className={club.stake_locked ? "text-green-600 font-semibold" : "text-gray-400"}>
+                            {club.stake_locked ? `${club.staked_xp} XP ✓` : "Not staked"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {!stakingDetails.all_staked && (
+                      <div className="mt-3 bg-red-50 p-2 rounded border border-red-200">
+                        <p className="text-xs text-red-700">
+                          ⚠️ Cannot approve until all clubs have staked XP
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Results Description */}
               <div>
                 <h3 className="font-semibold text-lg mb-2">Event Results</h3>
@@ -404,7 +508,7 @@ const handleApprove = async () => {
                 </div>
               </div>
 
-              {/* Inter-club Positions */}
+              {/* Inter-club Results */}
               {selectedEvent.event_type === "inter" && interClubData.length > 0 && (
                 <div>
                   <h3 className="font-semibold text-lg mb-2">Competition Results</h3>
@@ -414,40 +518,63 @@ const handleApprove = async () => {
                         <tr>
                           <th className="px-4 py-2 text-left">Position</th>
                           <th className="px-4 py-2 text-left">Club</th>
-                          <th className="px-4 py-2 text-right">XP to Award</th>
+                          {selectedEvent.requires_staking && (
+                            <th className="px-4 py-2 text-right">Staked</th>
+                          )}
+                          <th className="px-4 py-2 text-right">
+                            {selectedEvent.is_first_match ? "To Award" : "Winnings"}
+                          </th>
+                          {selectedEvent.requires_staking && (
+                            <th className="px-4 py-2 text-right">Net</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
                         {interClubData
                           .sort((a, b) => (a.position || 99) - (b.position || 99))
-                          .map((participant) => (
-                            <tr key={participant.club_id} className="border-t">
-                              <td className="px-4 py-2">
-                                {participant.position === 1 && "🥇 1st"}
-                                {participant.position === 2 && "🥈 2nd"}
-                                {participant.position === 3 && "🥉 3rd"}
-                                {!participant.position && "N/A"}
-                              </td>
-                              <td className="px-4 py-2">{participant.clubs?.name || "Unknown Club"}</td>
-                              <td className="px-4 py-2 text-right font-semibold">
-  {participant.position
-    ? (participant.xp_awarded != null
-        ? participant.xp_awarded
-        : calculatePositionXP(
-            participant.position,
-            selectedEvent.total_xp_pool,
-            interClubData.filter(p => p.position != null).length || interClubData.length
-          )
-      )
-    : 0}{" "}
-  XP
-</td>
-
-                            </tr>
-                          ))}
+                          .map((participant) => {
+                            const netWinnings = selectedEvent.requires_staking
+                              ? (participant.xp_awarded || 0) - (participant.staked_xp || 0)
+                              : participant.xp_awarded || 0;
+                              
+                            return (
+                              <tr key={participant.club_id} className="border-t">
+                                <td className="px-4 py-2">
+                                  {participant.position === 1 && "🥇 1st"}
+                                  {participant.position === 2 && "🥈 2nd"}
+                                  {participant.position === 3 && "🥉 3rd"}
+                                  {participant.position && participant.position > 3 && `#${participant.position}`}
+                                  {!participant.position && "N/A"}
+                                </td>
+                                <td className="px-4 py-2">{participant.clubs?.name || "Unknown Club"}</td>
+                                {selectedEvent.requires_staking && (
+                                  <td className="px-4 py-2 text-right text-gray-600">
+                                    {participant.staked_xp || 0} XP
+                                    {participant.stake_locked && " 🔒"}
+                                  </td>
+                                )}
+                                <td className="px-4 py-2 text-right font-semibold text-green-600">
+                                  {participant.xp_awarded || 0} XP
+                                </td>
+                                {selectedEvent.requires_staking && (
+                                  <td className={`px-4 py-2 text-right font-semibold ${
+                                    netWinnings >= 0 ? "text-green-600" : "text-red-600"
+                                  }`}>
+                                    {netWinnings >= 0 ? "+" : ""}{netWinnings} XP
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
+                  
+                  {selectedEvent.requires_staking && stakingDetails && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      <p>Total Pool: {stakingDetails.total_staked} XP</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -473,9 +600,28 @@ const handleApprove = async () => {
               <div className="flex gap-3 pt-4 border-t">
                 <button
                   onClick={handleApprove}
-                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                  disabled={
+                    selectedEvent.event_type === "inter" && 
+                    selectedEvent.requires_staking && 
+                    stakingDetails && 
+                    !stakingDetails.all_staked
+                  }
+                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    selectedEvent.event_type === "inter" && 
+                    selectedEvent.requires_staking && 
+                    stakingDetails && 
+                    !stakingDetails.all_staked
+                      ? "All clubs must stake XP before approval"
+                      : ""
+                  }
                 >
                   ✅ Approve Event
+                  {selectedEvent.event_type === "inter" && 
+                   selectedEvent.requires_staking && 
+                   stakingDetails && 
+                   !stakingDetails.all_staked && 
+                   " (Waiting for stakes)"}
                 </button>
                 <button
                   onClick={() => setShowRejectModal(true)}
