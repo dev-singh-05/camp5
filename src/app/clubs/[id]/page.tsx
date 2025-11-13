@@ -3,6 +3,7 @@ import { Toaster, toast } from "react-hot-toast";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Member = {
   user_id: string;
@@ -1146,29 +1147,72 @@ const uniqueAssigned =
 
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-x-hidden">
       <Toaster />
-      <div className="h-full grid grid-cols-1 md:grid-cols-4">
+      {/* Animated Background Elements */}
+      <motion.div
+        className="absolute top-10 left-10 w-48 h-48 md:w-96 md:h-96 bg-purple-500/20 rounded-full blur-3xl"
+        animate={{
+          scale: [1, 1.2, 1],
+          rotate: [0, 90, 0],
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
+      <motion.div
+        className="absolute bottom-10 right-10 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl"
+        animate={{
+          scale: [1.2, 1, 1.2],
+          rotate: [0, -90, 0],
+        }}
+        transition={{
+          duration: 25,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
+      <motion.div
+        className="absolute top-1/2 left-1/2 w-48 h-48 md:w-96 md:h-96 bg-cyan-500/10 rounded-full blur-3xl"
+        animate={{
+          scale: [1, 1.3, 1],
+          x: [-50, 50, -50],
+          y: [-50, 50, -50],
+        }}
+        transition={{
+          duration: 30,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
+      <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-4 relative z-10">
         {/* Sidebar */}
-        <div className="col-span-1 flex flex-col bg-white shadow-inner h-screen">
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+        <div className="lg:col-span-1 flex flex-col bg-black/40 backdrop-blur-xl lg:border-r border-white/10 lg:h-screen overflow-y-auto">
+          <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-3">
             {/* Club Logo */}
-            <div className="flex items-center justify-center">
+            <motion.div
+              className="flex items-center justify-center py-1"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+            >
               {club?.logo_url ? (
                 <img
                   src={club.logo_url}
                   alt="Club Logo"
-                  className="w-20 h-20 rounded-full object-cover"
+                  className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-purple-500/30 shadow-lg shadow-purple-500/50"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-2xl">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-lg border border-white/20 flex items-center justify-center text-2xl md:text-3xl">
                   🏅
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {userRole === "admin" && (
-              <button
+              <motion.button
                 onClick={async () => {
                   const { data: userData } = await supabase.auth.getUser();
                   const user = userData?.user;
@@ -1200,176 +1244,228 @@ const uniqueAssigned =
                   alert("✅ Invite link copied:\n" + url);
                   await sendSystemMessage(`Admin created a new invite link`);
                 }}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 md:py-2 text-xs md:text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
               >
                 Invite
-              </button>
+              </motion.button>
             )}
 
             {/* Teammates Section */}
-            <div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
+            <motion.div
+              className="bg-black/40 backdrop-blur-xl rounded-lg lg:rounded-xl border border-white/10 hover:border-cyan-500/30 transition-all flex flex-col overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
               <button
                 onClick={() => setShowTeammates(!showTeammates)}
-                className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
+                className="w-full flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 font-bold text-xs md:text-sm text-white hover:bg-white/5 transition-all"
               >
-                Teammates
-                <span>{showTeammates ? "▲" : "▼"}</span>
+                <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-300 bg-clip-text text-transparent">
+                  Teammates
+                </span>
+                <span className="text-white/60">{showTeammates ? "▲" : "▼"}</span>
               </button>
-              {showTeammates && (
-                <div className="max-h-40 overflow-y-auto px-4 py-2">
-                  {loading ? (
-                    <p className="text-gray-500">Loading teammates...</p>
-                  ) : members.length === 0 ? (
-                    <p className="text-gray-500">No teammates found.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {members.map((m) => (
-                        <li
-                          key={m.user_id}
-                          className="flex justify-between items-center text-gray-700"
-                        >
-                          <span>
-                            {m.role === "admin" ? "👑 " : "👤 "}
-                            {m.profiles?.full_name} (
-                            {m.profiles?.enrollment_number})
-                          </span>
-                          {userRole === "admin" && (
-                            <div className="flex gap-2 text-sm">
-                              {m.role === "member" && (
-                                <button
-                                  onClick={() => handlePromote(m.user_id)}
-                                  className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-                                >
-                                  Promote
-                                </button>
-                              )}
-                              {m.role === "admin" &&
-                                m.user_id !== currentUserId && (
-                                  <button
-                                    onClick={() => handleDemote(m.user_id)}
-                                    className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              <AnimatePresence>
+                {showTeammates && (
+                  <motion.div
+                    className="max-h-60 md:max-h-72 overflow-y-auto px-2 md:px-3 py-1.5"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {loading ? (
+                      <p className="text-white/40 text-xs">Loading teammates...</p>
+                    ) : members.length === 0 ? (
+                      <p className="text-white/40 text-xs">No teammates found.</p>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {members.map((m) => (
+                          <motion.li
+                            key={m.user_id}
+                            className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-white/80 text-xs gap-1.5"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                          >
+                            <span className="break-words">
+                              {m.role === "admin" ? "👑 " : "👤 "}
+                              {m.profiles?.full_name} (
+                              {m.profiles?.enrollment_number})
+                            </span>
+                            {userRole === "admin" && (
+                              <div className="flex gap-1 text-xs flex-wrap">
+                                {m.role === "member" && (
+                                  <motion.button
+                                    onClick={() => handlePromote(m.user_id)}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded hover:shadow-md hover:shadow-purple-500/50 transition-all whitespace-nowrap"
                                   >
-                                    Demote
-                                  </button>
+                                    Promote
+                                  </motion.button>
                                 )}
-                              {m.user_id !== currentUserId && (
-                                <button
-                                  onClick={() => handleRemove(m.user_id)}
-                                  className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
+                                {m.role === "admin" &&
+                                  m.user_id !== currentUserId && (
+                                    <motion.button
+                                      onClick={() => handleDemote(m.user_id)}
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      className="px-1.5 py-0.5 bg-yellow-500 text-white rounded hover:shadow-md hover:shadow-yellow-500/50 transition-all whitespace-nowrap"
+                                    >
+                                      Demote
+                                    </motion.button>
+                                  )}
+                                {m.user_id !== currentUserId && (
+                                  <motion.button
+                                    onClick={() => handleRemove(m.user_id)}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-1.5 py-0.5 bg-red-600 text-white rounded hover:shadow-md hover:shadow-red-500/50 transition-all whitespace-nowrap"
+                                  >
+                                    Remove
+                                  </motion.button>
+                                )}
+                              </div>
+                            )}
+                          </motion.li>
+                        ))}
+                      </ul>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
  {/* Active Events Section */}
-<div className="bg-gray-100 rounded-lg shadow-sm flex flex-col">
+<motion.div
+  className="bg-black/40 backdrop-blur-xl rounded-lg lg:rounded-xl border border-white/10 hover:border-purple-500/30 transition-all flex flex-col overflow-hidden"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.2 }}
+>
   <button
     onClick={() => setShowEvents(!showEvents)}
-    className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800 hover:bg-gray-200 rounded-t-lg"
+    className="w-full flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 font-bold text-xs md:text-sm text-white hover:bg-white/5 transition-all"
   >
-    Active Events
-    <span>{showEvents ? "▲" : "▼"}</span>
-  </button>
-  {showEvents && (
-    <div className="max-h-40 overflow-y-auto px-4 py-2">
-      {activeEvents.length === 0 ? (
-        <p className="text-gray-500">No active events.</p>
-      ) : (
-        <ul className="space-y-2">
-          {activeEvents.map((e) => (
-            <li
-              key={e.id}
-              className="flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded"
-              onClick={() => handleEventClick(e)}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span>
-                    📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
-                  </span>
-                  {getEventStatusBadge(e.status)}
-                </div>
-              </div>
-              <span className="text-sm text-gray-500 font-semibold">
-                {eventParticipantCounts[e.id] || 0}/{e.members_required}
-              </span>
-            </li>
-          ))}
-        </ul>
+    <div className="flex items-center gap-2">
+      <span className="bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
+        Active Events
+      </span>
+      {activeEvents.length > 0 && (
+        <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+          {activeEvents.length}
+        </span>
       )}
     </div>
-  )}
-</div>
-
-{/* Event History - Clickable Card */}
-<div 
-  onClick={() => router.push(`/clubs/${clubId}/profile#history`)}
-  className="bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
->
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <span className="text-3xl">📜</span>
-      <div>
-        <h3 className="font-bold text-gray-800">Event History</h3>
-        <p className="text-xs text-gray-600">View completed events</p>
-      </div>
-    </div>
-    <span className="text-2xl text-purple-600">→</span>
-  </div>
-</div>
-
-{/* Activity Log - Clickable Card */}
-<div 
-  onClick={() => router.push(`/clubs/${clubId}/profile#activity`)}
-  className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-lg transition"
->
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <span className="text-3xl">📋</span>
-      <div>
-        <h3 className="font-bold text-gray-800">Activity Log</h3>
-        <p className="text-xs text-gray-600">View all club activities</p>
-      </div>
-    </div>
-    <span className="text-2xl text-blue-600">→</span>
-  </div>
-</div>
+    <span className="text-white/60">{showEvents ? "▲" : "▼"}</span>
+  </button>
+  <AnimatePresence>
+    {showEvents && (
+      <motion.div
+        className="max-h-60 md:max-h-72 overflow-y-auto px-2 md:px-3 py-1.5"
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: "auto", opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {activeEvents.length === 0 ? (
+          <p className="text-white/40 text-xs">No active events.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {activeEvents.map((e) => (
+              <motion.li
+                key={e.id}
+                className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-white/80 cursor-pointer hover:bg-white/5 p-1.5 rounded-lg transition-all gap-1.5"
+                onClick={() => handleEventClick(e)}
+                whileHover={{ scale: 1.02, x: 4 }}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="break-words">
+                      📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
+                    </span>
+                    {getEventStatusBadge(e.status)}
+                  </div>
+                </div>
+                <span className="text-xs text-white/60 font-semibold whitespace-nowrap">
+                  {eventParticipantCounts[e.id] || 0}/{e.members_required}
+                </span>
+              </motion.li>
+            ))}
+          </ul>
+        )}
+      </motion.div>
+    )}
+  </AnimatePresence>
+</motion.div>
 
             {/* Admin Panel */}
             {userRole === "admin" && (
-              <div className="bg-yellow-50 rounded-lg shadow-sm p-4">
-                <h3 className="font-bold text-lg text-yellow-800">Admin Panel</h3>
+              <motion.div
+                className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-xl rounded-lg lg:rounded-xl border border-yellow-500/30 overflow-hidden"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="w-full flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 font-bold text-xs md:text-sm text-white hover:bg-white/5 transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="bg-gradient-to-r from-yellow-200 to-orange-200 bg-clip-text text-transparent">
+                      Admin Panel
+                    </span>
+                    {(eventInvitations.length > 0 || requests.length > 0) && (
+                      <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                        {eventInvitations.length + requests.length}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-white/60">{showHistory ? "▲" : "▼"}</span>
+                </button>
+                <AnimatePresence>
+                {showHistory && (
+                  <motion.div
+                    className="px-2 md:px-3 py-1.5"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
                 {/* ✅ Event Invitations Section */}
 {/* ✅ Event Invitations Section */}
 {eventInvitations.length > 0 && (
   <>
-    <h4 className="mt-3 font-semibold text-indigo-700">Event Invitations</h4>
-    <ul className="list-disc ml-6 mt-2 space-y-2">
-     // In the invitations list render:
-{eventInvitations.map((invitation: any) => {
+    <h4 className="mt-2 font-semibold text-xs md:text-sm text-purple-300">Event Invitations</h4>
+    <ul className="ml-1 mt-1.5 space-y-1.5">
+     {eventInvitations.map((invitation: any) => {
   const isBusy = inviteActioning === invitation.event_id;
   return (
-    <li key={invitation.event_id} className="flex justify-between items-center text-gray-700 opacity-100">
-      <div className={isBusy ? "opacity-60" : ""}>
-        <p className="font-semibold">{invitation.events.title}</p>
-        <p className="text-xs text-gray-500">
+    <motion.li
+      key={invitation.event_id}
+      className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-white/80 opacity-100 bg-white/5 p-1.5 md:p-2 rounded-lg gap-1.5"
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      whileHover={{ scale: 1.01 }}
+    >
+      <div className={`flex-1 ${isBusy ? "opacity-60" : ""}`}>
+        <p className="font-semibold text-xs break-words">{invitation.events.title}</p>
+        <p className="text-xs text-white/60 break-words">
           By: {invitation.events.clubs.name} •
           {new Date(invitation.events.event_date).toLocaleDateString()} •
           {invitation.events.total_xp_pool} XP
         </p>
       </div>
-      <div className="flex gap-2">
-        <button
+      <div className="flex gap-1 flex-wrap">
+        <motion.button
           disabled={isBusy}
+          whileHover={!isBusy ? { scale: 1.05 } : {}}
+          whileTap={!isBusy ? { scale: 0.95 } : {}}
          onClick={async () => {
   setInviteActioning(invitation.event_id);
 
@@ -1418,13 +1514,15 @@ const uniqueAssigned =
   setInviteActioning(null);
 }}
 
-          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-green-300" : "bg-green-600 hover:bg-green-700"} text-white`}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold ${isBusy ? "bg-green-300/50" : "bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-md hover:shadow-green-500/50"} text-white transition-all`}
         >
           {isBusy ? "Accepting..." : "Accept"}
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           disabled={isBusy}
+          whileHover={!isBusy ? { scale: 1.05 } : {}}
+          whileTap={!isBusy ? { scale: 0.95 } : {}}
           onClick={async () => {
             setInviteActioning(invitation.event_id);
 
@@ -1456,181 +1554,218 @@ const uniqueAssigned =
 
             setInviteActioning(null);
           }}
-          className={`px-2 py-1 rounded text-sm ${isBusy ? "bg-red-300" : "bg-red-600 hover:bg-red-700"} text-white`}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold ${isBusy ? "bg-red-300/50" : "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-md hover:shadow-red-500/50"} text-white transition-all`}
         >
           {isBusy ? "Declining..." : "Decline"}
-        </button>
+        </motion.button>
       </div>
-    </li>
+    </motion.li>
   );
 })}
 
     </ul>
   </>
 )}
-                <h4 className="mt-2 font-semibold">Pending Requests</h4>
+                <h4 className="mt-2 font-semibold text-xs md:text-sm text-purple-300">Pending Requests</h4>
                 {requests.length === 0 ? (
-                  <p className="text-gray-500">No pending requests.</p>
+                  <p className="text-white/40 text-xs mt-1.5">No pending requests.</p>
                 ) : (
-                  <ul className="list-disc ml-6 mt-2 space-y-2">
+                  <ul className="ml-1 mt-1.5 space-y-1.5">
                     {requests.map((r) => (
-                      <li
+                      <motion.li
                         key={r.id}
-                        className="flex justify-between items-center text-gray-700"
+                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-white/80 bg-white/5 p-1.5 md:p-2 rounded-lg gap-1.5"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        whileHover={{ scale: 1.01 }}
                       >
-                        <span>
+                        <span className="text-xs break-words">
                           {r.profiles?.full_name
                             ? r.profiles.full_name
                             : `User: ${r.user_id}`}
                         </span>
-                        <div className="flex gap-2">
-                          <button
+                        <div className="flex gap-1 flex-wrap">
+                          <motion.button
                             onClick={() => handleApprove(r.id, r.user_id)}
-                            className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-1.5 py-0.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded text-xs font-semibold hover:shadow-md hover:shadow-green-500/50 transition-all whitespace-nowrap"
                           >
                             Approve
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             onClick={() => handleReject(r.id)}
-                            className="px-2 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded text-xs font-semibold hover:shadow-md hover:shadow-red-500/50 transition-all whitespace-nowrap"
                           >
                             Reject
-                          </button>
+                          </motion.button>
                         </div>
-                      </li>
+                      </motion.li>
                     ))}
                   </ul>
                 )}
-              </div>
+                  </motion.div>
+                )}
+                </AnimatePresence>
+              </motion.div>
             )}
-            
+
           </div>
 
           {/* Leave Club Button */}
-          <div className="p-4">
-            <button
+          <div className="p-2">
+            <motion.button
               onClick={() => setShowLeaveModal(true)}
-              className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full px-3 py-1.5 md:py-2 text-xs md:text-sm bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all"
             >
               Leave Club
-            </button>
+            </motion.button>
           </div>
         </div>
 
         {/* Chat Section */}
-        <div className="col-span-3 flex flex-col bg-white shadow-inner h-screen">
-         <div className="p-4 border-b flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <button
+        <div className="lg:col-span-3 flex flex-col bg-black/30 backdrop-blur-xl lg:h-screen">
+         <div className="p-3 md:p-4 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+  <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
+    <motion.button
       onClick={() => router.back()}
       aria-label="Go back"
-      className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+      whileHover={{ scale: 1.05, x: -4 }}
+      whileTap={{ scale: 0.95 }}
+      className="px-2 py-1 text-xs md:text-sm bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white whitespace-nowrap"
     >
       ← Back
-    </button>
+    </motion.button>
 
-    <div>
-      <h1 className="text-xl font-bold text-gray-900">{club?.name}</h1>
-      <p className="text-gray-600">{club?.description}</p>
+    <div className="flex-1">
+      <h1 className="text-sm md:text-base font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent break-words">{club?.name}</h1>
+      <p className="text-white/60 text-xs break-words line-clamp-1">{club?.description}</p>
     </div>
   </div>
 
-  <div className="flex items-center gap-3">
-    <button
+  <div className="flex items-center gap-1.5 md:gap-2 w-full sm:w-auto justify-end">
+    <motion.button
       onClick={() => router.push(`/clubs/${clubId}/profile`)}
-      className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all whitespace-nowrap"
     >
       📋 Profile
-    </button>
-    <h2 className="text-md font-semibold text-gray-700 hidden md:block">Team Chat</h2>
+    </motion.button>
+    <h2 className="text-xs md:text-sm font-semibold text-white/80 hidden lg:block">Team Chat</h2>
   </div>
 </div>
 
-          <div className="flex-1 overflow-y-auto mb-3 p-3 bg-gray-50 rounded-lg border">
+          <div className="flex-1 overflow-y-auto mb-2 p-2 bg-black/20 rounded-lg border border-white/10 m-2 md:m-3 min-h-[200px] lg:min-h-0">
             {messages.length === 0 ? (
-              <p className="text-gray-500">No messages yet.</p>
+              <p className="text-white/40 text-xs">No messages yet.</p>
             ) : (
-              <ul className="space-y-2">
-                {messages.map((msg) => (
-                  <li key={msg.id} className="text-gray-700">
-                    <span className="font-semibold text-indigo-600">
+              <ul className="space-y-1.5 md:space-y-2">
+                {messages.map((msg, idx) => (
+                  <motion.li
+                    key={msg.id}
+                    className="text-white/80 bg-white/5 p-1.5 md:p-2 rounded-lg backdrop-blur-lg"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.02 }}
+                  >
+                    <span className="font-semibold text-xs bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent break-words">
                       {msg.profiles?.full_name || "Unknown"}
                     </span>
-                    : {msg.content}
-                    <span className="text-xs text-gray-400 ml-2">
+                    : <span className="text-white/90 text-xs break-words">{msg.content}</span>
+                    <span className="text-xs text-white/40 ml-1 whitespace-nowrap">
                       {new Date(msg.created_at).toLocaleTimeString()}
                     </span>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
             )}
           </div>
 
-          <div className="p-4 border-t flex gap-2">
+          <div className="p-2 md:p-3 border-t border-white/10 flex gap-1.5">
             <input
               type="text"
               placeholder="Type a message..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="flex-1 bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
             />
-            <button
+            <motion.button
               onClick={sendMessage}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all whitespace-nowrap"
             >
               Send
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
 
       {/* Floating Create Event Button */}
       {userRole === "admin" && (
-        <button
+        <motion.button
           onClick={() => setShowCreateEventModal(true)}
-          className="fixed bottom-6 left-6 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg flex items-center justify-center hover:scale-105"
+          whileHover={{ scale: 1.1, rotate: 90 }}
+          whileTap={{ scale: 0.9 }}
+          className="fixed bottom-4 right-4 md:bottom-6 md:left-6 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-3xl md:text-4xl shadow-2xl shadow-purple-500/50 flex items-center justify-center z-50"
         >
           +
-        </button>
+        </motion.button>
       )}
 
       {/* Event Details Modal */}
+      <AnimatePresence>
       {selectedEvent && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-3">{selectedEvent?.title}</h3>
+        <motion.div
+          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="bg-black/80 backdrop-blur-2xl border border-white/20 p-4 md:p-6 rounded-xl md:rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+          >
+            <h3 className="text-lg md:text-xl font-bold mb-3 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent break-words">{selectedEvent?.title}</h3>
             {selectedEvent?.description && (
-              <p className="text-gray-600 mb-3">{selectedEvent.description}</p>
+              <p className="text-white/70 text-sm md:text-base mb-3 break-words">{selectedEvent.description}</p>
             )}
-            <div className="space-y-1 mb-3">
-              <p className="text-sm text-gray-700">
+            <div className="space-y-2 mb-3">
+              <p className="text-xs md:text-sm text-white/80 break-words">
                 📅{" "}
                 {selectedEvent?.event_date
                   ? new Date(selectedEvent.event_date).toLocaleString()
                   : ""}
               </p>
-              <p className="text-sm text-gray-700">📍 {selectedEvent?.place || "TBD"}</p>
-              <p className="text-sm text-gray-700 font-semibold">
+              <p className="text-xs md:text-sm text-white/80 break-words">📍 {selectedEvent?.place || "TBD"}</p>
+              <p className="text-xs md:text-sm text-white/90 font-semibold">
                 🎯 {participants.length}/{selectedEvent?.members_required} slots filled
               </p>
-              <p className="text-sm text-gray-700">⭐ {selectedEvent?.total_xp_pool} XP</p>
+              <p className="text-xs md:text-sm text-white/80">⭐ {selectedEvent?.total_xp_pool} XP</p>
               <div>{getEventStatusBadge(selectedEvent.status)}</div>
             </div>
 
             {/* Show results if approved */}
             {selectedEvent.status === "approved" && selectedEvent.results_description && (
-              <div className="mb-3 p-3 bg-green-50 rounded border border-green-200">
-                <h4 className="font-semibold text-green-800 mb-2">Event Results</h4>
-                <p className="text-sm text-gray-700">{selectedEvent.results_description}</p>
+              <div className="mb-3 p-2 md:p-3 bg-green-500/20 backdrop-blur-lg rounded-xl border border-green-500/30">
+                <h4 className="font-semibold text-sm md:text-base text-green-300 mb-2">Event Results</h4>
+                <p className="text-xs md:text-sm text-white/70 break-words">{selectedEvent.results_description}</p>
               </div>
             )}
 
             {/* Show rejection reason if rejected */}
             {selectedEvent.status === "rejected" && (
-              <div className="mb-3 p-3 bg-red-50 rounded border border-red-200">
-                <h4 className="font-semibold text-red-800 mb-2">Event Rejected</h4>
-                <p className="text-sm text-gray-700">This event did not meet approval criteria.</p>
+              <div className="mb-3 p-2 md:p-3 bg-red-500/20 backdrop-blur-lg rounded-xl border border-red-500/30">
+                <h4 className="font-semibold text-sm md:text-base text-red-300 mb-2">Event Rejected</h4>
+                <p className="text-xs md:text-sm text-white/70">This event did not meet approval criteria.</p>
               </div>
             )}
 
@@ -1638,14 +1773,14 @@ const uniqueAssigned =
             {/* Show photos if available */}
             {selectedEvent.proof_photos && selectedEvent.proof_photos.length > 0 && (
               <div className="mb-3">
-                <h4 className="font-semibold text-gray-700 mb-2">Event Photos</h4>
+                <h4 className="font-semibold text-sm md:text-base text-white/90 mb-2">Event Photos</h4>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedEvent.proof_photos.map((url, idx) => (
                     <img
                       key={idx}
                       src={url}
                       alt={`Event photo ${idx + 1}`}
-                      className="w-full h-24 object-cover rounded"
+                      className="w-full h-20 md:h-24 object-cover rounded-xl border border-white/20"
                     />
                   ))}
                 </div>
@@ -1654,11 +1789,11 @@ const uniqueAssigned =
 
             {/* Show participants list */}
             {participants.length > 0 && (
-              <div className="mt-3 mb-3 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border">
-                <p className="text-xs font-semibold text-gray-600 mb-1">Participants:</p>
-                <ul className="text-xs text-gray-700 space-y-1">
+              <div className="mt-3 mb-3 max-h-32 md:max-h-40 overflow-y-auto bg-white/5 backdrop-blur-lg p-2 md:p-3 rounded-xl border border-white/10">
+                <p className="text-xs font-semibold text-white/70 mb-2">Participants:</p>
+                <ul className="text-xs text-white/80 space-y-1">
                   {participants.map((p: any) => (
-                    <li key={p.user_id}>
+                    <li key={p.user_id} className="break-words">
                       • {p.profiles?.full_name || "Unknown"}
                     </li>
                   ))}
@@ -1666,26 +1801,30 @@ const uniqueAssigned =
               </div>
             )}
 
-            <div className="flex justify-between mt-4 gap-2">
-              <button
+            <div className="flex flex-col sm:flex-row justify-between mt-4 gap-2">
+              <motion.button
                 onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 text-sm md:text-base bg-white/10 backdrop-blur-lg text-white rounded-xl hover:bg-white/20 transition-all"
               >
                 Close
-              </button>
+              </motion.button>
 {canComplete[selectedEvent.id] && eventAcceptanceStatus[selectedEvent.id] && (
-  <button
+  <motion.button
     onClick={() => openCompleteModal(selectedEvent)}
-    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    className="px-4 py-2 text-sm md:text-base bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
   >
     Complete Event
-  </button>
+  </motion.button>
 )}
 
 {selectedEvent.event_type === "inter" && !eventAcceptanceStatus[selectedEvent.id] && (
   <button
     disabled
-    className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed"
+    className="px-4 py-2 text-sm md:text-base bg-white/10 text-white/40 rounded-xl cursor-not-allowed"
     title="Waiting for all clubs to accept this challenge"
   >
     ⏳ Waiting for Clubs
@@ -1699,13 +1838,15 @@ const uniqueAssigned =
 
                 if (alreadyJoined) {
                   return (
-                    <button
+                    <motion.button
                       onClick={() => selectedEvent && handleDitchEvent(selectedEvent.id)}
-                      className={`px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      whileHover={!participatingLoading ? { scale: 1.05 } : {}}
+                      whileTap={!participatingLoading ? { scale: 0.95 } : {}}
+                      className={`px-4 py-2 text-sm md:text-base bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-orange-500/50 transition-all ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                       disabled={participatingLoading}
                     >
                       {participatingLoading ? "Leaving..." : "Ditch Event"}
-                    </button>
+                    </motion.button>
                   );
                 }
 
@@ -1713,7 +1854,7 @@ const uniqueAssigned =
                   return (
                     <button
                       disabled
-                      className="px-4 py-2 bg-red-400 text-white rounded cursor-not-allowed"
+                      className="px-4 py-2 text-sm md:text-base bg-white/10 text-white/40 rounded-xl cursor-not-allowed"
                     >
                       Full
                     </button>
@@ -1721,25 +1862,39 @@ const uniqueAssigned =
                 }
 
                 return (
-                  <button
+                  <motion.button
                     onClick={() => selectedEvent && handleParticipate(selectedEvent.id)}
-                    className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    whileHover={!participatingLoading ? { scale: 1.05 } : {}}
+                    whileTap={!participatingLoading ? { scale: 0.95 } : {}}
+                    className={`px-4 py-2 text-sm md:text-base bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all ${participatingLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     disabled={participatingLoading}
                   >
                     {participatingLoading ? "Joining..." : "Participate"}
-                  </button>
+                  </motion.button>
                 );
               })()}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Create Event Modal */}
+      <AnimatePresence>
       {showCreateEventModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4">Create Event</h3>
+        <motion.div
+          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="bg-black/80 backdrop-blur-2xl border border-white/20 p-4 md:p-6 rounded-xl md:rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+          >
+            <h3 className="text-base md:text-lg font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">Create Event</h3>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -1759,25 +1914,25 @@ const uniqueAssigned =
             >
               {/* Event Type */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Event Type</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
+                <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">Event Type</label>
+                <div className="flex gap-3 md:gap-4">
+                  <label className="flex items-center text-xs md:text-sm text-white/80 cursor-pointer">
                     <input
                       type="radio"
                       value="intra"
                       checked={eventType === "intra"}
                       onChange={() => setEventType("intra")}
-                      className="mr-2"
+                      className="mr-2 accent-purple-500"
                     />
                     🟢 Intra-club
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center text-xs md:text-sm text-white/80 cursor-pointer">
                     <input
                       type="radio"
                       value="inter"
                       checked={eventType === "inter"}
                       onChange={() => setEventType("inter")}
-                      className="mr-2"
+                      className="mr-2 accent-purple-500"
                     />
                     🔵 Inter-club
                   </label>
@@ -1787,17 +1942,17 @@ const uniqueAssigned =
               {/* Size Category for Intra */}
               {eventType === "intra" && (
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Event Size</label>
+                  <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">Event Size</label>
                   <select
                     value={sizeCategory}
                     onChange={(e) => setSizeCategory(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     required
                   >
-                    <option value="">Select size</option>
-                    <option value="small">Small (50-60 people) - 150 XP</option>
-                    <option value="medium">Medium (90-150 people) - 300 XP</option>
-                    <option value="large">Large (150+ people) - 600 XP</option>
+                    <option value="" className="bg-slate-900">Select size</option>
+                    <option value="small" className="bg-slate-900">Small (50-60 people) - 150 XP</option>
+                    <option value="medium" className="bg-slate-900">Medium (90-150 people) - 300 XP</option>
+                    <option value="large" className="bg-slate-900">Large (150+ people) - 600 XP</option>
                   </select>
                 </div>
               )}
@@ -1805,7 +1960,7 @@ const uniqueAssigned =
               {/* Competing Clubs for Inter */}
               {eventType === "inter" && (
                 <div>
-                  <label className="block text-sm font-semibold mb-2">
+                  <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">
                     Competing Clubs (100 XP per club)
                   </label>
                   <select
@@ -1815,14 +1970,14 @@ const uniqueAssigned =
                       const selected = Array.from(e.target.selectedOptions, option => option.value);
                       setCompetingClubs(selected);
                     }}
-                    className="w-full p-2 border rounded h-32"
+                    className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white h-32 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     required
                   >
                     {allClubs.filter(c => c.id !== clubId).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id} className="bg-slate-900">{c.name}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-white/60 mt-1">
                     Hold Ctrl/Cmd to select multiple. Total XP: {calculateXP()}
                   </p>
                 </div>
@@ -1831,88 +1986,104 @@ const uniqueAssigned =
               <input
                 name="title"
                 placeholder="Event Title"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 required
               />
               <textarea
                 name="description"
                 placeholder="Description"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
               <input
                 type="datetime-local"
                 name="event_date"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 required
               />
               <input
                 type="number"
                 name="members_required"
                 placeholder="Slots required"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 min="1"
                 required
               />
               <input
                 name="place"
                 placeholder="Event Place"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
 
-              <div className="bg-indigo-50 p-3 rounded">
-                <p className="text-sm font-semibold text-indigo-800">
+              <div className="bg-purple-500/20 backdrop-blur-lg p-2 md:p-3 rounded-xl border border-purple-500/30">
+                <p className="text-xs md:text-sm font-semibold text-purple-200">
                   Total XP for this event: {calculateXP()}
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <button
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                <motion.button
                   type="button"
                   onClick={() => setShowCreateEventModal(false)}
-                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 text-sm md:text-base bg-white/10 backdrop-blur-lg text-white rounded-xl hover:bg-white/20 transition-all"
                 >
                   Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 text-sm md:text-base bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
                 >
                   Create
-                </button>
+                </motion.button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Complete Event Modal */}
+<AnimatePresence>
 {showCompleteModal && completingEvent && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-      <h3 className="text-lg font-bold mb-4">Complete Event: {completingEvent.title}</h3>
+  <motion.div
+    className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+  >
+    <motion.div
+      className="bg-black/80 backdrop-blur-2xl border border-white/20 p-4 md:p-6 rounded-xl md:rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+      initial={{ scale: 0.9, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      exit={{ scale: 0.9, y: 20 }}
+    >
+      <h3 className="text-base md:text-lg font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent break-words">Complete Event: {completingEvent.title}</h3>
 
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-semibold mb-2">What happened?</label>
+          <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">What happened?</label>
           <textarea
             value={resultsDescription}
             onChange={(e) => setResultsDescription(e.target.value)}
             placeholder="Describe the event results..."
-            className="w-full p-2 border rounded h-24"
+            className="w-full p-2 md:p-3 text-sm md:text-base bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/40 h-24 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold mb-2">Upload Photos (proof)</label>
+          <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">Upload Photos (proof)</label>
           <input
             type="file"
             accept="image/*"
             multiple
             onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 md:p-3 text-xs md:text-sm bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white file:mr-2 md:file:mr-4 file:py-1 md:file:py-2 file:px-2 md:file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white file:text-xs md:file:text-sm file:cursor-pointer hover:file:bg-purple-600"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-white/60 mt-1">
             {selectedFiles.length} photo(s) selected
           </p>
         </div>
@@ -1920,8 +2091,8 @@ const uniqueAssigned =
     {/* ✅ If inter-club, show competing clubs (dynamic positions + no duplicates) */}
 {completingEvent.event_type === "inter" && competingClubsForEvent.length > 0 && (
   <div>
-    <label className="block text-sm font-semibold mb-2">Competition Results</label>
-    <p className="text-xs text-gray-500 mb-2">
+    <label className="block text-xs md:text-sm font-semibold mb-2 text-white/80">Competition Results</label>
+    <p className="text-xs text-white/60 mb-2">
       Assign unique positions to each club:
     </p>
 
@@ -1940,9 +2111,9 @@ const uniqueAssigned =
           {competingClubsForEvent.map((club) => (
             <div
               key={club.id}
-              className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded"
+              className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3 p-2 md:p-3 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10"
             >
-              <span className="text-sm flex-1 font-medium">{club.name}</span>
+              <span className="text-xs md:text-sm flex-1 font-medium text-white/90 break-words">{club.name}</span>
               <select
                 value={clubPositions[club.id] ?? ""}
                 onChange={(e) =>
@@ -1951,14 +2122,15 @@ const uniqueAssigned =
                     [club.id]: Number(e.target.value),
                   }))
                 }
-                className="p-2 border rounded text-sm"
+                className="p-2 text-xs md:text-sm bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 required
               >
-                <option value="">Select position</option>
+                <option value="" className="bg-slate-900">Select position</option>
                 {positionOptions.map((pos) => (
                   <option
                     key={pos}
                     value={pos}
+                    className="bg-slate-900"
                     // disable a position if already used by another club
                     disabled={usedPositions.has(pos) && clubPositions[club.id] !== pos}
                   >
@@ -1972,7 +2144,7 @@ const uniqueAssigned =
 
           {/* Helper message if something is missing or duplicated */}
           {(!allAssigned || !uniqueAssigned) && (
-            <p className="text-xs text-red-600 mt-1">
+            <p className="text-xs text-red-400 mt-1">
               Assign a unique position to each club (1 to {totalClubs}).
             </p>
           )}
@@ -1983,23 +2155,27 @@ const uniqueAssigned =
 )}
 
 
-        <div className="bg-yellow-50 p-3 rounded">
-          <p className="text-xs text-yellow-800">
+        <div className="bg-yellow-500/20 backdrop-blur-lg p-2 md:p-3 rounded-xl border border-yellow-500/30">
+          <p className="text-xs text-yellow-200">
             ℹ️ After submission, this event will be reviewed by platform admins.
             XP will be awarded upon approval.
           </p>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <button
+        <div className="flex flex-col sm:flex-row justify-end gap-2">
+          <motion.button
             onClick={() => setShowCompleteModal(false)}
-            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 text-sm md:text-base bg-white/10 backdrop-blur-lg text-white rounded-xl hover:bg-white/20 transition-all"
           >
             Cancel
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={handleCompleteEvent}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 text-sm md:text-base bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={
   !resultsDescription ||
   selectedFiles.length === 0 ||
@@ -2008,38 +2184,55 @@ const uniqueAssigned =
 
           >
             Submit for Review
-          </button>
+          </motion.button>
         </div>
       </div>
-    </div>
-  </div>
+    </motion.div>
+  </motion.div>
 )}
+</AnimatePresence>
       {/* Leave Confirmation Modal */}
+      <AnimatePresence>
       {showLeaveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Leave Club</h3>
-            <p className="mb-4 text-sm text-gray-600">
+        <motion.div
+          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="bg-black/80 backdrop-blur-2xl border border-white/20 p-4 md:p-6 rounded-xl md:rounded-2xl shadow-2xl w-full max-w-md"
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+          >
+            <h3 className="text-base md:text-lg font-bold mb-4 bg-gradient-to-r from-white via-red-200 to-rose-200 bg-clip-text text-transparent">Leave Club</h3>
+            <p className="mb-4 text-xs md:text-sm text-white/70">
               Are you sure you want to leave this club? You'll lose access to
               teammates, chat, and events.
             </p>
-            <div className="flex justify-end gap-2">
-              <button
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
+              <motion.button
                 onClick={() => setShowLeaveModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 text-sm md:text-base bg-white/10 backdrop-blur-lg text-white rounded-xl hover:bg-white/20 transition-all"
               >
                 Cancel
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleLeaveClub}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 text-sm md:text-base bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all"
               >
                 Leave
-              </button>
+              </motion.button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -14,6 +14,7 @@ type Club = {
   name: string;
   category: string | null;
   description?: string | null;
+  logo_url?: string | null;
 };
 
 // ClubCard with glassmorphic design
@@ -78,8 +79,16 @@ function ClubCard({
 
         <div className="flex items-start gap-4">
           {/* Club Avatar */}
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform">
-            {getCategoryIcon(club.category)}
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
+            {club.logo_url ? (
+              <img
+                src={club.logo_url}
+                alt={club.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getCategoryIcon(club.category)
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -162,7 +171,7 @@ export default function ClubsPage() {
   const fetchClubs = async () => {
     const { data, error } = await supabase
       .from("clubs")
-      .select("id, name, category, description")
+      .select("id, name, category, description, logo_url")
       .order("name", { ascending: true });
 
     if (!error && data) setClubs(data as Club[]);
@@ -634,11 +643,19 @@ export default function ClubsPage() {
             >
               <div className="p-8">
                 <div className="flex items-start gap-6 mb-6">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0">
-                    {selectedClub.category === "Sports" ? "⚽" :
-                     selectedClub.category === "Arts" ? "🎨" :
-                     selectedClub.category === "Tech" ? "💻" :
-                     selectedClub.category === "General" ? "🌟" : "📁"}
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden">
+                    {selectedClub.logo_url ? (
+                      <img
+                        src={selectedClub.logo_url}
+                        alt={selectedClub.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      selectedClub.category === "Sports" ? "⚽" :
+                      selectedClub.category === "Arts" ? "🎨" :
+                      selectedClub.category === "Tech" ? "💻" :
+                      selectedClub.category === "General" ? "🌟" : "📁"
+                    )}
                   </div>
                   <div className="flex-1">
                     <h2 className="text-2xl font-bold text-white mb-2">{selectedClub.name}</h2>

@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
+  --background: transparent;
   --foreground: #171717;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: transparent;
     --foreground: #ededed;
   }
 }
@@ -22,7 +22,7 @@ body {
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background: transparent;
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -180,9 +180,6 @@ a {
   font-weight: 500;
   border: 1px solid #c1c2c5;
   background-color: white;
-}
-body {
-  background: pink !important;
 }
 /* Custom scrollbar styling */
 ::-webkit-scrollbar {

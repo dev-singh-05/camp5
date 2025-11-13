@@ -11,6 +11,7 @@ type Club = {
   name: string;
   category: string | null;
   description?: string | null;
+  logo_url?: string | null;
   total_xp: number;
   rank: number;
 };
@@ -86,8 +87,16 @@ function PodiumCard({ club, rank }: { club: Club; rank: number }) {
           </div>
 
           {/* Club Avatar */}
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center text-4xl mx-auto mb-3 mt-4`}>
-            {getCategoryIcon(club.category)}
+          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center text-4xl mx-auto mb-3 mt-4 overflow-hidden`}>
+            {club.logo_url ? (
+              <img
+                src={club.logo_url}
+                alt={club.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getCategoryIcon(club.category)
+            )}
           </div>
 
           {/* Club Name */}
@@ -173,8 +182,16 @@ function ClubCard({
           </div>
 
           {/* Club Avatar */}
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition-transform">
-            {getCategoryIcon(club.category)}
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
+            {club.logo_url ? (
+              <img
+                src={club.logo_url}
+                alt={club.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getCategoryIcon(club.category)
+            )}
           </div>
 
           {/* Club Info */}
@@ -265,8 +282,16 @@ function ClubModal({
       >
         <div className="p-8">
           <div className="flex items-start gap-6 mb-6">
-            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 flex items-center justify-center text-4xl flex-shrink-0 relative`}>
-              {getCategoryIcon(club.category)}
+            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 flex items-center justify-center text-4xl flex-shrink-0 relative overflow-hidden`}>
+              {club.logo_url ? (
+                <img
+                  src={club.logo_url}
+                  alt={club.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getCategoryIcon(club.category)
+              )}
               <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 border-2 border-slate-900 flex items-center justify-center`}>
                 {rankBadge.icon}
               </div>
@@ -480,7 +505,7 @@ export default function LeaderboardPage() {
     // ✅ SIMPLIFIED: Fetch clubs directly with total_xp
     const { data: clubsData, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, category, description, total_xp")
+      .select("id, name, category, description, logo_url, total_xp")
       .order("total_xp", { ascending: false });
 
     if (clubsError) {

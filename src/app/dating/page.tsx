@@ -843,35 +843,121 @@ export default function DatingPage() {
           className="mb-8"
         >
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-              <label htmlFor="category" className="block text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-pink-400" />
-                What are you looking for?
-              </label>
-              <select
-                id="category"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white appearance-none cursor-pointer transition-all"
-              >
-                <option value="">Select a category</option>
-                <option value="serious">💖 Serious Dating</option>
-                <option value="casual">😎 Casual Dating</option>
-                <option value="mystery">🌸 Mystery Mode (Women First)</option>
-                <option value="fun">🔥 For Fun & Flirty</option>
-                <option value="friends">🫶 Friendship</option>
-              </select>
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
+              animate={{
+                opacity: [0.3, 0.6, 0.3],
+                scale: [0.98, 1.02, 0.98],
+              }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-purple-950/40 to-slate-900/80 backdrop-blur-2xl rounded-3xl border border-pink-500/30 shadow-2xl overflow-hidden">
+              {/* Decorative gradient overlays */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-pink-500 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-rose-500 to-transparent" />
+              <div className="absolute top-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl" />
+              
+              <div className="relative p-8">
+                <label htmlFor="category" className="block text-xl font-bold text-white mb-6 flex items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: [0, 360] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                    className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
+                  >
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </motion.div>
+                  What are you looking for?
+                </label>
+                
+                <div className="relative">
+                  {/* Custom dropdown wrapper with enhanced styling */}
+                  <div className="relative group/select">
+                    <motion.div 
+                      className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
+                      whileHover={{ scale: 1.02, opacity: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                    <div className="relative">
+                      {/* Red outline wrapper */}
+                      <div className="absolute inset-0 rounded-2xl border-2 border-red-500/60 pointer-events-none z-20" />
+<select
+  id="category"
+  value={selectedCategory}
+  onChange={(e) => setSelectedCategory(e.target.value)}
+  className="w-full px-6 py-5 bg-slate-950/50 border-2 border-red-500/50 rounded-2xl focus:ring-4 focus:ring-red-500/40 focus:border-red-500 text-white text-lg font-semibold appearance-none cursor-pointer transition-all hover:border-red-500/70 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-red-500/30 shadow-lg relative z-10 [&>option]:bg-slate-900 [&>option]:text-white [&>option]:py-3"
+  style={{
+    colorScheme: 'dark',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 1.5rem center',
+    backgroundSize: '1.75rem',
+    paddingRight: '4rem',
+    backgroundColor: 'transparent',
+  }}
+>
+  <option value="">✨ Select a category</option>
+  <option value="serious">💖 Serious Dating</option>
+  <option value="casual">😎 Casual Dating</option>
+  <option value="mystery">🌸 Mystery Mode (Women First)</option>
+  <option value="fun">🔥 For Fun & Flirty</option>
+  <option value="friends">🫶 Friendship</option>
+</select>
+                    </div>
+                  </div>
+                  
+                  {/* Helper text */}
+                  {!selectedCategory && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-white/60 text-sm mt-4 flex items-center gap-2 pl-2"
+                    >
+                      <Heart className="w-4 h-4 text-pink-400" />
+                      Choose what you're looking for to get started
+                    </motion.p>
+                  )}
+                  
+                  {selectedCategory && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      className="mt-4 relative"
+                    >
+                      {/* Red outline wrapper */}
+                      <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/60 pointer-events-none z-20" />
+                      <div className="p-4 bg-gradient-to-r from-pink-500/20 via-rose-500/20 to-pink-500/20 border-2 border-pink-500/40 rounded-2xl backdrop-blur-xl shadow-lg relative">
+                        <p className="text-pink-200 text-base font-semibold flex items-center gap-2">
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          >
+                            <Sparkles className="w-5 h-5 text-pink-400" />
+                          </motion.div>
+                          Great choice! Now find your match below
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
 
-              {completion > 0 && completion < 50 && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-red-400 text-sm mt-3 flex items-center gap-2"
-                >
-                  ⚠️ Your profile is only {completion}% complete — finish it first!
-                </motion.p>
-              )}
+                {completion > 0 && completion < 50 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-5 relative"
+                  >
+                    {/* Red outline wrapper */}
+                    <div className="absolute inset-0 rounded-2xl border-2 border-red-500/70 pointer-events-none z-20" />
+                    <div className="p-5 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 border-2 border-red-500/50 rounded-2xl backdrop-blur-xl shadow-lg relative">
+                      <p className="text-red-300 text-base font-bold flex items-center gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        Your profile is only {completion}% complete — finish it first!
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>

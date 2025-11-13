@@ -12,6 +12,7 @@ type Club = {
   name: string;
   category: string | null;
   description?: string | null;
+  logo_url?: string | null;
 };
 
 // 🔹 Reusable ClubCard with glassmorphic design
@@ -99,11 +100,19 @@ function ClubCard({
         <div className="flex items-start gap-4 mb-4">
           {/* Club Avatar */}
           <div className={`w-16 h-16 rounded-2xl ${
-            status === "joined" 
-              ? "bg-gradient-to-br from-green-500 to-emerald-500" 
+            status === "joined"
+              ? "bg-gradient-to-br from-green-500 to-emerald-500"
               : "bg-gradient-to-br from-purple-500 to-pink-500"
-          } flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform`}>
-            {getCategoryIcon(club.category)}
+          } flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden`}>
+            {club.logo_url ? (
+              <img
+                src={club.logo_url}
+                alt={club.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getCategoryIcon(club.category)
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -193,11 +202,19 @@ function ClubModal({
         <div className="p-8">
           <div className="flex items-start gap-6 mb-6">
             <div className={`w-20 h-20 rounded-2xl ${
-              status === "joined" 
-                ? "bg-gradient-to-br from-green-500 to-emerald-500" 
+              status === "joined"
+                ? "bg-gradient-to-br from-green-500 to-emerald-500"
                 : "bg-gradient-to-br from-purple-500 to-pink-500"
-            } flex items-center justify-center text-4xl flex-shrink-0`}>
-              {getCategoryIcon(club.category)}
+            } flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden`}>
+              {club.logo_url ? (
+                <img
+                  src={club.logo_url}
+                  alt={club.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getCategoryIcon(club.category)
+              )}
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white mb-2">{club.name}</h2>
@@ -287,13 +304,13 @@ export default function MyClubs() {
 
       const { data: joined } = await supabase
         .from("club_members")
-        .select("clubs(id, name, category, description)")
+        .select("clubs(id, name, category, description, logo_url)")
         .eq("user_id", userId);
       if (joined) setJoined(joined.map((j: any) => j.clubs));
 
       const { data: req } = await supabase
         .from("club_requests")
-        .select("clubs(id, name, category, description)")
+        .select("clubs(id, name, category, description, logo_url)")
         .eq("user_id", userId)
         .eq("status", "pending");
       if (req) setPending(req.map((r: any) => r.clubs));

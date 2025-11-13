@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(del /F /Q \"\\\\?\\C:\\Users\\devba\\campu5\\nul\")",
+      "Bash(cmd /c \"del /F /Q nul\")",
+      "Bash(powershell -Command \"Remove-Item -LiteralPath ''.\\nul'' -Force\")",
+      "Bash(python:*)",
+      "Bash(node -e:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

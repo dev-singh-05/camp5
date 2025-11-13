@@ -5,6 +5,8 @@ import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import ProfileStats from "@/components/ProfileStats";
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, MessageSquare, Star, X, Search } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -239,11 +241,37 @@ export default function ConnectionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white p-6 relative overflow-x-hidden">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+        />
+      </div>
+
       <Toaster position="top-right" />
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* 🔹 Back & Title */}
-        <div className="flex items-center justify-between mb-6 relative">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between mb-6 relative"
+        >
           <div className="text-box">
             <a
               href="#"
@@ -258,107 +286,132 @@ export default function ConnectionsPage() {
               ← Back
             </a>
           </div>
-          <h1 className="absolute left-1/2 transform -translate-x-1/2 text-3xl font-bold text-gray-900">
+          <h1 className="absolute left-1/2 transform -translate-x-1/2 text-3xl font-bold text-white flex items-center gap-3">
+            <Users className="w-8 h-8 text-purple-400" />
             MY CONNECTIONS
           </h1>
-        </div>
+        </motion.div>
 
         {/* 🔹 Two-column layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* LEFT: Connections list */}
-          <div className="space-y-3">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-3"
+          >
             {profiles.length > 0 ? (
-              profiles.map((profile) => (
-                <div
+              profiles.map((profile, index) => (
+                <motion.div
                   key={profile.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ scale: 1.02, x: 4 }}
                   onClick={() => {
                     setSelectedUser(profile);
                     setChatOpen(false);
                   }}
-                  className="flex items-center justify-between bg-white p-4 rounded-xl shadow cursor-pointer hover:bg-gray-50 transition"
+                  className="flex items-center justify-between bg-white/5 backdrop-blur-xl p-4 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
                 >
                   <div className="flex items-center gap-3">
                     <img
                       src={getAvatar(profile)}
                       alt={profile.full_name}
-                      className="w-12 h-12 rounded-full"
+                      className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
                     />
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-white">
                         {profile.full_name || profile.username}
                       </p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))
             ) : (
-              <p className="text-gray-500 text-center">No connections yet</p>
+              <p className="text-white/40 text-center">No connections yet</p>
             )}
-          </div>
+          </motion.div>
 
           {/* RIGHT: Profile / Chat */}
-          <div className="bg-white rounded-xl shadow h-[500px] flex flex-col relative p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[500px] flex flex-col relative p-4 overflow-y-auto"
+          >
             {selectedUser ? (
               !chatOpen ? (
                 <div className="relative">
                   {/* 🏅 Leaderboard Rank Badge */}
                   {selectedUser.leaderboard_rank && (
-                    <div className="absolute top-0 right-0 bg-indigo-100 text-indigo-700 font-extrabold text-2xl rounded-bl-2xl px-4 py-2 shadow-md">
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 text-yellow-400 font-extrabold text-2xl rounded-bl-2xl px-4 py-2 shadow-lg"
+                    >
                       #{selectedUser.leaderboard_rank}
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* 🟢 Profile Stats */}
-                 <ProfileStats 
-     user={selectedUser} 
-     getAvatar={getAvatar}
-     currentUserId={currentUserId}
-     connectionStatus="friends"
-     onConnect={() => {}}
-     onRate={() => {}}
-     onOpenRating={() => setIsModalOpen(selectedUser)}
-   />
+                  <ProfileStats
+                    user={selectedUser}
+                    getAvatar={getAvatar}
+                    currentUserId={currentUserId}
+                    connectionStatus="friends"
+                    onConnect={() => {}}
+                    onRate={() => {}}
+                    onOpenRating={() => setIsModalOpen(selectedUser)}
+                  />
 
                   {/* Buttons */}
                   <div className="flex gap-3 mt-4">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setIsModalOpen(selectedUser)}
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
                     >
-                      + Add Rating
-                    </button>
-                    <button
+                      <Star className="w-4 h-4" />
+                      Add Rating
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => openChat(selectedUser)}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center gap-2"
                     >
+                      <MessageSquare className="w-4 h-4" />
                       Message
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
               ) : (
                 // Chat UI
                 <div className="flex flex-col flex-1 h-full">
                   <div
-                    className="flex items-center gap-3 p-4 border-b cursor-pointer hover:bg-gray-50"
+                    className="flex items-center gap-3 p-4 border-b border-white/10 cursor-pointer hover:bg-white/5"
                     onClick={() => setChatOpen(false)}
                   >
                     <img
                       src={getAvatar(selectedUser)}
                       alt="profile"
-                      className="w-10 h-10 rounded-full"
+                      className="w-10 h-10 rounded-full ring-2 ring-purple-500/30"
                     />
-                    <h2 className="font-semibold text-gray-900">
+                    <h2 className="font-semibold text-white">
                       {selectedUser.full_name}
                     </h2>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-white/10">
                     {messages.map((msg) => (
-                      <div
+                      <motion.div
                         key={msg.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
                         className={`p-2 rounded-lg text-sm max-w-[70%] relative ${msg.from_user_id === currentUserId
-                            ? "bg-blue-500 text-white ml-auto"
-                            : "bg-gray-200 text-gray-900"
+                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
+                            : "bg-white/10 backdrop-blur-xl text-white"
                           }`}
                       >
                         <p>{msg.content}</p>
@@ -368,33 +421,41 @@ export default function ConnectionsPage() {
                             minute: "2-digit",
                           })}
                         </span>
-                      </div>
+                      </motion.div>
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <div className="flex p-3 border-t">
+                  <div className="flex p-3 border-t border-white/10">
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                      className="flex-1 border rounded-full px-3 py-2 text-sm bg-gray-100 text-gray-900"
+                      className="flex-1 border border-white/10 bg-white/5 rounded-full px-3 py-2 text-sm text-white placeholder-white/40"
                       placeholder="Type a message..."
                     />
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={handleSendMessage}
-                      className="ml-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full"
+                      className="ml-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg hover:shadow-purple-500/50 transition-all"
                     >
                       Send
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
               )
             ) : (
-              <p className="text-gray-500 m-auto">Select a connection to view details</p>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center justify-center h-full"
+              >
+                <p className="text-white/60 m-auto">Select a connection to view details</p>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
 

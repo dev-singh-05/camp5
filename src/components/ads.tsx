@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
 
 export type Ad = {
   id: string;
@@ -79,19 +80,45 @@ export default function AdBanner({ placement }: { placement: string }) {
     };
   }, [ads.length, durations, index]);
 
-  if (loading || ads.length === 0) return null;
+  // Show loading skeleton while fetching - FIXED: Much darker background
+  if (loading) {
+    return (
+      <section className="w-full" role="region" aria-label="Loading advertisement">
+        <div className="relative">
+          <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
+            <div className="h-[320px] sm:h-[400px] bg-gradient-to-br from-purple-950/20 to-slate-950/20 animate-pulse" />
+            <div className="p-5 bg-slate-900/90 backdrop-blur-sm border-t border-white/5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="h-6 w-20 bg-white/5 rounded-full animate-pulse" />
+                <div className="h-9 w-28 bg-white/5 rounded-xl animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (ads.length === 0) return null;
   const ad = ads[index];
 
   return (
-    <section className="w-full" role="region" aria-label="Advertisement carousel">
+    <motion.section
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="w-full"
+      role="region"
+      aria-label="Advertisement carousel"
+    >
       <div className="relative group">
         {/* Animated gradient background blur */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 rounded-2xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
-        
-        {/* Main ad container */}
-        <div className="relative bg-black/20 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+
+        {/* Main ad container - FIXED: Darker background */}
+        <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
           {/* Image Section */}
-          <div className="relative h-[320px] sm:h-[400px] overflow-hidden">
+          <div className="relative h-[320px] sm:h-[400px] overflow-hidden bg-slate-900/50">
             {ad.image_path && (
               <img
                 src={ad.image_path}
@@ -141,8 +168,8 @@ export default function AdBanner({ placement }: { placement: string }) {
             </div>
           </div>
 
-          {/* Bottom section with CTA and navigation */}
-          <div className="p-5 bg-black/30 backdrop-blur-sm border-t border-white/5">
+          {/* Bottom section with CTA and navigation - FIXED: Darker background */}
+          <div className="p-5 bg-slate-900/90 backdrop-blur-sm border-t border-white/5">
             <div className="flex items-center justify-between gap-4">
               {/* Left: Sponsored label */}
               <div className="flex items-center gap-2">
@@ -204,6 +231,6 @@ export default function AdBanner({ placement }: { placement: string }) {
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
