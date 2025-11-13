@@ -2,7 +2,7 @@
 
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
@@ -80,6 +80,7 @@ function ChatCard({ match, index, router }: { match: Match; index: number; route
 
 export default function DatingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   /* -------------------------- Local state -------------------------------- */
   const [matches, setMatches] = useState<Match[]>([]);
@@ -622,6 +623,21 @@ export default function DatingPage() {
       return () => clearTimeout(t);
     }
   }, [completion, router]);
+
+  /* Handle navigation from deleted chat - remove deleted match from list */
+  useEffect(() => {
+    const deletedId = searchParams.get("deletedId");
+    if (deletedId) {
+      // Filter out the deleted match from the matches list
+      setMatches((prevMatches) => prevMatches.filter((match) => match.id !== deletedId));
+
+      // Clean up URL by removing the deletedId parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+
+      toast.success("Chat deleted successfully");
+    }
+  }, [searchParams]);
 
   /* --------------------------- UI -------------------------------------- */
 

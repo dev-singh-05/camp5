@@ -129,26 +129,26 @@ export default function NewsPage() {
   const getCategoryColor = (cat: string) => {
     switch (cat) {
       case "academic":
-        return "bg-blue-100 text-blue-700";
+        return "from-blue-500/20 to-cyan-500/20 text-cyan-400";
       case "sports":
-        return "bg-green-100 text-green-700";
+        return "from-green-500/20 to-emerald-500/20 text-emerald-400";
       case "events":
-        return "bg-purple-100 text-purple-700";
+        return "from-purple-500/20 to-pink-500/20 text-pink-400";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "from-gray-500/20 to-slate-500/20 text-slate-400";
     }
   };
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Loading news...</p>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <p className="text-white/60">Loading news...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <Toaster />
 
       <div className="max-w-7xl mx-auto px-6 py-10">
@@ -156,51 +156,51 @@ export default function NewsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              className="px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-xl hover:bg-white/20 text-white transition-all"
             >
               ← Back
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">📰 Campus News</h1>
+            <h1 className="text-3xl font-bold text-white">📰 Campus News</h1>
           </div>
 
           {/* Category Filter */}
           <div className="flex gap-2">
             <button
               onClick={() => setFilterCategory("all")}
-              className={`px-3 py-1 rounded text-sm ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 filterCategory === "all"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                  : "bg-white/10 backdrop-blur-xl border border-white/10 text-white/80 hover:bg-white/20"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setFilterCategory("academic")}
-              className={`px-3 py-1 rounded text-sm ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 filterCategory === "academic"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
+                  : "bg-white/10 backdrop-blur-xl border border-white/10 text-white/80 hover:bg-white/20"
               }`}
             >
               🎓 Academic
             </button>
             <button
               onClick={() => setFilterCategory("sports")}
-              className={`px-3 py-1 rounded text-sm ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 filterCategory === "sports"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
+                  : "bg-white/10 backdrop-blur-xl border border-white/10 text-white/80 hover:bg-white/20"
               }`}
             >
               🏆 Sports
             </button>
             <button
               onClick={() => setFilterCategory("events")}
-              className={`px-3 py-1 rounded text-sm ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 filterCategory === "events"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                  : "bg-white/10 backdrop-blur-xl border border-white/10 text-white/80 hover:bg-white/20"
               }`}
             >
               📅 Events
@@ -209,70 +209,76 @@ export default function NewsPage() {
         </div>
 
         {news.length === 0 ? (
-          <div className="bg-white rounded-xl shadow p-8 text-center">
-            <p className="text-gray-500 text-lg">No news articles found.</p>
+          <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8 text-center">
+            <p className="text-white/60 text-lg">No news articles found.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {news.map((article) => (
               <div
                 key={article.id}
                 onClick={() => openNewsModal(article)}
-                className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition group"
+                className="relative group cursor-pointer"
               >
-                {article.image_url ? (
-                  <div className="h-32 overflow-hidden">
-                    <img
-                      src={article.image_url}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-32 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                    <span className="text-4xl">{getCategoryIcon(article.category)}</span>
-                  </div>
-                )}
-
-                <div className="p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    {article.pinned && (
-                      <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded font-semibold">
-                        📌
-                      </span>
-                    )}
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${getCategoryColor(
-                        article.category
-                      )}`}
-                    >
-                      {getCategoryIcon(article.category)} {article.category}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-sm text-gray-900 mb-1 line-clamp-2">
-                    {article.title}
-                  </h3>
-
-                  {article.excerpt && (
-                    <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                      {article.excerpt}
-                    </p>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+                <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
+                  {article.image_url ? (
+                    <div className="h-48 overflow-hidden">
+                      <img
+                        src={article.image_url}
+                        alt={article.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    </div>
+                  ) : (
+                    <div className={`h-48 bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center`}>
+                      <span className="text-6xl">{getCategoryIcon(article.category)}</span>
+                    </div>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    <span>
-                      {new Date(article.published_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                    <span>👁️ {article.views}</span>
-                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      {article.pinned && (
+                        <span className="text-xs px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full font-semibold">
+                          📌 Pinned
+                        </span>
+                      )}
+                      <span
+                        className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(
+                          article.category
+                        )} font-medium`}
+                      >
+                        {getCategoryIcon(article.category)} {article.category}
+                      </span>
+                    </div>
 
-                  <button className="w-full px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-semibold">
-                    Read More →
-                  </button>
+                    <h3 className="font-bold text-lg text-white mb-2 line-clamp-2 group-hover:text-purple-400 transition-colors">
+                      {article.title}
+                    </h3>
+
+                    {article.excerpt && (
+                      <p className="text-sm text-white/60 mb-3 line-clamp-2">
+                        {article.excerpt}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-xs text-white/40 mb-4">
+                      <span>
+                        {new Date(article.published_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric"
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        👁️ {article.views}
+                      </span>
+                    </div>
+
+                    <button className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 text-sm font-semibold shadow-lg transition-all">
+                      Read More →
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -283,32 +289,32 @@ export default function NewsPage() {
       {/* News Detail Modal */}
       {selectedNews && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={closeModal}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn"
+            className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+            <div className="sticky top-0 bg-black/60 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-xs px-3 py-1 rounded ${getCategoryColor(
+                  className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(
                     selectedNews.category
-                  )}`}
+                  )} font-medium`}
                 >
                   {getCategoryIcon(selectedNews.category)} {selectedNews.category}
                 </span>
                 {selectedNews.pinned && (
-                  <span className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded">
+                  <span className="text-xs px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full font-semibold">
                     📌 Pinned
                   </span>
                 )}
               </div>
               <button
                 onClick={closeModal}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-white/60 hover:text-white text-2xl transition-colors"
               >
                 ✖
               </button>
@@ -316,11 +322,11 @@ export default function NewsPage() {
 
             {/* Content */}
             <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-3xl font-bold text-white mb-4">
                 {selectedNews.title}
               </h1>
 
-              <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
+              <div className="flex items-center gap-4 text-sm text-white/50 mb-6">
                 <span>
                   📅{" "}
                   {new Date(selectedNews.published_at).toLocaleDateString("en-US", {
@@ -336,28 +342,28 @@ export default function NewsPage() {
                 <img
                   src={selectedNews.image_url}
                   alt={selectedNews.title}
-                  className="w-full h-96 object-cover rounded-lg mb-6"
+                  className="w-full h-96 object-cover rounded-xl mb-6 border border-white/10"
                 />
               )}
 
               <div className="prose max-w-none">
-                <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <div className="text-white/80 whitespace-pre-wrap leading-relaxed text-base">
                   {selectedNews.content}
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="border-t p-6 flex items-center justify-between">
+            <div className="border-t border-white/10 p-6 flex items-center justify-between">
               <button
                 onClick={copyLink}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center gap-2"
+                className="px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/10 text-white rounded-xl hover:bg-white/20 flex items-center gap-2 transition-all"
               >
                 🔗 Copy Link
               </button>
               <button
                 onClick={closeModal}
-                className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 shadow-lg transition-all"
               >
                 Close
               </button>

@@ -64,10 +64,17 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Dropdown states
-  const [updatesExpanded, setUpdatesExpanded] = useState(true);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
   const [newsExpanded, setNewsExpanded] = useState(true);
+
+  // News rotation states
+  const [currentPinnedIndex, setCurrentPinnedIndex] = useState(0);
+  const [currentNewIndex, setCurrentNewIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left');
   
   const removedItemsRef = useRef<Set<string>>(new Set());
+  const readItemsRef = useRef<Set<string>>(new Set());
+  const readNewsRef = useRef<Set<string>>(new Set());
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
 
@@ -111,7 +118,7 @@ export default function Dashboard() {
   const [campusNewsEnabled, setCampusNewsEnabled] = useState(true);
   const campusNewsRef = useRef(true);
 
-  // Load dismissed items and preferences from localStorage
+  // Load dismissed items, read items, and preferences from localStorage
   useEffect(() => {
     const dismissed = localStorage.getItem("dismissedNews");
     if (dismissed) {
@@ -120,6 +127,26 @@ export default function Dashboard() {
         removedItemsRef.current = new Set(parsed);
       } catch (e) {
         console.error("Failed to parse dismissed news:", e);
+      }
+    }
+
+    const readUpdates = localStorage.getItem("readUpdates");
+    if (readUpdates) {
+      try {
+        const parsed = JSON.parse(readUpdates);
+        readItemsRef.current = new Set(parsed);
+      } catch (e) {
+        console.error("Failed to parse read updates:", e);
+      }
+    }
+
+    const readNews = localStorage.getItem("readNews");
+    if (readNews) {
+      try {
+        const parsed = JSON.parse(readNews);
+        readNewsRef.current = new Set(parsed);
+      } catch (e) {
+        console.error("Failed to parse read news:", e);
       }
     }
 
@@ -153,6 +180,14 @@ export default function Dashboard() {
 
   const saveDismissedItems = () => {
     localStorage.setItem("dismissedNews", JSON.stringify([...removedItemsRef.current]));
+  };
+
+  const saveReadItems = () => {
+    localStorage.setItem("readUpdates", JSON.stringify([...readItemsRef.current]));
+  };
+
+  const saveReadNews = () => {
+    localStorage.setItem("readNews", JSON.stringify([...readNewsRef.current]));
   };
 
   useEffect(() => {
@@ -208,6 +243,41 @@ export default function Dashboard() {
       cleanupRealtime();
     };
   }, []);
+
+  // Auto-rotation effect for news (7 seconds)
+  useEffect(() => {
+    if (!newsExpanded || campusNews.length === 0) return;
+
+    // Get unread news
+    const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
+    const pinnedNews = unreadNews.filter(n => n.pinned);
+    const newNews = unreadNews.filter(n => !n.pinned);
+
+    const interval = setInterval(() => {
+      setSlideDirection('left');
+
+      // Rotate pinned news if there are multiple
+      if (pinnedNews.length > 1) {
+        setCurrentPinnedIndex((prev) => (prev + 1) % pinnedNews.length);
+      }
+
+      // Rotate new news if there are multiple
+      if (newNews.length > 1) {
+        setCurrentNewIndex((prev) => (prev + 1) % newNews.length);
+      }
+    }, 7000); // 7 seconds
+
+    return () => clearInterval(interval);
+  }, [campusNews, newsExpanded]);
+
+  // Auto-expand updates when new updates arrive
+  useEffect(() => {
+    if (news.length > 0) {
+      setUpdatesExpanded(true);
+    } else {
+      setUpdatesExpanded(false);
+    }
+  }, [news.length]);
 
   async function handleOnboardingSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -365,7 +435,10 @@ export default function Dashboard() {
 
       results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      const filtered = results.filter((item) => !removedItemsRef.current.has(item.id));
+      // Filter to show only unread updates (not dismissed and not read)
+      const filtered = results.filter((item) =>
+        !removedItemsRef.current.has(item.id) && !readItemsRef.current.has(item.id)
+      );
       setNews(filtered);
     } catch (err) {
       console.error("loadInitialNews error:", err);
@@ -535,6 +608,13 @@ export default function Dashboard() {
   }
 
   function handleNewsClick(item: NewsItem) {
+    // Mark update as read
+    readItemsRef.current.add(item.id);
+    saveReadItems();
+
+    // Remove from UI
+    setNews((prev) => prev.filter((n) => n.id !== item.id));
+
     switch (item.type) {
       case "rating":
         router.push("/ratings/leaderboard");
@@ -565,6 +645,10 @@ export default function Dashboard() {
 
   const openNewsModal = async (article: CampusNewsArticle) => {
     setSelectedNewsArticle(article);
+
+    // Mark news as read
+    readNewsRef.current.add(article.id);
+    saveReadNews();
 
     if (userIdRef.current) {
       await supabase.rpc("increment_news_views", {
@@ -928,26 +1012,25 @@ export default function Dashboard() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <div className="flex items-center justify-between mb-3 pt-2 border-t border-white/5">
-                        <Link href="/updates" className="text-sm text-cyan-400 hover:text-cyan-300">
-                          View all
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearAllNews();
-                          }}
-                          className="text-xs text-white/40 hover:text-white/60"
-                        >
-                          Clear all
-                        </button>
-                      </div>
+                      {news.length > 0 && (
+                        <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearAllNews();
+                            }}
+                            className="text-xs text-white/40 hover:text-white/60"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                      )}
 
-                      <div className="space-y-2 max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         {news.length === 0 ? (
-                          <p className="text-white/40 text-sm text-center py-8">No recent updates</p>
+                          <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
                         ) : (
-                          news.slice(0, 5).map((item, index) => (
+                          news.slice(0, 3).map((item, index) => (
                             <motion.div
                               key={item.id}
                               initial={{ opacity: 0, x: 20 }}
@@ -956,9 +1039,9 @@ export default function Dashboard() {
                               whileHover={{ x: 4, scale: 1.02 }}
                               className="group/item cursor-pointer"
                             >
-                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-cyan-500/30 transition-all">
-                                <div className="flex items-start gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2 border border-white/5 hover:border-cyan-500/30 transition-all">
+                                <div className="flex items-start gap-2">
+                                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover/item:scale-110 transition-transform">
                                     {getNewsIcon(item.type)}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -967,13 +1050,13 @@ export default function Dashboard() {
                                         onClick={() => handleNewsClick(item)}
                                         className="flex-1 text-left"
                                       >
-                                        <h4 className="font-semibold text-sm text-white mb-1 line-clamp-1 group-hover/item:text-cyan-400 transition-colors">
+                                        <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1 group-hover/item:text-cyan-400 transition-colors">
                                           {item.title}
                                         </h4>
                                         {item.body && (
-                                          <p className="text-xs text-white/60 line-clamp-2">{item.body}</p>
+                                          <p className="text-xs text-white/60 line-clamp-1">{item.body}</p>
                                         )}
-                                        <time className="text-xs text-white/40 mt-1 block">
+                                        <time className="text-xs text-white/40 mt-0.5 block">
                                           {new Date(item.created_at).toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
@@ -987,7 +1070,7 @@ export default function Dashboard() {
                                         }}
                                         className="text-white/40 hover:text-white/80 flex-shrink-0"
                                       >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>
@@ -1014,18 +1097,20 @@ export default function Dashboard() {
               className="relative group"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/30 transition-all">
+              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-purple-500/30 transition-all">
                 <button
                   onClick={() => setNewsExpanded(!newsExpanded)}
-                  className="flex items-center justify-between w-full mb-4"
+                  className="flex items-center justify-between w-full mb-3"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                       <Newspaper className="w-5 h-5 text-white" />
                     </div>
                     <div className="text-left">
-                      <h3 className="text-lg font-bold text-white">News</h3>
-                      <span className="text-xs text-white/40">{campusNews.length} articles</span>
+                      <h3 className="text-base font-bold text-white">News</h3>
+                      <span className="text-xs text-white/40">
+                        {campusNews.filter(n => !readNewsRef.current.has(n.id)).length} new
+                      </span>
                     </div>
                   </div>
                   <motion.div
@@ -1050,70 +1135,88 @@ export default function Dashboard() {
                         </Link>
                       </div>
 
-                      <div className="space-y-3">
-                        {campusNews.length === 0 ? (
-                          <p className="text-white/40 text-sm text-center py-8">No recent news</p>
-                        ) : (
-                          campusNews.slice(0, 4).map((article, index) => (
-                            <motion.div
-                              key={article.id}
-                              initial={{ opacity: 0, x: 20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                              whileHover={{ x: 4, scale: 1.02 }}
-                              onClick={() => openNewsModal(article)}
-                              className="group/item cursor-pointer"
-                            >
-                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/5 hover:border-purple-500/30 transition-all">
-                                <div className="flex items-start gap-3">
-                                  {article.image_url ? (
-                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 group-hover/item:scale-110 transition-transform">
-                                      <img
-                                        src={article.image_url}
-                                        alt={article.title}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-2xl group-hover/item:scale-110 transition-transform`}>
-                                      {getCategoryIcon(article.category)}
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
-                                        {article.category}
-                                      </span>
-                                      {article.pinned && (
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                                          📌
-                                        </span>
+                      <div className="space-y-2">
+                        {(() => {
+                          // Filter unread news
+                          const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
+                          const pinnedNews = unreadNews.filter(n => n.pinned);
+                          const newNews = unreadNews.filter(n => !n.pinned);
+
+                          // Get current items to display
+                          const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
+                          const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
+
+                          const displayNews = [currentPinned, currentNew].filter(Boolean) as CampusNewsArticle[];
+
+                          if (displayNews.length === 0) {
+                            return <p className="text-white/40 text-sm text-center py-6">No new news</p>;
+                          }
+
+                          return displayNews.map((article, slotIndex) => (
+                            <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={article.id}
+                                  initial={{ x: slideDirection === 'left' ? 100 : -100, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  exit={{ x: slideDirection === 'left' ? -100 : 100, opacity: 0 }}
+                                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                                  whileHover={{ x: 4, scale: 1.02 }}
+                                  onClick={() => openNewsModal(article)}
+                                  className="group/item cursor-pointer"
+                                >
+                                  <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2.5 border border-white/5 hover:border-purple-500/30 transition-all">
+                                    <div className="flex items-start gap-2">
+                                      {article.image_url ? (
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                                          <img
+                                            src={article.image_url}
+                                            alt={article.title}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl group-hover/item:scale-110 transition-transform`}>
+                                          {getCategoryIcon(article.category)}
+                                        </div>
                                       )}
-                                    </div>
-                                    <h4 className="font-semibold text-sm text-white mb-1 line-clamp-2 group-hover/item:text-purple-400 transition-colors">
-                                      {article.title}
-                                    </h4>
-                                    {article.excerpt && (
-                                      <p className="text-xs text-white/60 line-clamp-1">{article.excerpt}</p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-2 text-xs text-white/40">
-                                      <span className="flex items-center gap-1">
-                                        👁️ {article.views}
-                                      </span>
-                                      <span>•</span>
-                                      <time>
-                                        {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </time>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                          <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
+                                            {article.category}
+                                          </span>
+                                          {article.pinned && (
+                                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                              📌
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1 group-hover/item:text-purple-400 transition-colors">
+                                          {article.title}
+                                        </h4>
+                                        {article.excerpt && (
+                                          <p className="text-xs text-white/60 line-clamp-1">{article.excerpt}</p>
+                                        )}
+                                        <div className="flex items-center gap-2 mt-1 text-xs text-white/40">
+                                          <span className="flex items-center gap-1">
+                                            👁️ {article.views}
+                                          </span>
+                                          <span>•</span>
+                                          <time>
+                                            {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
+                                              month: "short",
+                                              day: "numeric",
+                                            })}
+                                          </time>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          ))
-                        )}
+                                </motion.div>
+                              </AnimatePresence>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </motion.div>
                   )}

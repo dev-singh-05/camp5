@@ -9,7 +9,11 @@
       "Bash(node -e:*)",
       "Bash(dir /s /b srcappadmin 2)",
       "Bash(nul)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(dir \"C:\\Users\\devba\\campu5\\src\\app\\dating\" /s /b)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(dir /s /b nul 2)"
     ],
     "deny": [],
     "ask": []

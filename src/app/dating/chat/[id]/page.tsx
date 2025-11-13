@@ -18,6 +18,7 @@ import {
   type SurpriseQuestion,
 } from "@/utils/surpriseQuestion";
 import { MapPin, Briefcase, GraduationCap, Heart, Ruler, Wine, Cigarette, Baby, BookOpen, Sparkles, Coins, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 
@@ -1432,11 +1433,18 @@ function handleAddTokens() {
         {/* Header */}
         <header className="px-4 py-3 bg-white/95 backdrop-blur-sm border-b flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} aria-label="Go back" className="p-2 rounded-lg hover:bg-gray-100" title="Back">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              aria-label="Go back"
+              className="p-2 rounded-lg hover:bg-gray-100 transition-all"
+              title="Back"
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </button>
+            </motion.button>
 
             <div className="flex items-center gap-3">
               <Avatar

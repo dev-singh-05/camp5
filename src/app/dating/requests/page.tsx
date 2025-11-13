@@ -255,7 +255,7 @@ export default function RequestsPage() {
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push("/dating")}
+              onClick={() => router.back()}
               className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -292,10 +292,10 @@ export default function RequestsPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => router.push("/dating")}
+                onClick={() => router.back()}
                 className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
               >
-                Go to Dating
+                Go Back
               </motion.button>
             </div>
           </motion.div>
