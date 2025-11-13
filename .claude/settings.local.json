@@ -6,7 +6,10 @@
       "Bash(cmd /c \"del /F /Q nul\")",
       "Bash(powershell -Command \"Remove-Item -LiteralPath ''.\\nul'' -Force\")",
       "Bash(python:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(dir /s /b srcappadmin 2)",
+      "Bash(nul)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

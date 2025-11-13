@@ -364,25 +364,16 @@ export default function DatingPage() {
       console.log("Selected candidate:", selectedCandidate.full_name);
       setCandidate(selectedCandidate);
 
-      // Fetch a random question
-      let questionQuery = supabase
-        .from("dating_questions")
+      // Fetch a random icebreaker question from admin-managed questions
+      const { data: icebreakerQuestions } = await supabase
+        .from("icebreaker_questions")
         .select("*")
-        .eq("active", true);
+        .eq("is_active", true)
+        .in("usage_type", ["match_dating", "both"]);
 
-      if (selectedCategory) {
-        questionQuery = questionQuery.or(
-          `category.is.null,category.eq.${selectedCategory}`
-        );
-      } else {
-        questionQuery = questionQuery.is("category", null);
-      }
-
-      const { data: questions } = await questionQuery;
-
-      if (questions && questions.length > 0) {
-        const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
-        setQuestion(randomQuestion);
+      if (icebreakerQuestions && icebreakerQuestions.length > 0) {
+        const randomQuestion = icebreakerQuestions[Math.floor(Math.random() * icebreakerQuestions.length)];
+        setQuestion({ id: randomQuestion.id, text: randomQuestion.question });
       } else {
         setQuestion({ id: "default", text: "Why do you think we'd be a good match?" });
       }
@@ -927,7 +918,7 @@ export default function DatingPage() {
                       {/* Red outline wrapper */}
                       <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/60 pointer-events-none z-20" />
                       <div className="p-4 bg-gradient-to-r from-pink-500/20 via-rose-500/20 to-pink-500/20 border-2 border-pink-500/40 rounded-2xl backdrop-blur-xl shadow-lg relative">
-                        <p className="text-pink-200 text-base font-semibold flex items-center gap-2">
+                        <div className="text-pink-200 text-base font-semibold flex items-center gap-2">
                           <motion.div
                             animate={{ scale: [1, 1.2, 1] }}
                             transition={{ duration: 1, repeat: Infinity }}
@@ -935,7 +926,7 @@ export default function DatingPage() {
                             <Sparkles className="w-5 h-5 text-pink-400" />
                           </motion.div>
                           Great choice! Now find your match below
-                        </p>
+                        </div>
                       </div>
                     </motion.div>
                   )}

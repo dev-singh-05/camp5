@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { getRandomMatchIcebreakerQuestion } from "@/utils/icebreaker";
 import {
   Heart,
   X,
@@ -100,6 +101,9 @@ export default function RequestsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get a random icebreaker question for this match
+      const icebreakerQuestion = await getRandomMatchIcebreakerQuestion();
+
       // Create the match
       const { data: newMatch, error: matchErr } = await supabase
         .from("dating_matches")
@@ -109,6 +113,7 @@ export default function RequestsPage() {
             user2_id: user.id,
             match_type: matchType,
             dating_category: category,
+            icebreaker_question_id: icebreakerQuestion?.id || null,
           },
         ])
         .select()

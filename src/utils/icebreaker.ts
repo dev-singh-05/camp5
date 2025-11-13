@@ -5,6 +5,7 @@ export type IcebreakerQuestion = {
   id: string;
   question: string;
   is_active: boolean;
+  usage_type?: "match_dating" | "ice_breaker_chat" | "both";
   created_at?: string;
   updated_at?: string;
 };
@@ -47,10 +48,14 @@ export async function getIcebreakerQuestion(questionId: string): Promise<Icebrea
 /**
  * Create a new icebreaker question
  */
-export async function createIcebreakerQuestion(question: string, isActive: boolean = true) {
+export async function createIcebreakerQuestion(
+  question: string,
+  isActive: boolean = true,
+  usageType: "match_dating" | "ice_breaker_chat" | "both" = "both"
+) {
   const { data, error } = await supabase
     .from("icebreaker_questions")
-    .insert([{ question, is_active: isActive }])
+    .insert([{ question, is_active: isActive, usage_type: usageType }])
     .select()
     .single();
 
@@ -67,7 +72,7 @@ export async function createIcebreakerQuestion(question: string, isActive: boole
  */
 export async function updateIcebreakerQuestion(
   questionId: string,
-  updates: { question?: string; is_active?: boolean }
+  updates: { question?: string; is_active?: boolean; usage_type?: "match_dating" | "ice_breaker_chat" | "both" }
 ) {
   const { data, error } = await supabase
     .from("icebreaker_questions")
@@ -126,4 +131,52 @@ export async function getMatchIcebreakerQuestion(matchId: string): Promise<Icebr
 
   // Now get the actual question
   return getIcebreakerQuestion(match.icebreaker_question_id);
+}
+
+/**
+ * Get a random icebreaker question for dating matches
+ */
+export async function getRandomMatchIcebreakerQuestion(): Promise<IcebreakerQuestion | null> {
+  const { data, error } = await supabase
+    .from("icebreaker_questions")
+    .select("*")
+    .eq("is_active", true)
+    .in("usage_type", ["match_dating", "both"]);
+
+  if (error) {
+    console.error("Error fetching random match icebreaker question:", error);
+    return null;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  // Pick a random question from the list
+  const randomIndex = Math.floor(Math.random() * data.length);
+  return data[randomIndex];
+}
+
+/**
+ * Get a random icebreaker question for chat
+ */
+export async function getRandomChatIcebreakerQuestion(): Promise<IcebreakerQuestion | null> {
+  const { data, error } = await supabase
+    .from("icebreaker_questions")
+    .select("*")
+    .eq("is_active", true)
+    .in("usage_type", ["ice_breaker_chat", "both"]);
+
+  if (error) {
+    console.error("Error fetching random chat icebreaker question:", error);
+    return null;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  // Pick a random question from the list
+  const randomIndex = Math.floor(Math.random() * data.length);
+  return data[randomIndex];
 }

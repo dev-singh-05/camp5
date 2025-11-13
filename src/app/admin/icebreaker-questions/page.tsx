@@ -22,8 +22,10 @@ export default function IcebreakerAdminPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
+  const [newUsageType, setNewUsageType] = useState<"match_dating" | "ice_breaker_chat" | "both">("both");
   const [editingQuestion, setEditingQuestion] = useState<IcebreakerQuestion | null>(null);
   const [editQuestionText, setEditQuestionText] = useState("");
+  const [editUsageType, setEditUsageType] = useState<"match_dating" | "ice_breaker_chat" | "both">("both");
   
   // UI state
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -73,9 +75,10 @@ export default function IcebreakerAdminPage() {
 
     try {
       setProcessingId("adding");
-      await createIcebreakerQuestion(newQuestion.trim(), true);
+      await createIcebreakerQuestion(newQuestion.trim(), true, newUsageType);
       await loadQuestions();
       setNewQuestion("");
+      setNewUsageType("both");
       setShowAddModal(false);
       alert("Question added successfully!");
     } catch (err) {
@@ -96,11 +99,13 @@ export default function IcebreakerAdminPage() {
       setProcessingId(editingQuestion.id);
       await updateIcebreakerQuestion(editingQuestion.id, {
         question: editQuestionText.trim(),
+        usage_type: editUsageType,
       });
       await loadQuestions();
       setShowEditModal(false);
       setEditingQuestion(null);
       setEditQuestionText("");
+      setEditUsageType("both");
       alert("Question updated successfully!");
     } catch (err) {
       console.error("Error updating question:", err);
@@ -148,6 +153,7 @@ export default function IcebreakerAdminPage() {
   function openEditModal(question: IcebreakerQuestion) {
     setEditingQuestion(question);
     setEditQuestionText(question.question);
+    setEditUsageType(question.usage_type || "both");
     setShowEditModal(true);
   }
 
@@ -275,6 +281,20 @@ export default function IcebreakerAdminPage() {
                           <span>• Updated: {new Date(question.updated_at).toLocaleDateString()}</span>
                         )}
                       </div>
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          question.usage_type === "match_dating"
+                            ? "bg-purple-100 text-purple-700"
+                            : question.usage_type === "ice_breaker_chat"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {question.usage_type === "match_dating" && "💞 Match Dating"}
+                          {question.usage_type === "ice_breaker_chat" && "💬 Chat Only"}
+                          {question.usage_type === "both" && "🌟 Both"}
+                          {!question.usage_type && "🌟 Both"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -336,6 +356,20 @@ export default function IcebreakerAdminPage() {
                       <p className="text-gray-600 text-base leading-relaxed line-through">{question.question}</p>
                       <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
                         <span>Created: {new Date(question.created_at || "").toLocaleDateString()}</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          question.usage_type === "match_dating"
+                            ? "bg-purple-100 text-purple-700"
+                            : question.usage_type === "ice_breaker_chat"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {question.usage_type === "match_dating" && "💞 Match Dating"}
+                          {question.usage_type === "ice_breaker_chat" && "💬 Chat Only"}
+                          {question.usage_type === "both" && "🌟 Both"}
+                          {!question.usage_type && "🌟 Both"}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -402,11 +436,31 @@ export default function IcebreakerAdminPage() {
               </p>
             </div>
 
+            <div className="mb-6">
+              <label htmlFor="new-usage-type" className="block text-sm font-medium text-gray-700 mb-2">
+                Usage Type
+              </label>
+              <select
+                id="new-usage-type"
+                value={newUsageType}
+                onChange={(e) => setNewUsageType(e.target.value as "match_dating" | "ice_breaker_chat" | "both")}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              >
+                <option value="both">🌟 Both (Match Dating & Chat)</option>
+                <option value="match_dating">💞 Match Dating Only</option>
+                <option value="ice_breaker_chat">💬 Ice Breaker Chat Only</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                Choose where this question should appear: when creating new matches, in chat conversations, or both.
+              </p>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setNewQuestion("");
+                  setNewUsageType("both");
                 }}
                 disabled={processingId === "adding"}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
@@ -446,12 +500,32 @@ export default function IcebreakerAdminPage() {
               />
             </div>
 
+            <div className="mb-6">
+              <label htmlFor="edit-usage-type" className="block text-sm font-medium text-gray-700 mb-2">
+                Usage Type
+              </label>
+              <select
+                id="edit-usage-type"
+                value={editUsageType}
+                onChange={(e) => setEditUsageType(e.target.value as "match_dating" | "ice_breaker_chat" | "both")}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              >
+                <option value="both">🌟 Both (Match Dating & Chat)</option>
+                <option value="match_dating">💞 Match Dating Only</option>
+                <option value="ice_breaker_chat">💬 Ice Breaker Chat Only</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                Choose where this question should appear: when creating new matches, in chat conversations, or both.
+              </p>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowEditModal(false);
                   setEditingQuestion(null);
                   setEditQuestionText("");
+                  setEditUsageType("both");
                 }}
                 disabled={processingId === editingQuestion.id}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
