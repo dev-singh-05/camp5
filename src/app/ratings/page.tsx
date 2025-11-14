@@ -675,7 +675,7 @@ export default function RatingsPage() {
         </div>
 
         {/* User List - Mobile Optimized */}
-        <div className="px-4 max-w-7xl mx-auto">
+        <div className="px-4 max-w-7xl mx-auto lg:hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
