@@ -55,7 +55,32 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
     }
   };
 
-  const color = getRankColor(rank);
+  const getBorderClass = (rank: number) => {
+    switch (rank) {
+      case 1: return "border-yellow-500/50";
+      case 2: return "border-gray-400/50";
+      case 3: return "border-orange-500/50";
+      default: return "border-purple-500/50";
+    }
+  };
+
+  const getTextClass = (rank: number) => {
+    switch (rank) {
+      case 1: return "text-yellow-400";
+      case 2: return "text-gray-400";
+      case 3: return "text-orange-400";
+      default: return "text-purple-400";
+    }
+  };
+
+  const getBorderXPClass = (rank: number) => {
+    switch (rank) {
+      case 1: return "border-yellow-500/30";
+      case 2: return "border-gray-400/30";
+      case 3: return "border-orange-500/30";
+      default: return "border-purple-500/30";
+    }
+  };
 
   return (
     <motion.div
@@ -75,18 +100,18 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
         transition={{ duration: 2, repeat: Infinity }}
         className={`absolute inset-0 bg-gradient-to-br ${getRankGradient(rank)}/20 rounded-2xl blur-lg`}
       />
-      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 border-${color}-500/50 p-4 md:p-6`}>
+      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 ${getBorderClass(rank)} p-3 md:p-4`}>
         {/* Horizontal Layout */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Rank Badge */}
-          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center shadow-lg ${getRankGlow(rank)} flex-shrink-0`}>
-            {rank === 1 && <Crown className="w-6 h-6 md:w-7 md:h-7 text-white" />}
-            {rank === 2 && <Medal className="w-6 h-6 md:w-7 md:h-7 text-white" />}
-            {rank === 3 && <Award className="w-6 h-6 md:w-7 md:h-7 text-white" />}
+          <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center shadow-lg ${getRankGlow(rank)} flex-shrink-0`}>
+            {rank === 1 && <Crown className="w-5 h-5 md:w-6 md:h-6 text-white" />}
+            {rank === 2 && <Medal className="w-5 h-5 md:w-6 md:h-6 text-white" />}
+            {rank === 3 && <Award className="w-5 h-5 md:w-6 md:h-6 text-white" />}
           </div>
 
           {/* Club Avatar */}
-          <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center text-2xl md:text-3xl flex-shrink-0 overflow-hidden`}>
+          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center text-xl md:text-2xl flex-shrink-0 overflow-hidden`}>
             {club.logo_url ? (
               <img
                 src={club.logo_url}
@@ -100,28 +125,28 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
 
           {/* Club Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-base md:text-lg font-bold text-white mb-1 line-clamp-1">
+            <h3 className="text-sm md:text-base font-bold text-white mb-0.5 line-clamp-1">
               {club.name}
             </h3>
             {club.category && (
-              <p className="text-xs text-white/60">{club.category}</p>
+              <p className="text-xs text-white/60 hidden md:block">{club.category}</p>
             )}
           </div>
 
           {/* XP Display */}
-          <div className={`bg-gradient-to-r ${getRankGradient(rank)}/20 border border-${color}-500/30 rounded-xl px-3 md:px-4 py-2 md:py-3 text-center flex-shrink-0`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className={`w-4 h-4 text-${color}-400`} />
-              <span className={`text-xl md:text-2xl font-bold text-${color}-400`}>
+          <div className={`bg-gradient-to-r ${getRankGradient(rank)}/20 border ${getBorderXPClass(rank)} rounded-xl px-2 md:px-3 py-1.5 md:py-2 text-center flex-shrink-0`}>
+            <div className="flex items-center justify-center gap-1">
+              <Zap className={`w-3 h-3 md:w-4 md:h-4 ${getTextClass(rank)}`} />
+              <span className={`text-base md:text-xl font-bold ${getTextClass(rank)}`}>
                 {club.total_xp}
               </span>
             </div>
-            <span className="text-xs text-white/60">XP</span>
+            <span className="text-[10px] md:text-xs text-white/60">XP</span>
           </div>
 
           {/* Place Badge */}
-          <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${getRankGradient(rank)}/30 border border-${color}-500/50 flex items-center justify-center flex-shrink-0`}>
-            <span className={`text-base md:text-lg font-bold text-${color}-400`}>#{rank}</span>
+          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${getRankGradient(rank)}/30 border ${getBorderXPClass(rank)} flex items-center justify-center flex-shrink-0`}>
+            <span className={`text-sm md:text-base font-bold ${getTextClass(rank)}`}>#{rank}</span>
           </div>
         </div>
       </div>

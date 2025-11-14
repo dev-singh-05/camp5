@@ -590,23 +590,23 @@ export default function RatingsPage() {
               />
             </div>
 
-            {/* Filter Button */}
+            {/* Filter Button - Hidden on mobile */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all"
+              className="hidden sm:flex px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all"
             >
               Filter
             </motion.button>
 
-            {/* My Connections Button */}
+            {/* My Connections Button - Always visible */}
             <motion.button
               onClick={() => router.push("/ratings/connections")}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all whitespace-nowrap"
+              className="px-3 sm:px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all flex items-center gap-1"
             >
-              <Users className="w-4 h-4 inline sm:mr-1" />
+              <Users className="w-4 h-4" />
               <span className="hidden sm:inline">My Connections</span>
             </motion.button>
           </motion.div>

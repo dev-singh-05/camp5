@@ -425,54 +425,110 @@ export default function ConnectionsPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[600px] flex flex-col relative overflow-hidden p-4"
+            className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[600px] flex flex-col relative overflow-hidden"
           >
             {selectedUser ? (
-              <div className="relative">
-                {/* Leaderboard Rank Badge */}
-                {selectedUser.leaderboard_rank && (
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 text-yellow-400 font-extrabold text-2xl rounded-bl-2xl px-4 py-2 shadow-lg"
-                  >
-                    #{selectedUser.leaderboard_rank}
-                  </motion.div>
-                )}
+              !chatOpen ? (
+                <div className="relative overflow-y-auto h-full p-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                  {/* Leaderboard Rank Badge */}
+                  {selectedUser.leaderboard_rank && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="absolute top-4 right-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 text-yellow-400 font-extrabold text-2xl rounded-bl-2xl px-4 py-2 shadow-lg z-10"
+                    >
+                      #{selectedUser.leaderboard_rank}
+                    </motion.div>
+                  )}
 
-                {/* Profile Stats */}
-                <ProfileStats
-                  user={selectedUser}
-                  getAvatar={getAvatar}
-                  currentUserId={currentUserId}
-                  connectionStatus="friends"
-                  onConnect={() => {}}
-                  onRate={() => {}}
-                  onOpenRating={() => setIsModalOpen(selectedUser)}
-                />
+                  {/* Profile Stats */}
+                  <ProfileStats
+                    user={selectedUser}
+                    getAvatar={getAvatar}
+                    currentUserId={currentUserId}
+                    connectionStatus="friends"
+                    onConnect={() => {}}
+                    onRate={() => {}}
+                    onOpenRating={() => setIsModalOpen(selectedUser)}
+                  />
 
-                {/* Buttons */}
-                <div className="flex gap-3 mt-4">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsModalOpen(selectedUser)}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Star className="w-4 h-4" />
-                    Add Rating
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => openChat(selectedUser)}
-                    className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Message
-                  </motion.button>
+                  {/* Buttons */}
+                  <div className="flex gap-3 mt-4">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsModalOpen(selectedUser)}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Star className="w-4 h-4" />
+                      Add Rating
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => openChat(selectedUser)}
+                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Message
+                    </motion.button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                // Chat UI
+                <div className="flex flex-col flex-1 h-full">
+                  <div
+                    className="flex items-center gap-3 p-4 border-b border-white/10 cursor-pointer hover:bg-white/5"
+                    onClick={() => setChatOpen(false)}
+                  >
+                    <img src={getAvatar(selectedUser)} alt="" className="w-10 h-10 rounded-full ring-2 ring-purple-500/30" />
+                    <h2 className="font-semibold text-white">{selectedUser.full_name}</h2>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-white/10">
+                    {messages.map((msg) => (
+                      <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`p-2 rounded-lg text-sm max-w-[70%] relative ${
+                          msg.from_user_id === currentUserId
+                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
+                            : "bg-white/10 backdrop-blur-xl text-white"
+                        }`}
+                      >
+                        <p>{msg.content}</p>
+                        <span className="text-[10px] opacity-70 block mt-1 text-right">
+                          {new Date(msg.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </motion.div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  <div className="flex p-3 border-t border-white/10">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                      className="flex-1 border border-white/10 bg-white/5 rounded-full px-3 py-2 text-sm text-white placeholder-white/40"
+                      placeholder="Type a message..."
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleSendMessage}
+                      className="ml-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg hover:shadow-purple-500/50 transition-all"
+                    >
+                      Send
+                    </motion.button>
+                  </div>
+                </div>
+              )
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-white/60">Select a connection to view details</p>
