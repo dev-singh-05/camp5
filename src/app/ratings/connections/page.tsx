@@ -270,9 +270,9 @@ export default function ConnectionsPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6 relative"
+          className="mb-6"
         >
-          <div className="text-box">
+          <div className="mb-4">
             <a
               href="#"
               role="button"
@@ -281,24 +281,24 @@ export default function ConnectionsPage() {
                 e.preventDefault();
                 router.back();
               }}
-              className="btn btn-white btn-animated"
+              className="btn btn-white btn-animated inline-block text-sm sm:text-base"
             >
               ← Back
             </a>
           </div>
-          <h1 className="absolute left-1/2 transform -translate-x-1/2 text-3xl font-bold text-white flex items-center gap-3">
-            <Users className="w-8 h-8 text-purple-400" />
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center justify-center gap-2 sm:gap-3">
+            <Users className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
             MY CONNECTIONS
           </h1>
         </motion.div>
 
         {/* 🔹 Two-column layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* LEFT: Connections list */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-3"
+            className="space-y-3 h-[400px] sm:h-[500px] lg:h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
           >
             {profiles.length > 0 ? (
               profiles.map((profile, index) => (
@@ -337,7 +337,7 @@ export default function ConnectionsPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[500px] flex flex-col relative p-4 overflow-y-auto"
+            className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] flex flex-col relative p-3 sm:p-4 overflow-y-auto"
           >
             {selectedUser ? (
               !chatOpen ? (
@@ -347,7 +347,7 @@ export default function ConnectionsPage() {
                     <motion.div
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 text-yellow-400 font-extrabold text-2xl rounded-bl-2xl px-4 py-2 shadow-lg"
+                      className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 text-yellow-400 font-extrabold text-lg sm:text-xl md:text-2xl rounded-bl-2xl px-3 sm:px-4 py-1 sm:py-2 shadow-lg"
                     >
                       #{selectedUser.leaderboard_rank}
                     </motion.div>
@@ -365,12 +365,12 @@ export default function ConnectionsPage() {
                   />
 
                   {/* Buttons */}
-                  <div className="flex gap-3 mt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 mt-4">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setIsModalOpen(selectedUser)}
-                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
                     >
                       <Star className="w-4 h-4" />
                       Add Rating
@@ -379,7 +379,7 @@ export default function ConnectionsPage() {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => openChat(selectedUser)}
-                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center gap-2"
+                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
                     >
                       <MessageSquare className="w-4 h-4" />
                       Message
@@ -461,8 +461,8 @@ export default function ConnectionsPage() {
 
       {/* 🌟 Single User Rating Modal */}
       {isModalOpen && isModalOpen.id !== "global" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
               Rate {isModalOpen.full_name}
             </h2>
@@ -545,8 +545,8 @@ export default function ConnectionsPage() {
 
       {/* 🌍 Global Rating Modal */}
       {isModalOpen && isModalOpen.id === "global" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
               Wanna Rate Your Connections?
             </h2>
