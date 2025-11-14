@@ -1428,8 +1428,8 @@ function handleAddTokens() {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 to-purple-100 overflow-hidden">
-      {/* Fixed Header Container */}
-      <div className="flex-shrink-0 bg-white shadow-md">
+      {/* Sticky Header Container */}
+      <div className="sticky top-0 z-10 flex-shrink-0 bg-white shadow-md">
         {/* Header */}
         <header className="px-4 py-3 bg-white/95 backdrop-blur-sm border-b flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">

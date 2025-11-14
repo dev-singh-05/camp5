@@ -55,80 +55,168 @@ function PodiumCard({ club, rank }: { club: Club; rank: number }) {
     }
   };
 
+  const getBorderColor = (rank: number) => {
+    switch (rank) {
+      case 1: return "border-yellow-500/50";
+      case 2: return "border-gray-400/50";
+      case 3: return "border-orange-500/50";
+      default: return "border-purple-500/50";
+    }
+  };
+
+  const getTextColor = (rank: number) => {
+    switch (rank) {
+      case 1: return "text-yellow-400";
+      case 2: return "text-gray-400";
+      case 3: return "text-orange-400";
+      default: return "text-purple-400";
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: rank * 0.1 }}
-      className={`flex flex-col items-center ${rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3"}`}
-    >
-      {/* Card */}
+    <>
+      {/* Desktop View - Vertical Podium (unchanged) */}
       <motion.div
-        whileHover={{ y: -8, scale: 1.05 }}
-        className="relative mb-4 cursor-pointer"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: rank * 0.1 }}
+        className={`hidden md:flex flex-col items-center ${rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3"}`}
+      >
+        {/* Card */}
+        <motion.div
+          whileHover={{ y: -8, scale: 1.05 }}
+          className="relative mb-4 cursor-pointer"
+        >
+          <motion.div
+            animate={{
+              boxShadow: [
+                `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
+                `0 0 40px ${rank === 1 ? "rgba(234, 179, 8, 0.5)" : rank === 2 ? "rgba(156, 163, 175, 0.5)" : "rgba(249, 115, 22, 0.5)"}`,
+                `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
+              ],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className={`absolute inset-0 bg-gradient-to-br ${getPodiumGradient(rank)}/20 rounded-2xl blur-lg`}
+          />
+          <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 ${getBorderColor(rank)} p-6 w-48`}>
+            {/* Rank Badge */}
+            <div className={`absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center shadow-lg ${getPodiumGlow(rank)}`}>
+              {rank === 1 && <Crown className="w-6 h-6 text-white" />}
+              {rank === 2 && <Medal className="w-6 h-6 text-white" />}
+              {rank === 3 && <Award className="w-6 h-6 text-white" />}
+            </div>
+
+            {/* Club Avatar */}
+            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center text-4xl mx-auto mb-3 mt-4 overflow-hidden`}>
+              {club.logo_url ? (
+                <img
+                  src={club.logo_url}
+                  alt={club.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getCategoryIcon(club.category)
+              )}
+            </div>
+
+            {/* Club Name */}
+            <h3 className="text-lg font-bold text-white text-center mb-1 line-clamp-1">
+              {club.name}
+            </h3>
+
+            {/* Category */}
+            {club.category && (
+              <p className="text-xs text-white/60 text-center mb-3">{club.category}</p>
+            )}
+
+            {/* XP Display */}
+            <div className={`bg-gradient-to-r ${getPodiumGradient(rank)}/20 border ${getBorderColor(rank)} rounded-xl p-3 text-center`}>
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Zap className={`w-4 h-4 ${getTextColor(rank)}`} />
+                <span className={`text-2xl font-bold ${getTextColor(rank)}`}>
+                  {club.total_xp}
+                </span>
+              </div>
+              <span className="text-xs text-white/60">Total XP</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Podium Base */}
+        <div className={`w-32 ${getPodiumHeight(rank)} bg-gradient-to-br ${getPodiumGradient(rank)}/30 backdrop-blur-sm border-2 ${getBorderColor(rank)} rounded-t-xl flex items-center justify-center transition-all`}>
+          <span className={`text-4xl font-bold ${getTextColor(rank)}`}>
+            #{rank}
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Mobile View - Horizontal Card */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: rank * 0.1 }}
+        className="md:hidden cursor-pointer group relative"
       >
         <motion.div
           animate={{
             boxShadow: [
-              `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
-              `0 0 40px ${rank === 1 ? "rgba(234, 179, 8, 0.5)" : rank === 2 ? "rgba(156, 163, 175, 0.5)" : "rgba(249, 115, 22, 0.5)"}`,
-              `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
+              `0 0 15px ${rank === 1 ? "rgba(234, 179, 8, 0.2)" : rank === 2 ? "rgba(156, 163, 175, 0.2)" : "rgba(249, 115, 22, 0.2)"}`,
+              `0 0 25px ${rank === 1 ? "rgba(234, 179, 8, 0.4)" : rank === 2 ? "rgba(156, 163, 175, 0.4)" : "rgba(249, 115, 22, 0.4)"}`,
+              `0 0 15px ${rank === 1 ? "rgba(234, 179, 8, 0.2)" : rank === 2 ? "rgba(156, 163, 175, 0.2)" : "rgba(249, 115, 22, 0.2)"}`,
             ],
           }}
           transition={{ duration: 2, repeat: Infinity }}
-          className={`absolute inset-0 bg-gradient-to-br ${getPodiumGradient(rank)}/20 rounded-2xl blur-lg`}
+          className={`absolute inset-0 bg-gradient-to-br ${getPodiumGradient(rank)}/20 rounded-xl blur-md`}
         />
-        <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 border-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-500/50 p-6 w-48`}>
-          {/* Rank Badge */}
-          <div className={`absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center shadow-lg ${getPodiumGlow(rank)}`}>
-            {rank === 1 && <Crown className="w-6 h-6 text-white" />}
-            {rank === 2 && <Medal className="w-6 h-6 text-white" />}
-            {rank === 3 && <Award className="w-6 h-6 text-white" />}
-          </div>
-
-          {/* Club Avatar */}
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center text-4xl mx-auto mb-3 mt-4 overflow-hidden`}>
-            {club.logo_url ? (
-              <img
-                src={club.logo_url}
-                alt={club.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              getCategoryIcon(club.category)
-            )}
-          </div>
-
-          {/* Club Name */}
-          <h3 className="text-lg font-bold text-white text-center mb-1 line-clamp-1">
-            {club.name}
-          </h3>
-
-          {/* Category */}
-          {club.category && (
-            <p className="text-xs text-white/60 text-center mb-3">{club.category}</p>
-          )}
-
-          {/* XP Display */}
-          <div className={`bg-gradient-to-r ${getPodiumGradient(rank)}/20 border border-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-500/30 rounded-xl p-3 text-center`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className={`w-4 h-4 text-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-400`} />
-              <span className={`text-2xl font-bold text-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-400`}>
-                {club.total_xp}
-              </span>
+        <div className={`relative bg-black/40 backdrop-blur-xl rounded-xl border-2 ${getBorderColor(rank)} p-3 hover:border-opacity-80 transition-all ${rank === 1 ? 'shadow-lg shadow-yellow-500/20' : rank === 2 ? 'shadow-lg shadow-gray-400/20' : 'shadow-lg shadow-orange-500/20'}`}>
+          <div className="flex items-center gap-3">
+            {/* Rank Badge */}
+            <div className={`w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center shadow-lg ${getPodiumGlow(rank)}`}>
+              {rank === 1 && <Crown className="w-6 h-6 text-white" />}
+              {rank === 2 && <Medal className="w-6 h-6 text-white" />}
+              {rank === 3 && <Award className="w-6 h-6 text-white" />}
             </div>
-            <span className="text-xs text-white/60">Total XP</span>
+
+            {/* Club Avatar */}
+            <div className={`w-14 h-14 flex-shrink-0 rounded-xl bg-gradient-to-br ${getPodiumGradient(rank)} flex items-center justify-center text-2xl overflow-hidden`}>
+              {club.logo_url ? (
+                <img
+                  src={club.logo_url}
+                  alt={club.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getCategoryIcon(club.category)
+              )}
+            </div>
+
+            {/* Club Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-2xl font-bold ${getTextColor(rank)}`}>#{rank}</span>
+                <h3 className="text-base font-bold text-white line-clamp-1">
+                  {club.name}
+                </h3>
+              </div>
+              {club.category && (
+                <p className="text-xs text-white/60 mb-1">{club.category}</p>
+              )}
+            </div>
+
+            {/* XP Display */}
+            <div className={`flex-shrink-0 px-3 py-2 bg-gradient-to-r ${getPodiumGradient(rank)}/20 border ${getBorderColor(rank)} rounded-lg`}>
+              <div className="flex items-center gap-1">
+                <Zap className={`w-4 h-4 ${getTextColor(rank)}`} />
+                <span className={`text-lg font-bold ${getTextColor(rank)}`}>
+                  {club.total_xp}
+                </span>
+              </div>
+              <span className="text-[10px] text-white/60 text-center block">XP</span>
+            </div>
           </div>
         </div>
       </motion.div>
-
-      {/* Podium Base */}
-      <div className={`w-32 ${getPodiumHeight(rank)} bg-gradient-to-br ${getPodiumGradient(rank)}/30 backdrop-blur-sm border-2 border-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-500/50 rounded-t-xl flex items-center justify-center transition-all`}>
-        <span className={`text-4xl font-bold text-${rank === 1 ? "yellow" : rank === 2 ? "gray" : "orange"}-400`}>
-          #{rank}
-        </span>
-      </div>
-    </motion.div>
+    </>
   );
 }
 
@@ -174,15 +262,15 @@ function ClubCard({
       className="cursor-pointer group relative"
     >
       <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 hover:border-purple-500/30 transition-all">
-        <div className="flex items-center gap-4">
+      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-3 md:p-4 hover:border-purple-500/30 transition-all">
+        <div className="flex items-center gap-3 md:gap-4">
           {/* Rank */}
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
-            <span className="text-lg font-bold text-purple-300">#{rank}</span>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm md:text-lg font-bold text-purple-300">#{rank}</span>
           </div>
 
           {/* Club Avatar */}
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl md:text-2xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
             {club.logo_url ? (
               <img
                 src={club.logo_url}
@@ -196,35 +284,41 @@ function ClubCard({
 
           {/* Club Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-purple-300 transition-colors">
+            <h3 className="text-base md:text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-purple-300 transition-colors lowercase">
               {club.name}
             </h3>
             {club.category && (
-              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(club.category)} border font-medium`}>
+              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(club.category)} border font-medium lowercase`}>
                 {club.category}
               </span>
             )}
           </div>
 
-          {/* XP */}
-          <div className="flex flex-col items-end gap-2">
+          {/* XP - Hidden on mobile, shown on desktop */}
+          <div className="hidden md:flex flex-col items-end gap-2">
             <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-xl">
               <Zap className="w-4 h-4 text-yellow-400" />
               <span className="text-lg font-bold text-yellow-400">{club.total_xp}</span>
             </div>
             {status === "joined" && (
-              <span className="text-xs px-2 py-0.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-full font-medium">
-                Joined
+              <span className="text-xs px-2 py-0.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-full font-medium lowercase">
+                joined
               </span>
             )}
             {status === "requested" && (
-              <span className="text-xs px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-full font-medium">
-                Requested
+              <span className="text-xs px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-full font-medium lowercase">
+                requested
               </span>
             )}
           </div>
 
-          <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0" />
+          {/* Mobile XP - Shown only on mobile */}
+          <div className="md:hidden flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-lg flex-shrink-0">
+            <span className="text-sm font-bold text-yellow-400 lowercase">xp</span>
+            <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-white/80 transition-all" />
+          </div>
+
+          <ChevronRight className="hidden md:block w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0" />
         </div>
       </div>
     </motion.div>
@@ -256,15 +350,6 @@ function ClubModal({
     }
   };
 
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return { icon: <Crown className="w-5 h-5" />, color: "yellow", label: "Champion" };
-    if (rank === 2) return { icon: <Medal className="w-5 h-5" />, color: "gray", label: "Runner-up" };
-    if (rank === 3) return { icon: <Award className="w-5 h-5" />, color: "orange", label: "Bronze" };
-    return { icon: <Trophy className="w-5 h-5" />, color: "purple", label: `Rank ${rank}` };
-  };
-
-  const rankBadge = getRankBadge(club.rank);
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -278,11 +363,20 @@ function ClubModal({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
+        className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10 max-h-[90vh] overflow-y-auto"
       >
-        <div className="p-8">
-          <div className="flex items-start gap-6 mb-6">
-            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 flex items-center justify-center text-4xl flex-shrink-0 relative overflow-hidden`}>
+        <div className="p-6 md:p-8">
+          {/* Back Button */}
+          <button
+            onClick={onClose}
+            className="mb-4 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all text-sm"
+          >
+            back
+          </button>
+
+          {/* Club Info */}
+          <div className="flex items-start gap-4 md:gap-6 mb-6">
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl md:text-4xl flex-shrink-0 overflow-hidden border-2 border-white/10">
               {club.logo_url ? (
                 <img
                   src={club.logo_url}
@@ -292,62 +386,53 @@ function ClubModal({
               ) : (
                 getCategoryIcon(club.category)
               )}
-              <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 border-2 border-slate-900 flex items-center justify-center`}>
-                {rankBadge.icon}
-              </div>
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-white mb-2">{club.name}</h2>
+            <div className="flex-1 min-w-0 pt-2">
+              <h2 className="text-xl md:text-2xl font-bold text-white mb-2 break-words">{club.name}</h2>
               {club.category && (
-                <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-400 font-medium mb-2">
-                  {club.category}
-                </span>
+                <div className="text-base text-white/70 mb-1">{club.category}</div>
               )}
-              <div className={`flex items-center gap-2 text-${rankBadge.color}-400 mt-2`}>
-                {rankBadge.icon}
-                <span className="text-sm font-semibold">{rankBadge.label}</span>
+              <div className="text-sm text-white/60">
+                <Trophy className="w-4 h-4 inline mr-1" />
+                Rank <span className="text-purple-400 font-semibold">#{club.rank}</span>
               </div>
             </div>
           </div>
 
+          {/* Description */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Description</h3>
-            <p className="text-white/60 leading-relaxed">
+            <h3 className="text-base md:text-lg font-semibold text-white mb-3">Description</h3>
+            <p className="text-white/60 leading-relaxed text-sm md:text-base">
               {club.description || "No description provided."}
             </p>
           </div>
 
           {/* XP Stats */}
-          <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Zap className="w-6 h-6 text-yellow-400" />
-              <span className="text-3xl font-bold text-yellow-400">{club.total_xp}</span>
+          <div className="bg-gradient-to-r from-amber-900/40 to-yellow-900/40 border border-amber-600/30 rounded-2xl p-6 mb-8">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Zap className="w-7 h-7 text-yellow-400" />
+              <span className="text-4xl font-bold text-yellow-400">{club.total_xp}</span>
             </div>
-            <p className="text-sm text-white/60 text-center">Total Club Experience</p>
+            <p className="text-base text-amber-200/80 text-center font-medium">Total Club Experience</p>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
-            >
-              Close
-            </button>
+          {/* Buttons */}
+          <div className="flex gap-3 justify-center">
             {status === "joined" ? (
               <button
                 onClick={() => router.push(`/clubs/${club.id}`)}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
+                className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
               >
                 Enter Club
               </button>
             ) : status === "requested" ? (
-              <div className="flex-1 px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center">
+              <div className="px-8 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center">
                 Request Pending
               </div>
             ) : (
               <button
                 onClick={onJoin}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
               >
                 Join Club
               </button>
@@ -688,7 +773,8 @@ const subscription = supabase
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+          {/* Desktop Header */}
+          <div className="hidden md:flex items-center justify-between">
             <div className="flex items-center gap-4">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
@@ -713,6 +799,17 @@ const subscription = supabase
               </motion.div>
             </div>
           </div>
+
+          {/* Mobile Header */}
+          <div className="md:hidden flex items-center justify-between">
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-xl font-bold text-white lowercase"
+            >
+              clubs leaderboard
+            </motion.h1>
+          </div>
         </div>
       </header>
 
@@ -726,38 +823,38 @@ const subscription = supabase
         >
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-              <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6">
+              <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-white/40" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search clubs..."
-                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                    placeholder="search"
+                    className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all text-sm md:text-base lowercase"
                   />
                 </div>
 
                 <div className="relative">
-                  <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <Filter className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-white/40" />
                   <select
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
-                    className="pl-12 pr-8 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white appearance-none cursor-pointer min-w-[200px] transition-all"
+                    className="w-full md:w-auto pl-10 md:pl-12 pr-8 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white appearance-none cursor-pointer md:min-w-[200px] transition-all text-sm md:text-base lowercase"
                   >
-                    <option value="all">All Categories</option>
-                    <option value="Sports">Sports</option>
-                    <option value="Arts">Arts</option>
-                    <option value="Tech">Tech</option>
-                    <option value="General">General</option>
+                    <option value="all">categories</option>
+                    <option value="Sports">sports</option>
+                    <option value="Arts">arts</option>
+                    <option value="Tech">tech</option>
+                    <option value="General">general</option>
                   </select>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between text-sm">
-                <span className="text-white/60">
-                  Showing <span className="text-yellow-400 font-semibold">{filteredClubs.length}</span> clubs
+              <div className="mt-3 md:mt-4 flex items-center justify-between text-sm">
+                <span className="text-white/60 lowercase text-xs md:text-sm">
+                  showing <span className="text-yellow-400 font-semibold">{filteredClubs.length}</span> clubs
                 </span>
                 {(search || filter !== "all") && (
                   <button
@@ -765,9 +862,9 @@ const subscription = supabase
                       setSearch("");
                       setFilter("all");
                     }}
-                    className="text-purple-400 hover:text-purple-300 transition-colors"
+                    className="text-purple-400 hover:text-purple-300 transition-colors lowercase text-xs md:text-sm"
                   >
-                    Clear filters
+                    clear filters
                   </button>
                 )}
               </div>
@@ -782,18 +879,21 @@ const subscription = supabase
             animate={{ opacity: 1, y: 0 }}
             className="mb-12"
           >
-            <div className="relative group mb-8">
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-xl" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-8">
-                <div className="flex items-center justify-center gap-3 mb-2">
-                  <Trophy className="w-6 h-6 text-yellow-400" />
-                  <h2 className="text-2xl font-bold text-white">Top Champions</h2>
-                </div>
-                <p className="text-center text-white/60 text-sm">Leading clubs by total XP</p>
-              </div>
+            <div className="mb-6 text-center">
+              <h2 className="text-xl md:text-2xl font-bold text-white lowercase">champions</h2>
             </div>
 
-            <div className="flex items-end justify-center gap-8">
+            {/* Desktop - Horizontal Layout with Podiums */}
+            <div className="hidden md:flex items-end justify-center gap-8">
+              {topThree.map((club) => (
+                <div key={club.id} onClick={() => setSelectedClub(club)}>
+                  <PodiumCard club={club} rank={club.rank} />
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile - Vertical Stack of Horizontal Cards */}
+            <div className="md:hidden space-y-3">
               {topThree.map((club) => (
                 <div key={club.id} onClick={() => setSelectedClub(club)}>
                   <PodiumCard club={club} rank={club.rank} />
@@ -810,11 +910,8 @@ const subscription = supabase
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">All Clubs</h2>
+            <div className="mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-white lowercase">all clubs</h2>
             </div>
 
             <div className="space-y-3">

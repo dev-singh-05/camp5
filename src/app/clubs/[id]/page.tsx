@@ -1,6 +1,6 @@
 "use client";
 import { Toaster, toast } from "react-hot-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -81,6 +81,9 @@ const [inviteActioning, setInviteActioning] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 const [showActivityLog, setShowActivityLog] = useState(false);
 
+  // Ref for auto-scrolling to latest message
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [competingClubsForEvent, setCompetingClubsForEvent] = useState<any[]>([]);
 const [eventInvitations, setEventInvitations] = useState<any[]>([]);
@@ -151,7 +154,7 @@ const activityLogs = messages.filter(msg =>
 
  const sendSystemMessage = async (content: string) => {
   if (!clubId || !currentUserId) return;
-  
+
   const { error } = await supabase.from("messages").insert([
     {
       club_id: clubId,
@@ -164,6 +167,23 @@ const activityLogs = messages.filter(msg =>
     console.error("❌ Failed to send system message:", error.message);
   }
 };
+
+  // Scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant", block: "end" });
+  };
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Auto-scroll when loading completes
+  useEffect(() => {
+    if (!loading && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [loading, messages.length]);
 
   const fetchClub = async () => {
     if (!clubId) return;
@@ -1187,9 +1207,159 @@ const uniqueAssigned =
           ease: "linear",
         }}
       />
-      <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-4 relative z-10">
-        {/* Sidebar */}
-        <div className="lg:col-span-1 flex flex-col bg-black/40 backdrop-blur-xl lg:border-r border-white/10 lg:h-screen overflow-y-auto">
+      {/* Mobile Header - Fixed at top (Outside normal flow) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex-shrink-0 p-3 border-b border-white/10 space-y-3 bg-black/40 backdrop-blur-xl">
+        {/* Top Row: Back, Club Name, Invite, Profile */}
+        <div className="flex items-center justify-between">
+          <motion.button
+            onClick={() => router.back()}
+            aria-label="Go back"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-3 py-1.5 bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white text-sm"
+          >
+            ← Back
+          </motion.button>
+
+          <h1 className="text-base font-bold text-white lowercase flex-1 text-center">{club?.name}</h1>
+
+          <div className="flex items-center gap-2">
+            {userRole === "admin" && (
+              <motion.button
+                onClick={async () => {
+                  const { data: userData } = await supabase.auth.getUser();
+                  const user = userData?.user;
+                  if (!user) {
+                    alert("You must be logged in.");
+                    return;
+                  }
+
+                  const { data, error } = await supabase
+                    .from("club_invites")
+                    .insert([
+                      {
+                        club_id: clubId,
+                        created_by: user.id,
+                        role: "member",
+                        max_uses: 1,
+                      },
+                    ])
+                    .select("token")
+                    .single();
+
+                  if (error || !data) {
+                    alert("Failed to create invite: " + (error?.message || "Unknown error"));
+                    return;
+                  }
+
+                  const url = `${window.location.origin}/accept-invite?token=${data.token}`;
+                  await navigator.clipboard?.writeText(url);
+                  toast.success("✅ Invite link copied!");
+                  await sendSystemMessage(`Admin created a new invite link`);
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white text-sm border border-white/20"
+              >
+                invite
+              </motion.button>
+            )}
+
+            <motion.button
+              onClick={() => router.push(`/clubs/${clubId}/profile`)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-3 py-1.5 bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white text-sm border border-white/20"
+            >
+              profile
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Second Row: Teammates and Active Events Dropdowns */}
+        <div className="flex items-center gap-2">
+          {/* Teammates Dropdown */}
+          <div className="flex-1 relative">
+            <button
+              onClick={() => setShowTeammates(!showTeammates)}
+              className="w-full flex items-center justify-between px-3 py-2 bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 text-white text-sm"
+            >
+              <span className="lowercase">teammates</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTeammates ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+              </svg>
+            </button>
+
+            <AnimatePresence>
+              {showTeammates && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/10 p-3 z-50 max-h-60 overflow-y-auto"
+                >
+                  {members.length === 0 ? (
+                    <p className="text-white/40 text-xs">No teammates found.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {members.map((m) => (
+                        <li key={m.user_id} className="text-white/80 text-xs">
+                          {m.role === "admin" ? "👑 " : "👤 "}
+                          {m.profiles?.full_name} ({m.profiles?.enrollment_number})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Active Events Dropdown */}
+          <div className="flex-1 relative">
+            <button
+              onClick={() => setShowEvents(!showEvents)}
+              className="w-full flex items-center justify-between px-3 py-2 bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 text-white text-sm"
+            >
+              <span className="lowercase">active events</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showEvents ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+              </svg>
+            </button>
+
+            <AnimatePresence>
+              {showEvents && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/10 p-3 z-50 max-h-60 overflow-y-auto"
+                >
+                  {activeEvents.length === 0 ? (
+                    <p className="text-white/40 text-xs">No active events.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {activeEvents.map((e) => (
+                        <li
+                          key={e.id}
+                          onClick={() => handleEventClick(e)}
+                          className="text-white/80 text-xs cursor-pointer hover:bg-white/5 p-2 rounded-lg transition-all"
+                        >
+                          📅 {e.title} – {new Date(e.event_date).toLocaleDateString()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-4 relative z-10 pt-[140px] md:pt-0">
+        {/* Sidebar - Hidden on mobile */}
+        <div className="hidden lg:flex lg:col-span-1 flex-col bg-black/40 backdrop-blur-xl lg:border-r border-white/10 lg:h-screen overflow-y-auto">
           <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-3">
             {/* Club Logo */}
             <motion.div
@@ -1627,40 +1797,42 @@ const uniqueAssigned =
           </div>
         </div>
 
-        {/* Chat Section */}
-        <div className="lg:col-span-3 flex flex-col bg-black/30 backdrop-blur-xl lg:h-screen">
-         <div className="p-3 md:p-4 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-  <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
-    <motion.button
-      onClick={() => router.back()}
-      aria-label="Go back"
-      whileHover={{ scale: 1.05, x: -4 }}
-      whileTap={{ scale: 0.95 }}
-      className="px-2 py-1 text-xs md:text-sm bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white whitespace-nowrap"
-    >
-      ← Back
-    </motion.button>
+        {/* Chat Section - Separate Container on Mobile, Combined on Desktop */}
+        <div className="flex-1 lg:col-span-3 flex flex-col bg-black/30 backdrop-blur-xl md:h-screen">
+         {/* Desktop Header - Fixed */}
+         <div className="hidden md:flex flex-shrink-0 p-4 border-b border-white/10 items-center justify-between gap-3 bg-black/40 backdrop-blur-xl">
+           <div className="flex items-center gap-3 flex-1">
+             <motion.button
+               onClick={() => router.back()}
+               aria-label="Go back"
+               whileHover={{ scale: 1.05, x: -4 }}
+               whileTap={{ scale: 0.95 }}
+               className="px-2 py-1 text-sm bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all text-white whitespace-nowrap"
+             >
+               ← Back
+             </motion.button>
 
-    <div className="flex-1">
-      <h1 className="text-sm md:text-base font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent break-words">{club?.name}</h1>
-      <p className="text-white/60 text-xs break-words line-clamp-1">{club?.description}</p>
-    </div>
-  </div>
+             <div className="flex-1">
+               <h1 className="text-base font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent break-words">{club?.name}</h1>
+               <p className="text-white/60 text-xs break-words line-clamp-1">{club?.description}</p>
+             </div>
+           </div>
 
-  <div className="flex items-center gap-1.5 md:gap-2 w-full sm:w-auto justify-end">
-    <motion.button
-      onClick={() => router.push(`/clubs/${clubId}/profile`)}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all whitespace-nowrap"
-    >
-      📋 Profile
-    </motion.button>
-    <h2 className="text-xs md:text-sm font-semibold text-white/80 hidden lg:block">Team Chat</h2>
-  </div>
-</div>
+           <div className="flex items-center gap-2">
+             <motion.button
+               onClick={() => router.push(`/clubs/${clubId}/profile`)}
+               whileHover={{ scale: 1.05 }}
+               whileTap={{ scale: 0.95 }}
+               className="px-3 py-1.5 text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all whitespace-nowrap"
+             >
+               📋 Profile
+             </motion.button>
+             <h2 className="text-sm font-semibold text-white/80">Team Chat</h2>
+           </div>
+         </div>
 
-          <div className="flex-1 overflow-y-auto mb-2 p-2 bg-black/20 rounded-lg border border-white/10 m-2 md:m-3 min-h-[200px] lg:min-h-0">
+          {/* Messages Area - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-2 md:p-3">
             {messages.length === 0 ? (
               <p className="text-white/40 text-xs">No messages yet.</p>
             ) : (
@@ -1682,11 +1854,14 @@ const uniqueAssigned =
                     </span>
                   </motion.li>
                 ))}
+                {/* Auto-scroll target */}
+                <div ref={messagesEndRef} />
               </ul>
             )}
           </div>
 
-          <div className="p-2 md:p-3 border-t border-white/10 flex gap-1.5">
+          {/* Message Input - Fixed at bottom */}
+          <div className="flex-shrink-0 p-2 md:p-3 border-t border-white/10 flex gap-1.5 bg-black/40 backdrop-blur-xl">
             <input
               type="text"
               placeholder="Type a message..."

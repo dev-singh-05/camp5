@@ -795,27 +795,27 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
+              className="text-base md:text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
             >
               Welcome to Campus5
             </motion.h1>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               {/* Token Balance */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowTokenBalance(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
               >
-                <Coins className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm font-semibold text-yellow-400">{tokenBalance}</span>
-                <span className="text-xs text-yellow-400/70">Tokens</span>
+                <Coins className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
+                <span className="text-xs md:text-sm font-semibold text-yellow-400">{tokenBalance}</span>
+                <span className="hidden md:inline text-xs text-yellow-400/70">Tokens</span>
               </motion.button>
 
               {/* Profile */}
@@ -823,7 +823,7 @@ export default function Dashboard() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => router.push("/profile")}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
               >
                 {profileName?.charAt(0) || "U"}
               </motion.button>
@@ -833,9 +833,9 @@ export default function Dashboard() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSidebarOpen(true)}
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-4 h-4 md:w-5 md:h-5" />
               </motion.button>
             </div>
           </div>
@@ -843,8 +843,9 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-3">
-        <div className="grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-3 pb-20 md:pb-3">
+        {/* Desktop Layout */}
+        <div className="hidden md:grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left Sidebar: Navigation Cards */}
           <div className="col-span-3 space-y-4">
             {/* Clubs */}
@@ -1225,7 +1226,307 @@ export default function Dashboard() {
             </motion.div>
           </div>
         </div>
+
+        {/* Mobile Layout */}
+        <div className="md:hidden space-y-4">
+          {/* Ads Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  📢 Ads
+                </h3>
+              </div>
+              <div>
+                <AdBanner placement="dashboard" />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Updates Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <button
+                onClick={() => setUpdatesExpanded(!updatesExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-white">Updates</h3>
+                    <span className="text-xs text-white/40">{news.length} items</span>
+                  </div>
+                </div>
+                <motion.div
+                  animate={{ rotate: updatesExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-white/60"
+                >
+                  {updatesExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
+                </motion.div>
+              </button>
+
+              <AnimatePresence>
+                {updatesExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-4 py-3"
+                  >
+                    {news.length > 0 && (
+                      <div className="flex items-center justify-end mb-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllNews();
+                          }}
+                          className="text-xs text-white/40 hover:text-white/60"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      {news.length === 0 ? (
+                        <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
+                      ) : (
+                        news.slice(0, 5).map((item, index) => (
+                          <motion.div
+                            key={item.id}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="group/item cursor-pointer"
+                          >
+                            <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-cyan-500/30 transition-all">
+                              <div className="flex items-start gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                  {getNewsIcon(item.type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <button
+                                      onClick={() => handleNewsClick(item)}
+                                      className="flex-1 text-left"
+                                    >
+                                      <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1">
+                                        {item.title}
+                                      </h4>
+                                      {item.body && (
+                                        <p className="text-xs text-white/60 line-clamp-2">{item.body}</p>
+                                      )}
+                                      <time className="text-xs text-white/40 mt-0.5 block">
+                                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </time>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeNewsItem(item.id);
+                                      }}
+                                      className="text-white/40 hover:text-white/80 flex-shrink-0"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
+          {/* News Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <button
+                onClick={() => setNewsExpanded(!newsExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Newspaper className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-white">News</h3>
+                    <span className="text-xs text-white/40">
+                      {campusNews.filter(n => !readNewsRef.current.has(n.id)).length} new
+                    </span>
+                  </div>
+                </div>
+                <motion.div
+                  animate={{ rotate: newsExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-white/60"
+                >
+                  {newsExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
+                </motion.div>
+              </button>
+
+              <AnimatePresence>
+                {newsExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-4 py-3"
+                  >
+                    <div className="flex items-center justify-end mb-3">
+                      <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300">
+                        View all
+                      </Link>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(() => {
+                        const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
+                        const pinnedNews = unreadNews.filter(n => n.pinned);
+                        const newNews = unreadNews.filter(n => !n.pinned);
+
+                        const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
+                        const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
+
+                        const displayNews = [currentPinned, currentNew].filter(Boolean) as CampusNewsArticle[];
+
+                        if (displayNews.length === 0) {
+                          return <p className="text-white/40 text-sm text-center py-6">No new news</p>;
+                        }
+
+                        return displayNews.map((article, slotIndex) => (
+                          <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
+                            <motion.div
+                              key={article.id}
+                              onClick={() => openNewsModal(article)}
+                              className="group/item cursor-pointer"
+                            >
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-purple-500/30 transition-all">
+                                <div className="flex items-start gap-2">
+                                  {article.image_url ? (
+                                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img
+                                        src={article.image_url}
+                                        alt={article.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl`}>
+                                      {getCategoryIcon(article.category)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
+                                        {article.category}
+                                      </span>
+                                      {article.pinned && (
+                                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                          📌
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-2">
+                                      {article.title}
+                                    </h4>
+                                    {article.excerpt && (
+                                      <p className="text-xs text-white/60 line-clamp-2">{article.excerpt}</p>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        👁️ {article.views}
+                                      </span>
+                                      <span>•</span>
+                                      <time>
+                                        {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </time>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>
       </main>
+
+      {/* Bottom Navigation (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-xl border-t border-white/10">
+        <div className="grid grid-cols-3 gap-1 px-4 py-3">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/clubs")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Clubs</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/ratings")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
+              <Star className="w-5 h-5 text-cyan-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Ratings</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/dating")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-pink-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Dating</span>
+          </motion.button>
+        </div>
+      </nav>
 
       {/* All Modals */}
       

@@ -3,7 +3,7 @@
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
@@ -78,7 +78,7 @@ function ChatCard({ match, index, router }: { match: Match; index: number; route
 
 /* --------------------------- Component ---------------------------------- */
 
-export default function DatingPage() {
+function DatingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1348,5 +1348,17 @@ export default function DatingPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function DatingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    }>
+      <DatingPageContent />
+    </Suspense>
   );
 }

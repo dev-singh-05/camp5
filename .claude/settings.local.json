@@ -13,7 +13,11 @@
       "Bash(dir \"C:\\Users\\devba\\campu5\\src\\app\\dating\" /s /b)",
       "Bash(npm run build:*)",
       "Bash(git add:*)",
-      "Bash(dir /s /b nul 2)"
+      "Bash(dir /s /b nul 2)",
+      "Bash(npm run dev)",
+      "Bash(dir /s /b *.png *.jpg *.jpeg *.svg 2)",
+      "mcp__ide__getDiagnostics",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

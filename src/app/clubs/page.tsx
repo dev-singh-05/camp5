@@ -350,7 +350,8 @@ export default function ClubsPage() {
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+          {/* Desktop Header */}
+          <div className="hidden md:flex items-center justify-between">
             <div className="flex items-center gap-4">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
@@ -385,6 +386,24 @@ export default function ClubsPage() {
               </Link>
             </div>
           </div>
+
+          {/* Mobile Header */}
+          <div className="md:hidden flex items-center justify-between">
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-xl font-bold text-white lowercase"
+            >
+              clubs
+            </motion.h1>
+
+            <Link
+              href="/clubs/leaderboard"
+              className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl font-medium text-white text-sm lowercase"
+            >
+              leaderboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -398,22 +417,22 @@ export default function ClubsPage() {
         >
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-              <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6">
+              <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-white/40" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search clubs..."
-                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all"
+                    placeholder="search clubs..."
+                    className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all text-sm md:text-base"
                   />
                 </div>
 
-                {/* Filter */}
-                <div className="relative">
+                {/* Filter - Desktop only */}
+                <div className="hidden md:block relative">
                   <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <select
                     value={filter}
@@ -429,10 +448,33 @@ export default function ClubsPage() {
                 </div>
               </div>
 
-              {/* Results Count */}
-              <div className="mt-4 flex items-center justify-between text-sm">
-                <span className="text-white/60">
-                  Showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
+              {/* Mobile: My Clubs, Count, Menu Icon Row */}
+              <div className="md:hidden flex items-center justify-between mt-3 text-sm">
+                <Link
+                  href="/clubs/my"
+                  className="text-indigo-400 font-medium lowercase hover:text-indigo-300 transition-colors"
+                >
+                  my clubs
+                </Link>
+
+                <span className="text-white/60 lowercase text-xs">
+                  showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
+                </span>
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowModal(true)}
+                  className="text-purple-400 font-medium lowercase hover:text-purple-300 transition-colors"
+                >
+                  create club
+                </motion.button>
+              </div>
+
+              {/* Desktop: Results Count */}
+              <div className="hidden md:flex mt-4 items-center justify-between text-sm">
+                <span className="text-white/60 lowercase">
+                  showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
                 </span>
                 {(search || filter !== "all") && (
                   <button
@@ -440,9 +482,9 @@ export default function ClubsPage() {
                       setSearch("");
                       setFilter("all");
                     }}
-                    className="text-purple-400 hover:text-purple-300 transition-colors"
+                    className="text-purple-400 hover:text-purple-300 transition-colors lowercase"
                   >
-                    Clear filters
+                    clear filters
                   </button>
                 )}
               </div>
@@ -514,12 +556,12 @@ export default function ClubsPage() {
         </motion.div>
       </main>
 
-      {/* Floating Create Button */}
+      {/* Floating Create Button - hidden on mobile */}
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowModal(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 flex items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
+        className="hidden md:flex fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
       >
         <Plus className="w-8 h-8 text-white" />
       </motion.button>
@@ -639,11 +681,20 @@ export default function ClubsPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10 max-h-[90vh] overflow-y-auto"
             >
-              <div className="p-8">
-                <div className="flex items-start gap-6 mb-6">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden">
+              <div className="p-6 md:p-8">
+                {/* Back Button - top left */}
+                <button
+                  onClick={() => setSelectedClub(null)}
+                  className="mb-4 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all text-sm lowercase"
+                >
+                  back
+                </button>
+
+                {/* Top section with avatar and info */}
+                <div className="flex items-start gap-4 md:gap-6 mb-6">
+                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl md:text-4xl flex-shrink-0 overflow-hidden border-2 border-white/10">
                     {selectedClub.logo_url ? (
                       <img
                         src={selectedClub.logo_url}
@@ -657,62 +708,56 @@ export default function ClubsPage() {
                       selectedClub.category === "General" ? "🌟" : "📁"
                     )}
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-white mb-2">{selectedClub.name}</h2>
+                  <div className="flex-1 min-w-0 pt-2">
+                    <h2 className="text-xl md:text-2xl font-bold text-white mb-2 break-words lowercase">{selectedClub.name}</h2>
                     {selectedClub.category && (
-                      <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-400 font-medium">
-                        {selectedClub.category}
-                      </span>
+                      <div className="text-base text-white/70 mb-1 lowercase">{selectedClub.category}</div>
                     )}
                     {selectedRank && (
-                      <div className="mt-2 text-sm text-white/60">
-                        Rank <span className="text-purple-400 font-semibold">#{selectedRank}</span>
+                      <div className="text-sm text-white/60 lowercase">
+                        rank <span className="text-purple-400 font-semibold">#{selectedRank}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-white/80 mb-2">Description</h3>
-                  <p className="text-white/60 leading-relaxed">
+                {/* Description section */}
+                <div className="mb-8">
+                  <h3 className="text-base md:text-lg font-semibold text-white mb-3 lowercase">description</h3>
+                  <p className="text-white/60 leading-relaxed text-sm md:text-base">
                     {selectedClub.description || "No description provided."}
                   </p>
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setSelectedClub(null)}
-                    className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
-                  >
-                    Close
-                  </button>
+                {/* Buttons section */}
+                <div className="flex gap-3 justify-center">
                   {joinedClubIds.includes(selectedClub.id) ? (
                     <button
                       onClick={() => router.push(`/clubs/${selectedClub.id}`)}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
+                      className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all lowercase"
                     >
-                      Enter Club
+                      enter club
                     </button>
                   ) : requestedClubIds.includes(selectedClub.id) ? (
-                    <div className="flex-1 px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center">
-                      Request Pending
+                    <div className="px-8 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center lowercase">
+                      request pending
                     </div>
                   ) : (
                     <>
+                      <button
+                        onClick={() => startJoin(selectedClub)}
+                        className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all lowercase"
+                      >
+                        join
+                      </button>
                       <button
                         onClick={() => {
                           setJoiningClub(selectedClub);
                           setShowRequestModal(true);
                         }}
-                        className="px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 rounded-xl font-medium text-yellow-400 transition-all"
+                        className="px-8 py-3 bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 rounded-xl font-medium text-yellow-400 transition-all lowercase"
                       >
-                        Request
-                      </button>
-                      <button
-                        onClick={() => startJoin(selectedClub)}
-                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                      >
-                        Join Now
+                        request
                       </button>
                     </>
                   )}
@@ -837,6 +882,7 @@ export default function ClubsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }
