@@ -66,7 +66,7 @@ export default function LeaderboardPage() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white py-10 px-6 relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white relative overflow-x-hidden">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -89,149 +89,166 @@ export default function LeaderboardPage() {
         />
       </div>
 
-      <div className="relative z-10">
-        {/* Top bar with Back button */}
+      <div className="relative z-10 pb-20">
+        {/* Top Bar - Mobile Optimized */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-3xl mx-auto mb-6"
+          className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-white/10 px-4 py-3"
         >
-          {/* Back button */}
-          <div className="mb-4">
-            <a
-              href="#"
-              role="button"
-              aria-label="Go back"
-              onClick={(e) => {
-                e.preventDefault();
-                router.back();
-              }}
-              className="btn btn-white btn-animated inline-block text-sm sm:text-base"
+          <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
+            {/* Back Button */}
+            <motion.button
+              onClick={() => router.back()}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl text-white font-medium hover:bg-white/20 transition-all shadow-lg"
             >
               ← Back
-            </a>
-          </div>
+            </motion.button>
 
-          {/* Title */}
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 bg-clip-text text-transparent flex items-center justify-center gap-2 sm:gap-3">
-              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-yellow-400" />
-              LEADERBOARD
+            {/* Title */}
+            <h1 className="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 bg-clip-text text-transparent flex items-center gap-2">
+              <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
+              Leaderboard
             </h1>
+
+            {/* Filter Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white font-medium rounded-xl hover:border-purple-500/50 shadow-lg transition-all"
+            >
+              <Filter className="w-4 h-4" />
+            </motion.button>
           </div>
         </motion.div>
 
-        {/* Search + Filter Row */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-3xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8"
-        >
-          <div className="flex-1 flex items-center bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 p-2 sm:p-3 hover:border-white/20 transition-all">
-            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white/60 mx-2" />
+        {/* Search Bar - Mobile Optimized */}
+        <div className="px-4 pt-4 max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center bg-white/5 backdrop-blur-xl p-3 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all shadow-lg mb-4"
+          >
+            <Search className="w-5 h-5 text-white/60 mr-2" />
             <input
               type="text"
               placeholder="Search profiles..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-white placeholder-white/40 text-sm"
+              className="flex-1 bg-transparent outline-none text-white placeholder-white/40 text-base"
             />
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white px-4 py-2 sm:py-3 rounded-xl text-sm font-medium hover:border-purple-500/50 transition-all flex items-center justify-center gap-2 sm:w-auto"
+          </motion.div>
+        </div>
+
+        {/* Leaderboard list - Mobile Optimized */}
+        <div className="px-4 max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-3"
           >
-            <Filter className="w-4 h-4" />
-            Filter
-          </motion.button>
-        </motion.div>
+            {filteredProfiles.length > 0 ? (
+              filteredProfiles.map((user, index) => {
+                // ✅ Use stored rank instead of filtered index
+                const rank = user.rank;
 
-        {/* Leaderboard list */}
-        <div className="max-w-3xl mx-auto space-y-4">
-          {filteredProfiles.length > 0 ? (
-            filteredProfiles.map((user, index) => {
-              // ✅ Use stored rank instead of filtered index
-              const rank = user.rank;
+                // 🎨 Different styles for Top 3
+                let bgColor = "bg-white/5 backdrop-blur-xl hover:bg-white/10";
+                let rankColor = "text-cyan-400";
+                let nameStyle = "font-semibold text-white text-base";
+                let borderStyle = "border border-white/10";
+                let ringColor = "ring-cyan-500/30";
 
-              // 🎨 Different styles for Top 3
-              let bgColor = "bg-white/5 backdrop-blur-xl hover:bg-white/10";
-              let rankColor = "text-cyan-400";
-              let nameStyle = "font-semibold text-white text-base";
-              let borderStyle = "border border-white/10";
-              let ringColor = "ring-cyan-500/30";
+                if (rank === 1) {
+                  bgColor = "bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl shadow-lg hover:shadow-yellow-500/50";
+                  rankColor = "text-yellow-400";
+                  nameStyle = "font-extrabold text-base sm:text-lg text-yellow-300";
+                  borderStyle = "border-yellow-500/30";
+                  ringColor = "ring-yellow-400";
+                } else if (rank === 2) {
+                  bgColor = "bg-gradient-to-r from-gray-400/20 to-gray-300/20 backdrop-blur-xl shadow-lg hover:shadow-gray-400/50";
+                  rankColor = "text-gray-300";
+                  nameStyle = "font-bold text-base sm:text-lg text-gray-200";
+                  borderStyle = "border-gray-400/30";
+                  ringColor = "ring-gray-400";
+                } else if (rank === 3) {
+                  bgColor = "bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-xl shadow-lg hover:shadow-orange-500/50";
+                  rankColor = "text-orange-400";
+                  nameStyle = "font-bold text-base sm:text-lg text-orange-300";
+                  borderStyle = "border-orange-500/30";
+                  ringColor = "ring-orange-400";
+                }
 
-              if (rank === 1) {
-                bgColor = "bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl shadow-lg hover:shadow-yellow-500/50";
-                rankColor = "text-yellow-400";
-                nameStyle = "font-extrabold text-lg text-yellow-300";
-                borderStyle = "border-yellow-500/30";
-                ringColor = "ring-yellow-400";
-              } else if (rank === 2) {
-                bgColor = "bg-gradient-to-r from-gray-400/20 to-gray-300/20 backdrop-blur-xl shadow-lg hover:shadow-gray-400/50";
-                rankColor = "text-gray-300";
-                nameStyle = "font-bold text-lg text-gray-200";
-                borderStyle = "border-gray-400/30";
-                ringColor = "ring-gray-400";
-              } else if (rank === 3) {
-                bgColor = "bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-xl shadow-lg hover:shadow-orange-500/50";
-                rankColor = "text-orange-400";
-                nameStyle = "font-bold text-lg text-orange-300";
-                borderStyle = "border-orange-500/30";
-                ringColor = "ring-orange-400";
-              }
-
-              return (
-                <motion.div
-                  key={user.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.02, x: 4 }}
-                  onClick={() => setSelectedUser(user)}
-                  className={`flex items-center justify-between ${bgColor} cursor-pointer p-3 sm:p-4 rounded-xl ${borderStyle} transition-all`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-1 min-w-0">
-                    {/* Rank number on the left - ✅ Now shows global rank */}
-                    <div className="w-8 sm:w-10 md:w-12 text-center flex-shrink-0">
-                      <p className={`text-lg sm:text-xl md:text-2xl font-extrabold ${rankColor}`}>
+                return (
+                  <motion.div
+                    key={user.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedUser(user)}
+                    className={`flex items-center ${bgColor} cursor-pointer p-4 rounded-2xl ${borderStyle} transition-all shadow-lg`}
+                  >
+                    {/* Rank number on the left */}
+                    <div className="w-12 text-center flex-shrink-0">
+                      <motion.p
+                        whileHover={{ scale: 1.2 }}
+                        className={`text-2xl font-extrabold ${rankColor}`}
+                      >
                         #{rank}
-                      </p>
+                      </motion.p>
                     </div>
 
                     {/* Profile photo + details */}
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <img
+                    <div className="flex items-center gap-3 flex-1 min-w-0 ml-2">
+                      <motion.img
+                        whileHover={{ scale: 1.1, rotate: 5 }}
                         src={getAvatar(user)}
                         alt={user.full_name}
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ${ringColor} flex-shrink-0`}
+                        className={`w-12 h-12 rounded-full object-cover ring-2 ${ringColor} flex-shrink-0 shadow-lg`}
                       />
                       <div className="min-w-0 flex-1">
                         <p className={`${nameStyle} truncate`}>{user.full_name}</p>
-                        <p className="text-[10px] sm:text-xs text-white/50 truncate">
-                          Total Ratings: {user.total_ratings || 0}
+                        <p className="text-xs text-white/50 truncate">
+                          {user.total_ratings || 0} ratings
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-right flex-shrink-0 ml-2">
-                    <p className="text-[10px] sm:text-xs text-white/40 italic truncate max-w-[80px] sm:max-w-none">
-                      {user.branch || "—"}
-                    </p>
-                    <p className="font-semibold text-cyan-400 text-sm sm:text-base md:text-lg whitespace-nowrap">
-                      {user.avg_overall_xp?.toFixed(1) || 0} XP
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })
-          ) : (
-            <p className="text-center text-white/40 text-sm">
-              No users found matching your search.
-            </p>
-          )}
+                    {/* Branch and XP on the right */}
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <p className="text-xs text-white/40 italic truncate max-w-[60px] sm:max-w-none">
+                        {user.branch || "—"}
+                      </p>
+                      <p className="font-bold text-cyan-400 text-base sm:text-lg whitespace-nowrap">
+                        {user.avg_overall_xp?.toFixed(1) || 0} XP
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })
+            ) : (
+              <p className="text-center text-white/40 text-sm py-8">
+                No users found matching your search.
+              </p>
+            )}
+          </motion.div>
         </div>
+
+        {/* Bottom Text */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent backdrop-blur-xl py-4 text-center border-t border-white/10 z-30"
+        >
+          <p className="text-white/50 text-sm font-medium tracking-wide">
+            Ratings Leaderboard
+          </p>
+        </motion.div>
       </div>
 
       {/* 🟢 Profile Modal */}
