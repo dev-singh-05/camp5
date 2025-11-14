@@ -645,16 +645,16 @@ export default function RatingsPage() {
               </motion.button>
             )}
 
-            {/* My Connections Button - Always visible */}
+            {/* My Connections Button - Always visible with text */}
             {!searchExpanded && (
               <motion.button
                 onClick={() => router.push("/ratings/connections")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-3 sm:px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all flex items-center gap-1"
+                className="px-3 sm:px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">My Connections</span>
+                <span className="text-sm sm:text-base">My Connections</span>
               </motion.button>
             )}
           </motion.div>
