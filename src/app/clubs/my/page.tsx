@@ -449,46 +449,49 @@ export default function MyClubs() {
         />
       </div>
 
-      {/* Header */}
+      {/* Header - Mobile First */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-4">
+          {/* Mobile: Title + Create Button */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <motion.button
-                whileHover={{ scale: 1.05, x: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => router.back()}
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
-              >
-                ←
-              </motion.button>
-
-              <motion.h1
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
-              >
-                My Clubs
-              </motion.h1>
-            </div>
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-lg md:text-2xl font-bold text-white md:bg-gradient-to-r md:from-white md:via-purple-200 md:to-cyan-200 md:bg-clip-text md:text-transparent"
+            >
+              My Clubs
+            </motion.h1>
 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl md:rounded-xl text-sm md:text-base font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Create Club
+              <span className="hidden sm:inline">Create Club</span>
+              <span className="sm:hidden">Create</span>
+            </motion.button>
+          </div>
+
+          {/* Desktop: Back Button + Title + Create Button */}
+          <div className="hidden md:flex items-center gap-4 mt-4">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+            >
+              ←
             </motion.button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -562,7 +565,7 @@ export default function MyClubs() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {joined.map((c, i) => (
                 <ClubCard
                   key={c.id}
@@ -602,7 +605,7 @@ export default function MyClubs() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {pending.map((c, i) => (
                 <ClubCard
                   key={c.id}
@@ -617,12 +620,12 @@ export default function MyClubs() {
         </motion.section>
       </main>
 
-      {/* Floating Create Button */}
+      {/* Floating Create Button - Hidden on mobile */}
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowModal(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 flex items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
+        className="hidden md:flex fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
       >
         <Plus className="w-8 h-8 text-white" />
       </motion.button>
