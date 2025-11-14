@@ -302,7 +302,7 @@ export default function ConnectionsPage() {
         </motion.div>
 
         {/* Connections List - Mobile Optimized */}
-        <div className="px-4 pt-4 max-w-7xl mx-auto">
+        <div className="px-4 pt-4 max-w-7xl mx-auto lg:hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
