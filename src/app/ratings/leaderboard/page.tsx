@@ -94,41 +94,41 @@ export default function LeaderboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-3xl mx-auto mb-6 flex items-center justify-between"
+          className="max-w-3xl mx-auto mb-6"
         >
-          <a
-            href="#"
-            role="button"
-            aria-label="Go back"
-            onClick={(e) => {
-              e.preventDefault();
-              router.back();
-            }}
-            className="btn btn-white btn-animated"
-          >
-            ← Back
-          </a>
+          {/* Back button */}
+          <div className="mb-4">
+            <a
+              href="#"
+              role="button"
+              aria-label="Go back"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
+              className="btn btn-white btn-animated inline-block text-sm sm:text-base"
+            >
+              ← Back
+            </a>
+          </div>
 
-          <div className="text-center flex-1">
-            {/* Title */}
-            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 bg-clip-text text-transparent flex items-center justify-center gap-3">
-              <Trophy className="w-10 h-10 text-yellow-400" />
+          {/* Title */}
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 bg-clip-text text-transparent flex items-center justify-center gap-2 sm:gap-3">
+              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-yellow-400" />
               LEADERBOARD
             </h1>
           </div>
-
-          {/* placeholder to keep title centered */}
-          <div className="w-12" />
         </motion.div>
 
         {/* Search + Filter Row */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-3xl mx-auto flex items-center gap-3 mb-8"
+          className="max-w-3xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8"
         >
-          <div className="flex-1 flex items-center bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 p-3 hover:border-white/20 transition-all">
-            <Search className="w-5 h-5 text-white/60 mx-2" />
+          <div className="flex-1 flex items-center bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 p-2 sm:p-3 hover:border-white/20 transition-all">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white/60 mx-2" />
             <input
               type="text"
               placeholder="Search profiles..."
@@ -140,7 +140,7 @@ export default function LeaderboardPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white px-4 py-3 rounded-xl text-sm font-medium hover:border-purple-500/50 transition-all flex items-center gap-2"
+            className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white px-4 py-2 sm:py-3 rounded-xl text-sm font-medium hover:border-purple-500/50 transition-all flex items-center justify-center gap-2 sm:w-auto"
           >
             <Filter className="w-4 h-4" />
             Filter
@@ -189,37 +189,37 @@ export default function LeaderboardPage() {
                   transition={{ delay: index * 0.05 }}
                   whileHover={{ scale: 1.02, x: 4 }}
                   onClick={() => setSelectedUser(user)}
-                  className={`flex items-center justify-between ${bgColor} cursor-pointer p-4 rounded-xl ${borderStyle} transition-all`}
+                  className={`flex items-center justify-between ${bgColor} cursor-pointer p-3 sm:p-4 rounded-xl ${borderStyle} transition-all`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-1 min-w-0">
                     {/* Rank number on the left - ✅ Now shows global rank */}
-                    <div className="w-12 text-center">
-                      <p className={`text-2xl font-extrabold ${rankColor}`}>
+                    <div className="w-8 sm:w-10 md:w-12 text-center flex-shrink-0">
+                      <p className={`text-lg sm:text-xl md:text-2xl font-extrabold ${rankColor}`}>
                         #{rank}
                       </p>
                     </div>
 
                     {/* Profile photo + details */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                       <img
                         src={getAvatar(user)}
                         alt={user.full_name}
-                        className={`w-12 h-12 rounded-full object-cover ring-2 ${ringColor}`}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ${ringColor} flex-shrink-0`}
                       />
-                      <div>
-                        <p className={nameStyle}>{user.full_name}</p>
-                        <p className="text-xs text-white/50">
+                      <div className="min-w-0 flex-1">
+                        <p className={`${nameStyle} truncate`}>{user.full_name}</p>
+                        <p className="text-[10px] sm:text-xs text-white/50 truncate">
                           Total Ratings: {user.total_ratings || 0}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-xs text-white/40 italic">
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <p className="text-[10px] sm:text-xs text-white/40 italic truncate max-w-[80px] sm:max-w-none">
                       {user.branch || "—"}
                     </p>
-                    <p className="font-semibold text-cyan-400 text-lg">
+                    <p className="font-semibold text-cyan-400 text-sm sm:text-base md:text-lg whitespace-nowrap">
                       {user.avg_overall_xp?.toFixed(1) || 0} XP
                     </p>
                   </div>
@@ -241,7 +241,7 @@ export default function LeaderboardPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-50"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-50 p-4"
             onClick={() => setSelectedUser(null)}
           >
             <motion.div
@@ -249,7 +249,7 @@ export default function LeaderboardPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-8 w-full max-w-2xl relative overflow-y-auto max-h-[85vh]"
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-2xl relative overflow-y-auto max-h-[85vh]"
             >
               <button
                 onClick={() => setSelectedUser(null)}
@@ -258,30 +258,37 @@ export default function LeaderboardPage() {
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-6 mb-6 border-b border-white/10 pb-4">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 border-b border-white/10 pb-4">
                 <img
                   src={getAvatar(selectedUser)}
                   alt={selectedUser.full_name}
-                  className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-500/30"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover ring-4 ring-purple-500/30"
                 />
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-white">
+                <div className="flex-1 text-center sm:text-left">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
                     {selectedUser.full_name}
                   </h2>
-                  <div className="flex justify-between items-center text-sm text-white/60">
-                    <p>
-                      <Trophy className="w-4 h-4 inline text-yellow-400" /> Global Rank:{" "}
-                      <span className="text-cyan-400 font-bold">
-                        #{selectedUser.rank}
+                  <div className="flex flex-col sm:flex-row sm:justify-between items-center text-xs sm:text-sm text-white/60 mt-2">
+                    <p className="flex flex-wrap items-center justify-center sm:justify-start gap-1">
+                      <span className="flex items-center gap-1">
+                        <Trophy className="w-3 h-3 sm:w-4 sm:h-4 inline text-yellow-400" />
+                        Global Rank:{" "}
+                        <span className="text-cyan-400 font-bold">
+                          #{selectedUser.rank}
+                        </span>
                       </span>
-                      {" "} • ⭐ XP:{" "}
-                      <span className="text-cyan-400 font-semibold">
-                        {selectedUser.avg_overall_xp?.toFixed(1) || 0}
-                      </span>{" "}
-                      • 💬 {selectedUser.total_ratings || 0} Ratings
+                      <span className="hidden sm:inline"> • </span>
+                      <span className="flex items-center gap-1">
+                        ⭐ XP:{" "}
+                        <span className="text-cyan-400 font-semibold">
+                          {selectedUser.avg_overall_xp?.toFixed(1) || 0}
+                        </span>
+                      </span>
+                      <span className="hidden sm:inline"> • </span>
+                      <span>💬 {selectedUser.total_ratings || 0} Ratings</span>
                     </p>
                   </div>
-                  <p className="text-sm italic text-white/40 mt-1">
+                  <p className="text-xs sm:text-sm italic text-white/40 mt-1">
                     {selectedUser.branch || "—"}
                   </p>
                 </div>

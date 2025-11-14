@@ -530,64 +530,70 @@ export default function RatingsPage() {
        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex gap-4 mb-6 items-center"
+          className="flex flex-col gap-3 mb-6"
         >
-          <motion.button
-            onClick={() => router.back()}
-            whileHover={{ scale: 1.05, x: -5 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative px-6 py-3 bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-xl text-white font-semibold overflow-hidden group hover:border-white/40 transition-all shadow-lg"
-          >
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '100%' }}
-              transition={{ duration: 0.5 }}
-            />
-            <span className="relative flex items-center gap-2">
-              <motion.span
-                animate={{ x: [0, -4, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-              >
-                ←
-              </motion.span>
-              Back
-            </span>
-          </motion.button>
+          {/* Top Row: Back button and Token Balance */}
+          <div className="flex gap-3 items-center">
+            <motion.button
+              onClick={() => router.back()}
+              whileHover={{ scale: 1.05, x: -5 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative px-4 sm:px-6 py-3 bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-xl text-white font-semibold overflow-hidden group hover:border-white/40 transition-all shadow-lg text-sm sm:text-base"
+            >
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20"
+                initial={{ x: '-100%' }}
+                whileHover={{ x: '100%' }}
+                transition={{ duration: 0.5 }}
+              />
+              <span className="relative flex items-center gap-2">
+                <motion.span
+                  animate={{ x: [0, -4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  ←
+                </motion.span>
+                Back
+              </span>
+            </motion.button>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push("/ratings/connections")}
-            className="flex-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white py-3 rounded-xl font-semibold hover:border-purple-500/50 shadow-lg transition-all"
-          >
-            <Users className="w-5 h-5 inline mr-2" />
-            My Connections
-          </motion.button>
+            {/* Token Balance Display */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowTokenPurchaseModal(true)}
+              className="flex items-center gap-2 px-3 sm:px-4 py-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 hover:border-yellow-500/50 rounded-xl transition-all ml-auto"
+            >
+              <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+              <div className="text-left">
+                <div className="text-[10px] sm:text-xs text-yellow-400/70">Tokens</div>
+                <div className="text-base sm:text-lg font-bold text-yellow-400">{tokenBalance}</div>
+              </div>
+            </motion.button>
+          </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push("/ratings/leaderboard")}
-            className="flex-1 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-xl border border-cyan-500/30 text-white py-3 rounded-xl font-semibold hover:border-cyan-500/50 shadow-lg transition-all"
-          >
-            <TrendingUp className="w-5 h-5 inline mr-2" />
-            LeaderBoard
-          </motion.button>
+          {/* Bottom Row: Navigation buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/ratings/connections")}
+              className="w-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white py-3 rounded-xl font-semibold hover:border-purple-500/50 shadow-lg transition-all text-sm sm:text-base"
+            >
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+              My Connections
+            </motion.button>
 
-          {/* Token Balance Display */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowTokenPurchaseModal(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-xl border border-yellow-500/30 hover:border-yellow-500/50 rounded-xl transition-all"
-          >
-            <Coins className="w-5 h-5 text-yellow-400" />
-            <div className="text-left">
-              <div className="text-xs text-yellow-400/70">Tokens</div>
-              <div className="text-lg font-bold text-yellow-400">{tokenBalance}</div>
-            </div>
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/ratings/leaderboard")}
+              className="w-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-xl border border-cyan-500/30 text-white py-3 rounded-xl font-semibold hover:border-cyan-500/50 shadow-lg transition-all text-sm sm:text-base"
+            >
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+              LeaderBoard
+            </motion.button>
+          </div>
         </motion.div>
 
         {/* Search */}
@@ -607,12 +613,12 @@ export default function RatingsPage() {
         </motion.div>
 
         {/* Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* LEFT - Profile List */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-3 h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+            className="space-y-3 h-[400px] sm:h-[500px] lg:h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
           >
             {filteredProfiles.map((profile, index) => (
               <motion.div
@@ -643,7 +649,7 @@ export default function RatingsPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[600px] flex flex-col relative overflow-hidden"
+            className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] flex flex-col relative overflow-hidden"
           >
             {selectedUser ? (
               !chatOpen ? (
@@ -680,12 +686,12 @@ export default function RatingsPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex gap-3">
+                      <div className="flex flex-col sm:flex-row gap-3">
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setIsProfileRatingModal(true)}
-                          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all"
+                          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all text-sm sm:text-base"
                         >
                           <Star className="w-4 h-4 inline mr-2" />
                           Add Rating
@@ -694,7 +700,7 @@ export default function RatingsPage() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => openChat(selectedUser)}
-                          className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all"
+                          className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all text-sm sm:text-base"
                         >
                           <MessageSquare className="w-4 h-4 inline mr-2" />
                           Message
@@ -856,7 +862,7 @@ export default function RatingsPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-md w-full"
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-2xl font-bold text-center mb-4 text-white">Unlock Stats</h2>
               <p className="text-center text-white/60 mb-6">
@@ -925,8 +931,8 @@ export default function RatingsPage() {
 
       {/* Profile Rating Modal */}
       {isProfileRatingModal && selectedUser && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
               Rate {selectedUser.full_name}
             </h2>
@@ -996,8 +1002,8 @@ export default function RatingsPage() {
 
       {/* Global Rating Modal */}
       {isGlobalRatingModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center text-gray-900 mb-4">
               Wanna Rate Someone?
             </h2>
