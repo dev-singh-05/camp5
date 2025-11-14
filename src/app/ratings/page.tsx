@@ -972,7 +972,7 @@ export default function RatingsPage() {
         </div>
       </div>
 
-      {/* Profile Overlay Modal - Screen 2 */}
+      {/* Profile Overlay Modal - Screen 2 - Mobile Only */}
       <AnimatePresence>
         {selectedUser && !chatOpen && (
           <motion.div
@@ -980,7 +980,7 @@ export default function RatingsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelectedUser(null)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 lg:hidden"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1174,7 +1174,7 @@ export default function RatingsPage() {
         )}
       </AnimatePresence>
 
-      {/* Chat Overlay Modal */}
+      {/* Chat Overlay Modal - Mobile Only */}
       <AnimatePresence>
         {selectedUser && chatOpen && (
           <motion.div
@@ -1182,7 +1182,7 @@ export default function RatingsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setChatOpen(false)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 lg:hidden"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
