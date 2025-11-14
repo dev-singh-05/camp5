@@ -9,7 +9,7 @@ import ProfileStats from "@/components/ProfileStats";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 import RatingsAdPopup from "@/components/RatingsAdPopup";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coins, Users, TrendingUp, MessageSquare, X, Star, Sparkles, Lock } from "lucide-react";
+import { Coins, Users, TrendingUp, MessageSquare, X, Star, Sparkles, Lock, Search } from "lucide-react";
 
 // Import the token purchase modal
 
@@ -65,6 +65,7 @@ export default function RatingsPage() {
   const [newMessage, setNewMessage] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [recentReviews, setRecentReviews] = useState<Rating[]>([]);
+  const [searchExpanded, setSearchExpanded] = useState(false);
 
   // Token system states
   const [tokenBalance, setTokenBalance] = useState(0);
@@ -578,37 +579,84 @@ export default function RatingsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-2 mb-4"
           >
-            {/* Search Bar */}
-            <div className="flex-1 flex items-center bg-white/5 backdrop-blur-xl p-3 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all shadow-lg">
-              <span className="mr-2 text-white/60">🔍</span>
-              <input
-                type="text"
-                placeholder="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-white placeholder-white/40 text-base"
-              />
-            </div>
+            {/* Search Bar - Expandable on mobile */}
+            <AnimatePresence>
+              {searchExpanded ? (
+                <motion.div
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: "100%", opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex-1 flex items-center bg-white/5 backdrop-blur-xl p-3 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all shadow-lg"
+                >
+                  <Search className="mr-2 w-4 h-4 text-white/60" />
+                  <input
+                    type="text"
+                    placeholder="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-white placeholder-white/40 text-base"
+                    autoFocus
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setSearchExpanded(false)}
+                    className="ml-2 text-white/60 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <>
+                  {/* Compact Search Button - Mobile only */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSearchExpanded(true)}
+                    className="sm:hidden flex items-center justify-center w-12 h-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl text-white hover:border-purple-500/30 shadow-lg transition-all"
+                  >
+                    <Search className="w-5 h-5" />
+                  </motion.button>
+
+                  {/* Full Search Bar - Desktop */}
+                  <div className="hidden sm:flex flex-1 items-center bg-white/5 backdrop-blur-xl p-3 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all shadow-lg">
+                    <Search className="mr-2 w-4 h-4 text-white/60" />
+                    <input
+                      type="text"
+                      placeholder="search"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="flex-1 bg-transparent outline-none text-white placeholder-white/40 text-base"
+                    />
+                  </div>
+                </>
+              )}
+            </AnimatePresence>
 
             {/* Filter Button - Hidden on mobile */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="hidden sm:flex px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all"
-            >
-              Filter
-            </motion.button>
+            {!searchExpanded && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="hidden sm:flex px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all"
+              >
+                Filter
+              </motion.button>
+            )}
 
             {/* My Connections Button - Always visible */}
-            <motion.button
-              onClick={() => router.push("/ratings/connections")}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-3 sm:px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all flex items-center gap-1"
-            >
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">My Connections</span>
-            </motion.button>
+            {!searchExpanded && (
+              <motion.button
+                onClick={() => router.push("/ratings/connections")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 sm:px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-xl border border-emerald-500/30 rounded-2xl text-white font-medium hover:border-emerald-500/50 shadow-lg transition-all flex items-center gap-1"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">My Connections</span>
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Token Balance - Mobile Optimized */}
