@@ -585,18 +585,18 @@ function CreateSurpriseQuestionModal({
 
 function IcebreakerCard({ question }: { question: string }) {
   return (
-    <div className="max-w-3xl mx-auto mb-6">
-      <div className="bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl shadow-lg p-6 text-white">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="max-w-3xl mx-auto mb-4 sm:mb-6">
+      <div className="bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-lg mb-2">Icebreaker Question 🎉</h3>
-            <p className="text-white/95 text-base leading-relaxed">{question}</p>
-            <p className="text-white/70 text-sm mt-3 italic">
+            <h3 className="font-bold text-base sm:text-lg mb-2">Icebreaker Question 🎉</h3>
+            <p className="text-white/95 text-sm sm:text-base leading-relaxed">{question}</p>
+            <p className="text-white/70 text-xs sm:text-sm mt-2 sm:mt-3 italic">
               Answer this question to start your conversation!
             </p>
           </div>
@@ -1430,8 +1430,8 @@ function handleAddTokens() {
     <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 to-purple-100 overflow-hidden">
       {/* Fixed Header Container */}
       <div className="flex-shrink-0 bg-white shadow-md">
-        {/* Header */}
-        <header className="px-4 py-3 bg-white/95 backdrop-blur-sm border-b flex items-center justify-between gap-4">
+        {/* Header - Desktop View */}
+        <header className="hidden md:flex px-4 py-3 bg-white/95 backdrop-blur-sm border-b items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
@@ -1511,6 +1511,108 @@ function handleAddTokens() {
           </div>
         </header>
 
+        {/* Header - Mobile View */}
+        <header className="md:hidden bg-white/95 backdrop-blur-sm border-b">
+          {/* Top Action Bar - Mobile */}
+          <div className="px-3 py-2 border-b border-gray-100">
+            <div className="flex items-center justify-between gap-2">
+              {/* Close Button */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.back()}
+                aria-label="Close chat"
+                className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all text-gray-700 text-xs font-medium flex items-center gap-1"
+                title="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Close
+              </motion.button>
+
+              {/* Token Balance */}
+              <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-100 to-yellow-100 px-2 py-1.5 rounded-full border border-amber-300">
+                <Coins className="w-3 h-3 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800">
+                  {loadingTokens ? "..." : tokenBalance}
+                </span>
+              </div>
+
+              {/* View Profile Button */}
+              <button
+                onClick={() => {
+                  if (!locked) setShowProfileModal(true);
+                }}
+                disabled={locked}
+                title={locked ? "Profile locked" : "View profile"}
+                className={`px-3 py-2 rounded-xl font-medium text-xs ${
+                  locked ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-pink-500 text-white hover:bg-pink-600"
+                }`}
+              >
+                {locked ? "🔒 Profile" : "View Profile"}
+              </button>
+
+              {/* Delete Chat Button */}
+              <button
+                onClick={handleDeleteChat}
+                className="px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 flex items-center gap-1"
+                title="Delete chat"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+
+          {/* Second Row - Reveal Identity & Surprise Question */}
+          <div className="px-3 py-2 flex items-center justify-center gap-2">
+            {/* Reveal Identity Button */}
+            {shouldShowRevealButton() && (
+              <button
+                onClick={handleReveal}
+                className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-medium hover:from-red-600 hover:to-pink-600 shadow-md flex items-center justify-center gap-1"
+                title="Reveal Identity"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Reveal Identity
+              </button>
+            )}
+
+            {/* Surprise Question Button */}
+            <button
+              onClick={() => setShowCreateSQModal(true)}
+              disabled={isChatLocked || loadingTokens}
+              className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-1 shadow-md"
+              title={isChatLocked ? "Answer the pending question first" : "Send a surprise question (1 token)"}
+            >
+              <span>🎁</span>
+              Surprise Question
+            </button>
+          </div>
+
+          {/* User Info Row */}
+          <div className="px-3 py-2 border-t border-gray-100 flex items-center gap-3">
+            <Avatar
+              src={showPhoto ? partnerProfile?.profile_photo : undefined}
+              name={partnerProfile?.full_name || undefined}
+              size={9}
+            />
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-gray-800">
+                {locked ? "Mystery Match" : partnerProfile?.full_name || "Mystery Match"}
+              </div>
+              <div className="text-xs text-gray-500">
+                {datingCategory ? `${datingCategory}` : "mystery chat"} • {revealStatus?.user1_reveal && revealStatus?.user2_reveal ? "Revealed" : "Hidden"}
+              </div>
+            </div>
+          </div>
+        </header>
+
         {/* Lock Banner */}
         {isChatLocked && (
           <div className="px-4 py-3 bg-yellow-100 border-b border-yellow-200 text-yellow-900 text-sm text-center font-semibold">
@@ -1542,7 +1644,7 @@ function handleAddTokens() {
       </div>
 
       {/* Messages - Flex-1 with overflow */}
-      <main ref={scrollableRef} className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-3" onScroll={() => checkIfNearBottom()} aria-live="polite">
+      <main ref={scrollableRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 space-y-3" onScroll={() => checkIfNearBottom()} aria-live="polite">
         <div className="max-w-3xl mx-auto">
           {/* Show icebreaker question at the top if no messages yet */}
           {showIcebreaker && <IcebreakerCard question={icebreakerQuestion.question} />}
@@ -1558,30 +1660,37 @@ function handleAddTokens() {
       </main>
 
       {/* Fixed Input Footer */}
-      <footer className="flex-shrink-0 bg-white border-t p-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <div className="flex-1">
-            <label htmlFor="chat-input" className="sr-only">Type your message</label>
-            <input
-              id="chat-input"
-              ref={inputRef}
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-              placeholder={isChatLocked ? "Answer the surprise question first..." : "Type your message..."}
-              disabled={isChatLocked}
-              className="w-full border rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
+      <footer className="flex-shrink-0 bg-white border-t">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex-1">
+              <label htmlFor="chat-input" className="sr-only">Type your message</label>
+              <input
+                id="chat-input"
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                placeholder={isChatLocked ? "Answer the surprise question first..." : "Type your message..."}
+                disabled={isChatLocked}
+                className="w-full border rounded-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-pink-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            <button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || isSending || isChatLocked}
+              className={`px-3 sm:px-4 py-2 rounded-full text-white font-medium text-sm sm:text-base ${!newMessage.trim() || isSending || isChatLocked ? "bg-gray-300" : "bg-pink-500 hover:bg-pink-600"}`}
+            >
+              {isSending ? "Sending..." : "Send"}
+            </button>
           </div>
 
-          <button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isSending || isChatLocked}
-            className={`px-4 py-2 rounded-full text-white font-medium ${!newMessage.trim() || isSending || isChatLocked ? "bg-gray-300" : "bg-pink-500 hover:bg-pink-600"}`}
-          >
-            {isSending ? "Sending..." : "Send"}
-          </button>
+          {/* Footer Label - Mobile */}
+          <div className="text-center mt-2 md:hidden">
+            <p className="text-gray-400 text-xs font-medium">Dating Chat</p>
+          </div>
         </div>
       </footer>
 

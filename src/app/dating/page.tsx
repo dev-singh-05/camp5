@@ -748,10 +748,42 @@ export default function DatingPage() {
         />
       </div>
 
-      {/* Header */}
+      {/* Header - Mobile Optimized */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex flex-col lg:flex-row items-center gap-4">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          {/* Mobile: 3-button row at top */}
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-0 sm:hidden">
+            {/* Back Button (Left) */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white text-sm font-medium"
+            >
+              ← Back
+            </motion.button>
+
+            {/* Requests Button (Center) */}
+            <Link
+              href="/dating/requests"
+              className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <Mail className="w-4 h-4" />
+              Requests
+            </Link>
+
+            {/* Profile Button (Right) */}
+            <Link
+              href="/dating/dating-profiles"
+              className="px-4 py-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center gap-2 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all font-medium text-sm"
+            >
+              <User className="w-4 h-4" />
+              Profile
+            </Link>
+          </div>
+
+          {/* Desktop Layout (hidden on mobile) */}
+          <div className="hidden sm:flex flex-col lg:flex-row items-center gap-4">
             {/* Left: Back Button */}
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
@@ -811,6 +843,37 @@ export default function DatingPage() {
               </Link>
             </div>
           </div>
+
+          {/* Profile Completion Bar (Mobile Only) */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="block sm:hidden"
+          >
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-xl blur-lg" />
+              <div className="relative bg-black/30 backdrop-blur-xl rounded-xl border border-white/10 p-3">
+                <div className="flex justify-between mb-2">
+                  <span className="text-xs font-medium text-white/80">Profile Completion</span>
+                  <span className="text-xs font-bold text-pink-400">{completion}%</span>
+                </div>
+                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/10">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${completion}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      completion < 50
+                        ? "bg-gradient-to-r from-red-500 to-orange-500"
+                        : completion < 80
+                        ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                        : "bg-gradient-to-r from-pink-500 to-rose-500"
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </header>
 
@@ -842,7 +905,7 @@ export default function DatingPage() {
       )}
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Category Selection - Always visible at top */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -865,12 +928,12 @@ export default function DatingPage() {
               <div className="absolute top-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl" />
               <div className="absolute bottom-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl" />
               
-              <div className="relative p-8">
-                <label htmlFor="category" className="block text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="relative p-4 sm:p-8">
+                <label htmlFor="category" className="block text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6 flex items-center gap-3">
                   <motion.div
                     animate={{ rotate: [0, 360] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
                   >
                     <Sparkles className="w-4 h-4 text-white" />
                   </motion.div>
@@ -892,14 +955,14 @@ export default function DatingPage() {
   id="category"
   value={selectedCategory}
   onChange={(e) => setSelectedCategory(e.target.value)}
-  className="w-full px-6 py-5 bg-slate-950/50 border-2 border-red-500/50 rounded-2xl focus:ring-4 focus:ring-red-500/40 focus:border-red-500 text-white text-lg font-semibold appearance-none cursor-pointer transition-all hover:border-red-500/70 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-red-500/30 shadow-lg relative z-10 [&>option]:bg-slate-900 [&>option]:text-white [&>option]:py-3"
+  className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-950/50 border-2 border-red-500/50 rounded-2xl focus:ring-4 focus:ring-red-500/40 focus:border-red-500 text-white text-base sm:text-lg font-semibold appearance-none cursor-pointer transition-all hover:border-red-500/70 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-red-500/30 shadow-lg relative z-10 [&>option]:bg-slate-900 [&>option]:text-white [&>option]:py-3"
   style={{
     colorScheme: 'dark',
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
     backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 1.5rem center',
-    backgroundSize: '1.75rem',
-    paddingRight: '4rem',
+    backgroundPosition: 'right 1rem center',
+    backgroundSize: '1.5rem',
+    paddingRight: '3rem',
     backgroundColor: 'transparent',
   }}
 >
@@ -1001,16 +1064,16 @@ export default function DatingPage() {
                 } rounded-2xl blur-lg`}
               />
               <div
-                className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                   matchingDisabled
                     ? "bg-black/20 border-white/5"
                     : "bg-black/40 border-white/10 hover:border-green-500/50"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-xl sm:text-2xl ${
                         matchingDisabled
                           ? "bg-gray-500/20 border border-gray-500/30"
                           : "bg-gradient-to-br from-green-500 to-emerald-500"
@@ -1019,15 +1082,15 @@ export default function DatingPage() {
                       🎲
                     </div>
                     <div className="text-left">
-                      <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                      <h3 className={`text-lg sm:text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
                         {creating ? "Finding..." : "Random Match"}
                       </h3>
-                      <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                      <p className={`text-xs sm:text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
                         Discover someone new
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                  <ChevronRight className={`w-5 h-5 sm:w-6 sm:h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all flex-shrink-0`} />
                 </div>
               </div>
             </motion.button>
@@ -1058,16 +1121,16 @@ export default function DatingPage() {
                   } rounded-2xl blur-lg`}
                 />
                 <div
-                  className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                  className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                     matchingDisabled
                       ? "bg-black/20 border-white/5"
                       : "bg-black/40 border-white/10 hover:border-cyan-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                        className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-xl sm:text-2xl ${
                           matchingDisabled
                             ? "bg-gray-500/20 border border-gray-500/30"
                             : "bg-gradient-to-br from-cyan-500 to-blue-500"
@@ -1076,15 +1139,15 @@ export default function DatingPage() {
                         💡
                       </div>
                       <div className="text-left">
-                        <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                        <h3 className={`text-lg sm:text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
                           {creating ? "Finding..." : "Interests Match"}
                         </h3>
-                        <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                        <p className={`text-xs sm:text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
                           Based on shared interests
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                    <ChevronRight className={`w-5 h-5 sm:w-6 sm:h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all flex-shrink-0`} />
                   </div>
                 </div>
               </motion.button>
@@ -1219,12 +1282,22 @@ export default function DatingPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative group"
+          className="relative group mb-6"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
           <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
             <AdBanner placement="dating_page" />
           </div>
+        </motion.div>
+
+        {/* Footer Label */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center py-4"
+        >
+          <p className="text-white/60 text-sm font-medium">Datings Dashboard</p>
         </motion.div>
       </main>
 
