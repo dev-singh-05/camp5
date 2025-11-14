@@ -932,15 +932,15 @@ export default function RatingsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelectedUser(null)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
           >
             <motion.div
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gradient-to-b from-slate-900 to-slate-950 border border-white/20 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-lg max-h-[75vh] overflow-y-auto relative"
+              className="bg-gradient-to-b from-slate-900 to-slate-950 border border-white/20 rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto relative"
             >
               {/* Close Button */}
               <motion.button
@@ -1120,6 +1120,102 @@ export default function RatingsPage() {
                     </motion.button>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chat Overlay Modal */}
+      <AnimatePresence>
+        {selectedUser && chatOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setChatOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gradient-to-b from-slate-900 to-slate-950 border border-white/20 rounded-3xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col relative"
+            >
+              {/* Close Button */}
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setChatOpen(false)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all border border-white/10"
+              >
+                <X className="w-5 h-5" />
+              </motion.button>
+
+              {/* Chat Header */}
+              <div className="flex items-center gap-3 p-6 border-b border-white/10">
+                <img
+                  src={getAvatar(selectedUser)}
+                  alt={selectedUser.full_name}
+                  className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
+                />
+                <div>
+                  <h2 className="font-semibold text-white text-lg">{selectedUser.full_name}</h2>
+                  <p className="text-white/60 text-sm">Online</p>
+                </div>
+              </div>
+
+              {/* Messages Container */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-3 scrollbar-thin scrollbar-thumb-white/10">
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${msg.from_user_id === currentUserId ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`p-3 rounded-2xl text-sm max-w-[75%] ${
+                        msg.from_user_id === currentUserId
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                          : "bg-white/10 backdrop-blur-xl text-white border border-white/10"
+                      }`}
+                    >
+                      <p className="break-words">{msg.content}</p>
+                      <span className="text-[10px] opacity-70 block mt-1 text-right">
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </motion.div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Area */}
+              <div className="p-4 border-t border-white/10">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                    className="flex-1 border border-white/10 bg-white/5 rounded-full px-4 py-3 text-sm text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50 transition-all"
+                    placeholder="Type a message..."
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSendMessage}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-full shadow-lg hover:shadow-purple-500/50 transition-all font-medium"
+                  >
+                    Send
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

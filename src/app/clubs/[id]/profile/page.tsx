@@ -494,50 +494,64 @@ export default function ClubProfilePage() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-8">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 md:mb-8">
           <motion.button
             whileHover={{ scale: 1.05, x: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => router.back()}
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
           </motion.button>
 
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
+          <h1 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
             Club Profile
           </h1>
 
           {isAdmin && isEditing && (
             <div className="flex gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditName(club.name);
-                  setEditDescription(club.description || "");
-                  setEditCategory(club.category || "");
-                  setEditPasscode("");
-                  setLogoFile(null);
-                  setLogoPreview(null);
-                }}
-                className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all flex items-center gap-2"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSave}
-                className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                Save
-              </motion.button>
+              {!isEditing ? (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all flex items-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </motion.button>
+              ) : (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditName(club.name);
+                      setEditDescription(club.description || "");
+                      setEditCategory(club.category || "");
+                      setEditPasscode("");
+                      setLogoFile(null);
+                      setLogoPreview(null);
+                    }}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSave}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save
+                  </motion.button>
+                </>
+              )}
             </div>
           )}
 
@@ -548,15 +562,15 @@ export default function ClubProfilePage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative group mb-8"
+          className="relative group mb-6 md:mb-8"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl" />
-          <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-8">
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl md:rounded-3xl border border-white/10 p-4 md:p-8">
             <div className="flex flex-col md:flex-row gap-8">
               {/* Logo */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 mx-auto md:mx-0">
                 <div className="relative">
-                  <div className="w-40 h-40 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
+                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl md:rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
                     {logoPreview || club.logo_url ? (
                       <img
                         src={logoPreview || club.logo_url!}
@@ -643,30 +657,30 @@ export default function ClubProfilePage() {
                     </p>
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-3 md:gap-4">
                       <div className="relative group/stat">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
-                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
-                          <Calendar className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-                          <p className="text-3xl font-bold text-blue-400">{totalEvents}</p>
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-3 md:p-4 border border-white/10 text-center">
+                          <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-400 mx-auto mb-1 md:mb-2" />
+                          <p className="text-xl md:text-3xl font-bold text-blue-400">{totalEvents}</p>
                           <p className="text-xs text-white/60">Events</p>
                         </div>
                       </div>
 
                       <div className="relative group/stat">
                         <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
-                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
-                          <Zap className="w-6 h-6 text-green-400 mx-auto mb-2" />
-                          <p className="text-3xl font-bold text-green-400">{totalXP}</p>
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-3 md:p-4 border border-white/10 text-center">
+                          <Zap className="w-5 h-5 md:w-6 md:h-6 text-green-400 mx-auto mb-1 md:mb-2" />
+                          <p className="text-xl md:text-3xl font-bold text-green-400">{totalXP}</p>
                           <p className="text-xs text-white/60">Total XP</p>
                         </div>
                       </div>
 
                       <div className="relative group/stat">
                         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl blur-lg opacity-0 group-hover/stat:opacity-100 transition-opacity" />
-                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 text-center">
-                          <Trophy className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                          <p className="text-3xl font-bold text-yellow-400">#{clubRank || "N/A"}</p>
+                        <div className="relative bg-white/5 backdrop-blur-sm rounded-xl p-3 md:p-4 border border-white/10 text-center">
+                          <Trophy className="w-5 h-5 md:w-6 md:h-6 text-yellow-400 mx-auto mb-1 md:mb-2" />
+                          <p className="text-xl md:text-3xl font-bold text-yellow-400">#{clubRank || "N/A"}</p>
                           <p className="text-xs text-white/60">Rank</p>
                         </div>
                       </div>

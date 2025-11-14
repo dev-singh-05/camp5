@@ -7,7 +7,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import AdBanner from "@/components/ads";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, Filter, Plus, X, Star, Lock, ChevronRight } from "lucide-react";
+import { Users, Search, Filter, Plus, X, Star, Lock, ChevronRight, MoreVertical } from "lucide-react";
 
 type Club = {
   id: string;
@@ -166,6 +166,9 @@ export default function ClubsPage() {
 
   // Request modal state
   const [showRequestModal, setShowRequestModal] = useState(false);
+
+  // Star menu state (mobile)
+  const [showStarMenu, setShowStarMenu] = useState(false);
 
   // Fetch clubs
   const fetchClubs = async () => {
@@ -347,11 +350,10 @@ export default function ClubsPage() {
         />
       </div>
 
-      {/* Header */}
+      {/* Header - Mobile First */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
-          {/* Desktop Header */}
-          <div className="hidden md:flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
@@ -408,17 +410,17 @@ export default function ClubsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
-        {/* Search & Filter Bar */}
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-8">
+        {/* Search & Filter Bar - Mobile First */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 md:mb-8"
         >
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6">
-              <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+              <div className="flex flex-col md:flex-row gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-white/40" />
@@ -448,33 +450,10 @@ export default function ClubsPage() {
                 </div>
               </div>
 
-              {/* Mobile: My Clubs, Count, Menu Icon Row */}
-              <div className="md:hidden flex items-center justify-between mt-3 text-sm">
-                <Link
-                  href="/clubs/my"
-                  className="text-indigo-400 font-medium lowercase hover:text-indigo-300 transition-colors"
-                >
-                  my clubs
-                </Link>
-
-                <span className="text-white/60 lowercase text-xs">
-                  showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
-                </span>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowModal(true)}
-                  className="text-purple-400 font-medium lowercase hover:text-purple-300 transition-colors"
-                >
-                  create club
-                </motion.button>
-              </div>
-
-              {/* Desktop: Results Count */}
-              <div className="hidden md:flex mt-4 items-center justify-between text-sm">
-                <span className="text-white/60 lowercase">
-                  showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
+              {/* Results Count */}
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-white/60">
+                  Showing <span className="text-purple-400 font-semibold">{filteredClubs.length}</span> clubs
                 </span>
                 {(search || filter !== "all") && (
                   <button
@@ -556,7 +535,7 @@ export default function ClubsPage() {
         </motion.div>
       </main>
 
-      {/* Floating Create Button - hidden on mobile */}
+      {/* Floating Create Button */}
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -666,35 +645,27 @@ export default function ClubsPage() {
         )}
       </AnimatePresence>
 
-      {/* Club Details Modal */}
+      {/* Club Details Modal - Toaster Style (60-75% height, centered) */}
       <AnimatePresence>
         {selectedClub && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 md:p-6"
             onClick={() => setSelectedClub(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10 max-h-[90vh] overflow-y-auto"
+              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
             >
-              <div className="p-6 md:p-8">
-                {/* Back Button - top left */}
-                <button
-                  onClick={() => setSelectedClub(null)}
-                  className="mb-4 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all text-sm lowercase"
-                >
-                  back
-                </button>
-
-                {/* Top section with avatar and info */}
-                <div className="flex items-start gap-4 md:gap-6 mb-6">
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl md:text-4xl flex-shrink-0 overflow-hidden border-2 border-white/10">
+              <div className="p-8">
+                <div className="flex items-start gap-6 mb-6">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden">
                     {selectedClub.logo_url ? (
                       <img
                         src={selectedClub.logo_url}
@@ -708,39 +679,45 @@ export default function ClubsPage() {
                       selectedClub.category === "General" ? "🌟" : "📁"
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 pt-2">
-                    <h2 className="text-xl md:text-2xl font-bold text-white mb-2 break-words lowercase">{selectedClub.name}</h2>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-white mb-2">{selectedClub.name}</h2>
                     {selectedClub.category && (
-                      <div className="text-base text-white/70 mb-1 lowercase">{selectedClub.category}</div>
+                      <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-400 font-medium">
+                        {selectedClub.category}
+                      </span>
                     )}
                     {selectedRank && (
-                      <div className="text-sm text-white/60 lowercase">
-                        rank <span className="text-purple-400 font-semibold">#{selectedRank}</span>
+                      <div className="mt-2 text-sm text-white/60">
+                        Rank <span className="text-purple-400 font-semibold">#{selectedRank}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Description section */}
-                <div className="mb-8">
-                  <h3 className="text-base md:text-lg font-semibold text-white mb-3 lowercase">description</h3>
-                  <p className="text-white/60 leading-relaxed text-sm md:text-base">
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-white/80 mb-2">Description</h3>
+                  <p className="text-white/60 leading-relaxed">
                     {selectedClub.description || "No description provided."}
                   </p>
                 </div>
 
-                {/* Buttons section */}
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedClub(null)}
+                    className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all"
+                  >
+                    Close
+                  </button>
                   {joinedClubIds.includes(selectedClub.id) ? (
                     <button
                       onClick={() => router.push(`/clubs/${selectedClub.id}`)}
-                      className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all lowercase"
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
                     >
                       enter club
                     </button>
                   ) : requestedClubIds.includes(selectedClub.id) ? (
-                    <div className="px-8 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center lowercase">
-                      request pending
+                    <div className="flex-1 px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl font-semibold text-yellow-400 text-center">
+                      Request Pending
                     </div>
                   ) : (
                     <>
@@ -754,10 +731,17 @@ export default function ClubsPage() {
                         onClick={() => {
                           setJoiningClub(selectedClub);
                           setShowRequestModal(true);
+                          setSelectedClub(null);
                         }}
-                        className="px-8 py-3 bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 rounded-xl font-medium text-yellow-400 transition-all lowercase"
+                        className="px-6 py-3 bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 rounded-xl font-medium text-yellow-400 transition-all"
                       >
-                        request
+                        Request
+                      </button>
+                      <button
+                        onClick={() => startJoin(selectedClub)}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                      >
+                        Join Now
                       </button>
                     </>
                   )}
