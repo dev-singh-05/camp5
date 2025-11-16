@@ -8,19 +8,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdBanner from "@/components/ads";
 import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
-import { 
-  Users, 
-  Heart, 
-  Star, 
-  Bell, 
-  Menu, 
-  X, 
+import {
+  Users,
+  Heart,
+  Star,
+  Bell,
+  Menu,
+  X,
   TrendingUp,
   Newspaper,
   Calendar,
   MessageSquare,
   Award,
-  Sparkles,
   ChevronDown,
   ExternalLink,
   Coins,
@@ -562,7 +561,7 @@ export default function Dashboard() {
         }
       );
 
-      await channel.subscribe();
+      channel.subscribe();
       realtimeChannelRef.current = channel;
     } catch (err) {
       console.error("Failed to start realtime:", err);
