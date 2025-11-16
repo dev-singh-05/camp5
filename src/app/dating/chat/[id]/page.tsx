@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+// PERFORMANCE: Import useCallback and useMemo for memoization
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import {
@@ -19,6 +20,8 @@ import {
 } from "@/utils/surpriseQuestion";
 import { MapPin, Briefcase, GraduationCap, Heart, Ruler, Wine, Cigarette, Baby, BookOpen, Sparkles, Coins, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+// PERFORMANCE: Import useIsMobile hook to disable animations on mobile
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 
@@ -615,6 +618,9 @@ export default function ChatPage() {
   const router = useRouter();
   const matchId = (params?.id as string) || "";
 
+  // PERFORMANCE: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [surpriseQuestions, setSurpriseQuestions] = useState<SurpriseQuestion[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -864,8 +870,13 @@ export default function ChatPage() {
   useEffect(() => {
     if (!matchId) return;
 
-    const msgChannel = supabase
-      .channel("dating_chat_" + matchId)
+    // PERFORMANCE: Combine 3 separate channels into 1 to reduce websocket overhead
+    // WHY: Each channel = separate websocket connection. Mobile networks struggle with multiple ws.
+    // BEFORE: msgChannel + revealChannel + sqChannel = 3 websockets
+    // AFTER: Combined chatChannel = 1 websocket
+    const chatChannel = supabase
+      .channel("dating_chat_data_" + matchId)
+      // Messages
       .on(
         "postgres_changes",
         {
@@ -900,10 +911,7 @@ export default function ChatPage() {
           if (isNearBottom) setTimeout(() => scrollToBottom(true), 80);
         }
       )
-      .subscribe();
-
-    const revealChannel = supabase
-      .channel("dating_reveals_" + matchId)
+      // Reveals (both UPDATE and INSERT)
       .on(
         "postgres_changes",
         {
@@ -928,10 +936,7 @@ export default function ChatPage() {
           setRevealStatus(payload.new as RevealStatus);
         }
       )
-      .subscribe();
-
-    const sqChannel = supabase
-      .channel("surprise_questions_" + matchId)
+      // Surprise Questions (both INSERT and UPDATE)
       .on(
         "postgres_changes",
         {
@@ -968,11 +973,9 @@ export default function ChatPage() {
 
     return () => {
       try {
-        supabase.removeChannel(msgChannel);
-        supabase.removeChannel(revealChannel);
-        supabase.removeChannel(sqChannel);
+        supabase.removeChannel(chatChannel);
       } catch (err) {
-        console.warn("Error removing supabase channels:", err);
+        console.warn("Error removing supabase channel:", err);
       }
     };
   }, [matchId, isNearBottom]);
@@ -1265,44 +1268,42 @@ function handleAddTokens() {
      Photo & Profile visibility
      --------------------------- */
 
-  const getPhotoVisibility = () => {
+  // PERFORMANCE: Memoize expensive visibility calculations
+  // WHY: These run on every render and involve multiple condition checks
+  const showPhoto = useMemo(() => {
     const category = datingCategory?.toLowerCase() || "";
     const bothRevealed = revealStatus?.user1_reveal && revealStatus?.user2_reveal;
 
     if (category === "casual" || category === "friends") {
-      return { showPhoto: true };
+      return true;
     }
 
     if (category === "serious" || category === "fun" || category === "mystery") {
-      return { showPhoto: bothRevealed };
+      return bothRevealed;
     }
 
-    return { showPhoto: bothRevealed };
-  };
+    return bothRevealed;
+  }, [datingCategory, revealStatus?.user1_reveal, revealStatus?.user2_reveal]);
 
-  const { showPhoto } = getPhotoVisibility();
-
-  const shouldShowRevealButton = () => {
+  const shouldShowRevealButton = useMemo(() => {
     const category = datingCategory?.toLowerCase() || "";
     return category !== "casual" && category !== "friends";
-  };
+  }, [datingCategory]);
 
-  const getProfileLockStatus = () => {
+  const locked = useMemo(() => {
     const category = datingCategory?.toLowerCase() || "";
 
     if (category === "casual" || category === "friends") {
-      return { locked: false };
+      return false;
     }
 
     if (category === "serious" || category === "fun" || category === "mystery") {
       const bothRevealed = revealStatus?.user1_reveal && revealStatus?.user2_reveal;
-      return { locked: !bothRevealed };
+      return !bothRevealed;
     }
 
-    return { locked: true };
-  };
-
-  const { locked } = getProfileLockStatus();
+    return true;
+  }, [datingCategory, revealStatus?.user1_reveal, revealStatus?.user2_reveal]);
 
   /* ---------------------------
      Render messages with surprise questions

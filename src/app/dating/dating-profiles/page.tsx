@@ -5,6 +5,8 @@ import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+// PERFORMANCE: Import useIsMobile to disable animations on mobile
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Pencil,
   MapPin,
@@ -55,6 +57,8 @@ type Profile = {
 
 export default function DatingProfileDashboard() {
   const router = useRouter();
+  // PERFORMANCE: Detect mobile to disable expensive animations
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -330,25 +334,35 @@ export default function DatingProfileDashboard() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
+      {/* PERFORMANCE: Disable infinite animations on mobile */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-        />
+        {!isMobile ? (
+          <>
+            <motion.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </>
+        ) : (
+          <>
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+          </>
+        )}
       </div>
 
       {/* Header */}

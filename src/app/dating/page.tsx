@@ -3,13 +3,16 @@
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef, Suspense } from "react";
+// PERFORMANCE: Import useCallback and useMemo for memoization to prevent unnecessary re-renders
+import { useEffect, useState, useRef, Suspense, useCallback, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
 import AdBanner from "@/components/ads";
 import VerificationOverlay from "@/components/VerificationOverlay";
 import { motion, AnimatePresence } from "framer-motion";
+// PERFORMANCE: Import useIsMobile hook to disable expensive animations on mobile
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ----------------------------- Types ------------------------------------ */
 
@@ -82,6 +85,9 @@ function DatingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // PERFORMANCE: Detect mobile to disable expensive animations
+  const isMobile = useIsMobile();
+
   /* -------------------------- Local state -------------------------------- */
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,7 +124,9 @@ function DatingPageContent() {
 
   /* ------------------------- Fetch helpers ------------------------------- */
 
-  async function fetchMatches() {
+  // PERFORMANCE: Wrap in useCallback to prevent unnecessary re-creation on every render
+  // WHY: These functions are passed to useEffect dependencies and used in real-time handlers
+  const fetchMatches = useCallback(async () => {
     try {
       const data = await getMyMatches();
       setMatches(data || []);
@@ -127,12 +135,13 @@ function DatingPageContent() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   /**
    * Check verification status for current user.
+   * PERFORMANCE: Memoized to prevent re-creation
    */
-  async function checkVerificationStatus() {
+  const checkVerificationStatus = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -165,11 +174,12 @@ function DatingPageContent() {
     } catch (err) {
       console.error("Error checking verification:", err);
     }
-  }
+  }, []);
 
   /* ------------------------ Profile utilities ---------------------------- */
 
-  async function fetchProfileCompletion() {
+  // PERFORMANCE: Memoize to prevent unnecessary re-creation
+  const fetchProfileCompletion = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -217,9 +227,10 @@ function DatingPageContent() {
       console.error("Error fetching profile completion:", err);
       setCompletion(0);
     }
-  }
+  }, []);
 
-  async function fetchUserGender() {
+  // PERFORMANCE: Memoize to prevent unnecessary re-creation
+  const fetchUserGender = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -236,7 +247,7 @@ function DatingPageContent() {
     } catch (err) {
       console.error("Error fetching user gender:", err);
     }
-  }
+  }, []);
 
   /* ------------------------ Matching flow -------------------------------- */
 
@@ -478,21 +489,43 @@ function DatingPageContent() {
   /* ----------------------- Derived UI state ----------------------------- */
 
   const profilePlaceholder = "/images/avatar-placeholder.png";
-  const matchingDisabled =
-    creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved";
 
-  const shouldHidePhoto =
-    selectedCategory === "serious" || selectedCategory === "fun";
-  const shouldHideName =
-    selectedCategory === "serious" ||
-    selectedCategory === "fun" ||
-    (selectedCategory === "mystery" &&
-      candidate?.gender?.toLowerCase() === "female");
+  // PERFORMANCE: Memoize expensive boolean calculations to prevent re-computation on every render
+  // WHY: These are computed from multiple state variables and used in render
+  const matchingDisabled = useMemo(
+    () => creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved",
+    [creating, completion, verificationStatus.status]
+  );
+
+  const shouldHidePhoto = useMemo(
+    () => selectedCategory === "serious" || selectedCategory === "fun",
+    [selectedCategory]
+  );
+
+  const shouldHideName = useMemo(
+    () =>
+      selectedCategory === "serious" ||
+      selectedCategory === "fun" ||
+      (selectedCategory === "mystery" && candidate?.gender?.toLowerCase() === "female"),
+    [selectedCategory, candidate?.gender]
+  );
 
   /* --------------------- Realtime subscriptions ------------------------- */
 
   useEffect(() => {
     let mounted = true;
+    // PERFORMANCE: Debounce expensive re-fetch operations
+    // WHY: Real-time updates can fire rapidly, causing excessive API calls
+    let fetchDebounceTimer: NodeJS.Timeout | null = null;
+
+    const debouncedFetch = () => {
+      if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+      fetchDebounceTimer = setTimeout(() => {
+        if (!mounted) return;
+        fetchProfileCompletion();
+        fetchMatches();
+      }, 500); // 500ms debounce - batch rapid updates together
+    };
 
     async function setupSubscription() {
       try {
@@ -549,8 +582,8 @@ function DatingPageContent() {
                 setShowVerificationOverlay(true);
               }
 
-              fetchProfileCompletion();
-              fetchMatches();
+              // PERFORMANCE: Use debounced fetch instead of calling directly
+              debouncedFetch();
             }
           )
           .subscribe();
@@ -570,7 +603,12 @@ function DatingPageContent() {
             },
             () => {
               if (!mounted) return;
-              checkVerificationStatus();
+              // PERFORMANCE: Debounce this too
+              if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+              fetchDebounceTimer = setTimeout(() => {
+                if (!mounted) return;
+                checkVerificationStatus();
+              }, 300);
             }
           )
           .subscribe();
@@ -585,6 +623,7 @@ function DatingPageContent() {
 
     return () => {
       mounted = false;
+      if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
       if (verificationChannelRef.current) {
         try {
           supabase.removeChannel(verificationChannelRef.current);
@@ -600,7 +639,7 @@ function DatingPageContent() {
         }
       }
     };
-  }, []);
+  }, [fetchProfileCompletion, fetchMatches, checkVerificationStatus]);
 
   /* ------------------------ Initial load -------------------------------- */
 
@@ -727,25 +766,38 @@ function DatingPageContent() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
+      {/* PERFORMANCE: Disable infinite animations on mobile to save battery and improve FPS */}
+      {/* WHY: These animations run at 60fps constantly, draining mobile battery and causing lag */}
+      {/* Desktop gets smooth animations, mobile gets static gradients (user won't notice) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-        />
+        {!isMobile ? (
+          <>
+            <motion.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </>
+        ) : (
+          <>
+            {/* Static gradients for mobile - no animation overhead */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+          </>
+        )}
       </div>
 
       {/* Header - Mobile Optimized */}
@@ -913,14 +965,19 @@ function DatingPageContent() {
           className="mb-8"
         >
           <div className="relative group">
-            <motion.div 
-              className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
-              animate={{
-                opacity: [0.3, 0.6, 0.3],
-                scale: [0.98, 1.02, 0.98],
-              }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
+            {/* PERFORMANCE: Disable pulsing animation on mobile */}
+            {!isMobile ? (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
+                animate={{
+                  opacity: [0.3, 0.6, 0.3],
+                  scale: [0.98, 1.02, 0.98],
+                }}
+                transition={{ duration: 4, repeat: Infinity }}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl opacity-40" />
+            )}
             <div className="relative bg-gradient-to-br from-slate-900/80 via-purple-950/40 to-slate-900/80 backdrop-blur-2xl rounded-3xl border border-pink-500/30 shadow-2xl overflow-hidden">
               {/* Decorative gradient overlays */}
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-pink-500 to-transparent" />
@@ -930,13 +987,20 @@ function DatingPageContent() {
               
               <div className="relative p-4 sm:p-8">
                 <label htmlFor="category" className="block text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6 flex items-center gap-3">
-                  <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
-                  >
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </motion.div>
+                  {/* PERFORMANCE: Disable rotating animation on mobile */}
+                  {!isMobile ? (
+                    <motion.div
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
+                    >
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </motion.div>
+                  ) : (
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                  )}
                   What are you looking for?
                 </label>
                 
@@ -998,12 +1062,17 @@ function DatingPageContent() {
                       <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/60 pointer-events-none z-20" />
                       <div className="p-4 bg-gradient-to-r from-pink-500/20 via-rose-500/20 to-pink-500/20 border-2 border-pink-500/40 rounded-2xl backdrop-blur-xl shadow-lg relative">
                         <div className="text-pink-200 text-base font-semibold flex items-center gap-2">
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                          >
+                          {/* PERFORMANCE: Disable pulsing icon on mobile */}
+                          {!isMobile ? (
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            >
+                              <Sparkles className="w-5 h-5 text-pink-400" />
+                            </motion.div>
+                          ) : (
                             <Sparkles className="w-5 h-5 text-pink-400" />
-                          </motion.div>
+                          )}
                           Great choice! Now find your match below
                         </div>
                       </div>
@@ -1046,23 +1115,33 @@ function DatingPageContent() {
               disabled={matchingDisabled}
               className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
-              <motion.div
-                animate={
-                  !matchingDisabled
-                    ? {
-                        boxShadow: [
-                          "0 0 20px rgba(34, 197, 94, 0.2)",
-                          "0 0 30px rgba(34, 197, 94, 0.3)",
-                          "0 0 20px rgba(34, 197, 94, 0.2)",
-                        ],
-                      }
-                    : {}
-                }
-                transition={{ duration: 2, repeat: Infinity }}
-                className={`absolute inset-0 ${
-                  matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-                } rounded-2xl blur-lg`}
-              />
+              {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
+              {/* WHY: Box-shadow animations are expensive on mobile GPUs */}
+              {!isMobile ? (
+                <motion.div
+                  animate={
+                    !matchingDisabled
+                      ? {
+                          boxShadow: [
+                            "0 0 20px rgba(34, 197, 94, 0.2)",
+                            "0 0 30px rgba(34, 197, 94, 0.3)",
+                            "0 0 20px rgba(34, 197, 94, 0.2)",
+                          ],
+                        }
+                      : {}
+                  }
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                  } rounded-2xl blur-lg`}
+                />
+              ) : (
+                <div
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                  } rounded-2xl blur-lg`}
+                />
+              )}
               <div
                 className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                   matchingDisabled
@@ -1103,23 +1182,32 @@ function DatingPageContent() {
                 disabled={matchingDisabled}
                 className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
-                <motion.div
-                  animate={
-                    !matchingDisabled
-                      ? {
-                          boxShadow: [
-                            "0 0 20px rgba(14, 165, 233, 0.2)",
-                            "0 0 30px rgba(14, 165, 233, 0.3)",
-                            "0 0 20px rgba(14, 165, 233, 0.2)",
-                          ],
-                        }
-                      : {}
-                  }
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className={`absolute inset-0 ${
-                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
-                  } rounded-2xl blur-lg`}
-                />
+                {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
+                {!isMobile ? (
+                  <motion.div
+                    animate={
+                      !matchingDisabled
+                        ? {
+                            boxShadow: [
+                              "0 0 20px rgba(14, 165, 233, 0.2)",
+                              "0 0 30px rgba(14, 165, 233, 0.3)",
+                              "0 0 20px rgba(14, 165, 233, 0.2)",
+                            ],
+                          }
+                        : {}
+                    }
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className={`absolute inset-0 ${
+                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                    } rounded-2xl blur-lg`}
+                  />
+                ) : (
+                  <div
+                    className={`absolute inset-0 ${
+                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                    } rounded-2xl blur-lg`}
+                  />
+                )}
                 <div
                   className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                     matchingDisabled
