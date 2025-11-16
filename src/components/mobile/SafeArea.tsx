@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, CSSProperties } from 'react';
+import { ReactNode } from 'react';
+import { isNative } from '@/utils/capacitor';
 
 interface SafeAreaProps {
   children: ReactNode;
@@ -13,11 +14,8 @@ interface SafeAreaProps {
 
 /**
  * SafeArea component that wraps children with safe area padding
- * Uses CSS env() variables to handle iOS notches and Android navigation bars
- * Works on all platforms without requiring Capacitor packages
- *
- * The safe-area-inset values are automatically provided by the browser/WebView
- * and work with the viewport-fit=cover meta tag in the HTML head
+ * Uses pure CSS env() variables for iOS notches and Android navigation bars
+ * Only applies padding when running in native app
  */
 export const SafeAreaWrapper = ({
   children,
@@ -27,12 +25,19 @@ export const SafeAreaWrapper = ({
   left = true,
   right = true,
 }: SafeAreaProps) => {
-  // Build inline styles using CSS env() variables
-  const safeAreaStyle: CSSProperties = {
-    paddingTop: top ? 'env(safe-area-inset-top, 0px)' : undefined,
-    paddingBottom: bottom ? 'env(safe-area-inset-bottom, 0px)' : undefined,
-    paddingLeft: left ? 'env(safe-area-inset-left, 0px)' : undefined,
-    paddingRight: right ? 'env(safe-area-inset-right, 0px)' : undefined,
+  const native = isNative();
+
+  // Don't apply safe area padding on web
+  if (!native) {
+    return <div className={className}>{children}</div>;
+  }
+
+  // Apply safe area padding using CSS env() variables
+  const paddingStyle = {
+    paddingTop: top ? 'env(safe-area-inset-top)' : undefined,
+    paddingBottom: bottom ? 'env(safe-area-inset-bottom)' : undefined,
+    paddingLeft: left ? 'env(safe-area-inset-left)' : undefined,
+    paddingRight: right ? 'env(safe-area-inset-right)' : undefined,
   };
 
   return (
@@ -43,30 +48,26 @@ export const SafeAreaWrapper = ({
 };
 
 /**
- * SafeArea component using CSS safe-area-inset with Tailwind classes
- * Alternative approach using Tailwind's arbitrary values
- * Note: Tailwind's arbitrary values may not work with env() in all cases
- * Use SafeAreaWrapper (inline styles) for better compatibility
+ * Default SafeArea component - simplified version
+ * Applies all safe area insets when on native platform
  */
-export const SafeAreaCSS = ({
-  children,
-  className = '',
-  top = true,
-  bottom = true,
-  left = true,
-  right = true,
-}: SafeAreaProps) => {
-  const safeAreaClass = `
-    ${top ? 'pt-[env(safe-area-inset-top,0px)]' : ''}
-    ${bottom ? 'pb-[env(safe-area-inset-bottom,0px)]' : ''}
-    ${left ? 'pl-[env(safe-area-inset-left,0px)]' : ''}
-    ${right ? 'pr-[env(safe-area-inset-right,0px)]' : ''}
-  `.trim();
+export default function SafeArea({ children }: { children: ReactNode }) {
+  const native = isNative();
 
   return (
-    <div className={`${safeAreaClass} ${className}`.trim()}>{children}</div>
+    <div
+      style={
+        native
+          ? {
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+              paddingLeft: 'env(safe-area-inset-left)',
+              paddingRight: 'env(safe-area-inset-right)',
+            }
+          : undefined
+      }
+    >
+      {children}
+    </div>
   );
-};
-
-// Default export uses inline styles approach for better compatibility
-export default SafeAreaWrapper;
+}
