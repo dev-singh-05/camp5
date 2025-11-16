@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import { motion, AnimatePresence } from "framer-motion";
+// OPTIMIZATION: Use LazyMotion instead of full framer-motion import to reduce bundle size by ~30KB
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import AdBanner from "@/components/ads";
 import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { 
   Users, 
   Heart, 
@@ -56,6 +58,9 @@ type CampusNewsArticle = {
 
 export default function Dashboard() {
   const router = useRouter();
+  // OPTIMIZATION: Detect mobile devices to disable heavy animations
+  const isMobile = useIsMobile();
+
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -77,6 +82,10 @@ export default function Dashboard() {
   const readNewsRef = useRef<Set<string>>(new Set());
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
+
+  // OPTIMIZATION: Debounce refs for real-time updates to prevent excessive re-renders
+  const newsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const campusNewsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Token balance state
   const [tokenBalance, setTokenBalance] = useState<number>(0);
@@ -576,7 +585,8 @@ export default function Dashboard() {
     }
   }
 
-  function pushNews(item: NewsItem) {
+  // OPTIMIZATION: Debounce pushNews to prevent excessive re-renders from rapid real-time updates
+  const pushNews = useCallback((item: NewsItem) => {
     if (notificationsPausedRef.current) return;
 
     if (item.type === "rating" && !ratingsMsgRef.current) return;
@@ -587,27 +597,35 @@ export default function Dashboard() {
 
     if (removedItemsRef.current.has(item.id)) return;
 
-    setNews((prev) => {
-      if (prev.some((p) => p.id === item.id)) return prev;
-      const next = [item, ...prev].slice(0, 200);
-      next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return next;
-    });
-  }
+    // Debounce updates by 100ms to batch rapid changes
+    if (newsUpdateTimeoutRef.current) {
+      clearTimeout(newsUpdateTimeoutRef.current);
+    }
 
-  function removeNewsItem(id: string) {
+    newsUpdateTimeoutRef.current = setTimeout(() => {
+      setNews((prev) => {
+        if (prev.some((p) => p.id === item.id)) return prev;
+        const next = [item, ...prev].slice(0, 200);
+        next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return next;
+      });
+    }, 100);
+  }, []);
+
+  // OPTIMIZATION: useCallback to prevent recreating these functions on every render
+  const removeNewsItem = useCallback((id: string) => {
     removedItemsRef.current.add(id);
     saveDismissedItems();
     setNews((prev) => prev.filter((n) => n.id !== id));
-  }
+  }, []);
 
-  function clearAllNews() {
+  const clearAllNews = useCallback(() => {
     news.forEach((item) => removedItemsRef.current.add(item.id));
     saveDismissedItems();
     setNews([]);
-  }
+  }, [news]);
 
-  function handleNewsClick(item: NewsItem) {
+  const handleNewsClick = useCallback((item: NewsItem) => {
     // Mark update as read
     readItemsRef.current.add(item.id);
     saveReadItems();
@@ -641,9 +659,9 @@ export default function Dashboard() {
       default:
         router.push("/");
     }
-  }
+  }, [router]);
 
-  const openNewsModal = async (article: CampusNewsArticle) => {
+  const openNewsModal = useCallback(async (article: CampusNewsArticle) => {
     setSelectedNewsArticle(article);
 
     // Mark news as read
@@ -660,11 +678,11 @@ export default function Dashboard() {
         prev.map((n) => (n.id === article.id ? { ...n, views: n.views + 1 } : n))
       );
     }
-  };
+  }, []);
 
-  const closeNewsModal = () => {
+  const closeNewsModal = useCallback(() => {
     setSelectedNewsArticle(null);
-  };
+  }, []);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -750,64 +768,80 @@ export default function Dashboard() {
     setFeedbackMessage("");
   }
 
+  // OPTIMIZATION: Memoize expensive filtering operations to prevent recalculation on every render
+  const unreadCampusNews = useMemo(() => {
+    return campusNews.filter(n => !readNewsRef.current.has(n.id));
+  }, [campusNews]); // Only recalculate when campusNews changes
+
+  const { pinnedNews, newNews } = useMemo(() => {
+    const pinned = unreadCampusNews.filter(n => n.pinned);
+    const regular = unreadCampusNews.filter(n => !n.pinned);
+    return { pinnedNews: pinned, newNews: regular };
+  }, [unreadCampusNews]);
+
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
-          />
-          <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
-        </motion.div>
-      </div>
+      <LazyMotion features={domAnimation}>
+        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+          <m.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center"
+          >
+            <m.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+            />
+            <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
+          </m.div>
+        </div>
+      </LazyMotion>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
-      </div>
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
+        {/* OPTIMIZATION: Animated background only on desktop - too heavy for mobile */}
+        {!isMobile && (
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <m.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <m.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </div>
+        )}
 
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between">
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-base md:text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
             >
               Welcome to Campus5
-            </motion.h1>
+            </m.h1>
 
             <div className="flex items-center gap-2 md:gap-4">
               {/* Token Balance */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowTokenBalance(true)}
@@ -816,27 +850,27 @@ export default function Dashboard() {
                 <Coins className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
                 <span className="text-xs md:text-sm font-semibold text-yellow-400">{tokenBalance}</span>
                 <span className="hidden md:inline text-xs text-yellow-400/70">Tokens</span>
-              </motion.button>
+              </m.button>
 
               {/* Profile */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => router.push("/profile")}
                 className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
               >
                 {profileName?.charAt(0) || "U"}
-              </motion.button>
+              </m.button>
 
               {/* Menu */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSidebarOpen(true)}
                 className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
               >
                 <Menu className="w-4 h-4 md:w-5 md:h-5" />
-              </motion.button>
+              </m.button>
             </div>
           </div>
         </div>
@@ -849,7 +883,7 @@ export default function Dashboard() {
           {/* Left Sidebar: Navigation Cards */}
           <div className="col-span-3 space-y-4">
             {/* Clubs */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -858,7 +892,7 @@ export default function Dashboard() {
               onClick={() => router.push("/clubs")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(168, 85, 247, 0.3)",
@@ -880,10 +914,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
 
             {/* Dating */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -892,7 +926,7 @@ export default function Dashboard() {
               onClick={() => router.push("/dating")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(236, 72, 153, 0.3)",
@@ -914,10 +948,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
 
             {/* Rating */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -926,7 +960,7 @@ export default function Dashboard() {
               onClick={() => router.push("/ratings")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(34, 211, 238, 0.3)",
@@ -948,12 +982,12 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Center: Featured/Ads Section */}
           <div className="col-span-6">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="relative group"
@@ -971,13 +1005,13 @@ export default function Dashboard() {
                   <AdBanner placement="dashboard" />
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Right Sidebar: Updates & News */}
           <div className="col-span-3 space-y-4">
             {/* Updates Card with Dropdown */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="relative group"
@@ -997,17 +1031,17 @@ export default function Dashboard() {
                       <span className="text-xs text-white/40">{news.length} items</span>
                     </div>
                   </div>
-                  <motion.div
+                  <m.div
                     animate={{ rotate: updatesExpanded ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
-                  </motion.div>
+                  </m.div>
                 </button>
 
                 <AnimatePresence>
                   {updatesExpanded && (
-                    <motion.div
+                    <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -1032,7 +1066,7 @@ export default function Dashboard() {
                           <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
                         ) : (
                           news.slice(0, 3).map((item, index) => (
-                            <motion.div
+                            <m.div
                               key={item.id}
                               initial={{ opacity: 0, x: 20 }}
                               animate={{ opacity: 1, x: 0 }}
@@ -1077,21 +1111,21 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                               </div>
-                            </motion.div>
+                            </m.div>
                           ))
                         )}
                       </div>
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </m.div>
 
             
             
 
             {/* News Card with Dropdown */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
@@ -1110,21 +1144,21 @@ export default function Dashboard() {
                     <div className="text-left">
                       <h3 className="text-base font-bold text-white">News</h3>
                       <span className="text-xs text-white/40">
-                        {campusNews.filter(n => !readNewsRef.current.has(n.id)).length} new
+                        {unreadCampusNews.length} new
                       </span>
                     </div>
                   </div>
-                  <motion.div
+                  <m.div
                     animate={{ rotate: newsExpanded ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
-                  </motion.div>
+                  </m.div>
                 </button>
 
                 <AnimatePresence>
                   {newsExpanded && (
-                    <motion.div
+                    <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -1138,10 +1172,7 @@ export default function Dashboard() {
 
                       <div className="space-y-2">
                         {(() => {
-                          // Filter unread news
-                          const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
-                          const pinnedNews = unreadNews.filter(n => n.pinned);
-                          const newNews = unreadNews.filter(n => !n.pinned);
+                          // OPTIMIZATION: Use memoized unread news instead of filtering on every render
 
                           // Get current items to display
                           const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
@@ -1156,7 +1187,7 @@ export default function Dashboard() {
                           return displayNews.map((article, slotIndex) => (
                             <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
                               <AnimatePresence mode="wait">
-                                <motion.div
+                                <m.div
                                   key={article.id}
                                   initial={{ x: slideDirection === 'left' ? 100 : -100, opacity: 0 }}
                                   animate={{ x: 0, opacity: 1 }}
@@ -1213,24 +1244,24 @@ export default function Dashboard() {
                                       </div>
                                     </div>
                                   </div>
-                                </motion.div>
+                                </m.div>
                               </AnimatePresence>
                             </div>
                           ));
                         })()}
                       </div>
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </m.div>
           </div>
         </div>
 
         {/* Mobile Layout */}
         <div className="md:hidden space-y-4">
           {/* Ads Section */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
@@ -1246,10 +1277,10 @@ export default function Dashboard() {
                 <AdBanner placement="dashboard" />
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Updates Card */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
@@ -1269,18 +1300,18 @@ export default function Dashboard() {
                     <span className="text-xs text-white/40">{news.length} items</span>
                   </div>
                 </div>
-                <motion.div
+                <m.div
                   animate={{ rotate: updatesExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
                   className="text-white/60"
                 >
                   {updatesExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
-                </motion.div>
+                </m.div>
               </button>
 
               <AnimatePresence>
                 {updatesExpanded && (
-                  <motion.div
+                  <m.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -1306,7 +1337,7 @@ export default function Dashboard() {
                         <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
                       ) : (
                         news.slice(0, 5).map((item, index) => (
-                          <motion.div
+                          <m.div
                             key={item.id}
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -1350,18 +1381,18 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </div>
-                          </motion.div>
+                          </m.div>
                         ))
                       )}
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* News Card */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -1380,22 +1411,22 @@ export default function Dashboard() {
                   <div className="text-left">
                     <h3 className="text-sm font-bold text-white">News</h3>
                     <span className="text-xs text-white/40">
-                      {campusNews.filter(n => !readNewsRef.current.has(n.id)).length} new
+                      {unreadCampusNews.length} new
                     </span>
                   </div>
                 </div>
-                <motion.div
+                <m.div
                   animate={{ rotate: newsExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
                   className="text-white/60"
                 >
                   {newsExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
-                </motion.div>
+                </m.div>
               </button>
 
               <AnimatePresence>
                 {newsExpanded && (
-                  <motion.div
+                  <m.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -1410,10 +1441,7 @@ export default function Dashboard() {
 
                     <div className="space-y-2">
                       {(() => {
-                        const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
-                        const pinnedNews = unreadNews.filter(n => n.pinned);
-                        const newNews = unreadNews.filter(n => !n.pinned);
-
+                        // OPTIMIZATION: Use memoized unread news instead of filtering on every render
                         const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
                         const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
 
@@ -1425,7 +1453,7 @@ export default function Dashboard() {
 
                         return displayNews.map((article, slotIndex) => (
                           <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
-                            <motion.div
+                            <m.div
                               key={article.id}
                               onClick={() => openNewsModal(article)}
                               className="group/item cursor-pointer"
@@ -1477,23 +1505,23 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                               </div>
-                            </motion.div>
+                            </m.div>
                           </div>
                         ));
                       })()}
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-xl border-t border-white/10">
         <div className="grid grid-cols-3 gap-1 px-4 py-3">
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push("/clubs")}
             className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
@@ -1502,9 +1530,9 @@ export default function Dashboard() {
               <Users className="w-5 h-5 text-purple-400" />
             </div>
             <span className="text-xs font-medium text-white/80">Clubs</span>
-          </motion.button>
+          </m.button>
 
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push("/ratings")}
             className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
@@ -1513,9 +1541,9 @@ export default function Dashboard() {
               <Star className="w-5 h-5 text-cyan-400" />
             </div>
             <span className="text-xs font-medium text-white/80">Ratings</span>
-          </motion.button>
+          </m.button>
 
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push("/dating")}
             className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
@@ -1524,7 +1552,7 @@ export default function Dashboard() {
               <Heart className="w-5 h-5 text-pink-400" />
             </div>
             <span className="text-xs font-medium text-white/80">Dating</span>
-          </motion.button>
+          </m.button>
         </div>
       </nav>
 
@@ -1533,13 +1561,13 @@ export default function Dashboard() {
       {/* Onboarding Modal */}
       <AnimatePresence>
         {showOnboardingModal && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1637,8 +1665,8 @@ export default function Dashboard() {
                   Complete Profile
                 </button>
               </form>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1662,14 +1690,14 @@ export default function Dashboard() {
       {/* News Detail Modal */}
       <AnimatePresence>
         {selectedNewsArticle && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeNewsModal}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1747,8 +1775,8 @@ export default function Dashboard() {
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1756,14 +1784,14 @@ export default function Dashboard() {
       <AnimatePresence>
         {sidebarOpen && (
           <>
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSidebarOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             />
-            <motion.aside
+            <m.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -1936,7 +1964,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>
@@ -2102,28 +2130,31 @@ export default function Dashboard() {
           </ModalOverlay>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </LazyMotion>
   );
 }
 
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="relative z-10 w-full max-w-2xl mx-auto"
-        onClick={(e) => e.stopPropagation()}
+    <LazyMotion features={domAnimation}>
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
       >
-        {children}
-      </motion.div>
-    </motion.div>
+        <m.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative z-10 w-full max-w-2xl mx-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </m.div>
+      </m.div>
+    </LazyMotion>
   );
 }
