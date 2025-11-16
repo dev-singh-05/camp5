@@ -1,34 +1,32 @@
-// Performance Optimization: Hook to detect mobile devices
-// WHY: Allows us to disable expensive animations on mobile while keeping them on desktop
-// This improves mobile performance significantly (targeting 60fps)
-
 import { useState, useEffect } from 'react';
 
-export function useIsMobile(breakpoint: number = 1024): boolean {
-  // Default to true (mobile-first) to avoid hydration mismatch
-  const [isMobile, setIsMobile] = useState(true);
+/**
+ * Hook to detect if the user is on a mobile device
+ * Uses window.matchMedia to detect screen width
+ * Returns true for screens < 768px (Tailwind's md breakpoint)
+ *
+ * Performance: Uses matchMedia API which is more efficient than resize listeners
+ */
+export function useIsMobile(breakpoint: number = 768): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    // OPTIMIZATION: Only run on client-side to detect screen size
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < breakpoint);
-    };
-
     // Initial check
-    checkMobile();
+    const mediaQuery = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mediaQuery.matches);
 
-    // OPTIMIZATION: Debounced resize listener to avoid excessive re-renders
-    let timeoutId: NodeJS.Timeout;
-    const debouncedCheck = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkMobile, 150);
-    };
+    // Listen for changes
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
 
-    window.addEventListener('resize', debouncedCheck);
-    return () => {
-      window.removeEventListener('resize', debouncedCheck);
-      clearTimeout(timeoutId);
-    };
+    // Modern browsers support addEventListener
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handler);
+      return () => mediaQuery.removeListener(handler);
+    }
   }, [breakpoint]);
 
   return isMobile;
