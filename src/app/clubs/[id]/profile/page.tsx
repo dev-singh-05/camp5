@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// Performance optimization: Added useRef for debouncing real-time subscriptions
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { Toaster, toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   ArrowLeft, Edit, Save, X, Upload, Trophy, Users, Calendar,
   Star, TrendingUp, Crown, Shield, History, Activity, Trash2,
   MapPin, Clock, Award, Zap, CheckCircle, XCircle, Image as ImageIcon,
   Lock as LockIcon, AlertCircle, ChevronDown, ChevronUp
 } from "lucide-react";
+// Performance optimization: Mobile detection to disable heavy animations
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Club = {
   id: string;
@@ -35,6 +38,11 @@ type Member = {
 export default function ClubProfilePage() {
   const { id: clubId } = useParams<{ id: string }>();
   const router = useRouter();
+  // Performance optimization: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+  // Performance optimization: Debounce timers for real-time subscriptions
+  const statsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [club, setClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -101,7 +109,8 @@ export default function ClubProfilePage() {
 
     load();
 
-    // ✅ Subscribe to real-time club updates (XP changes)
+    // Performance optimization: Debounce real-time subscriptions to prevent re-render storms
+    // Subscribe to real-time club updates (XP changes) with 1s debounce
     const clubSubscription = supabase
       .channel(`club-${clubId}`)
       .on(
@@ -113,14 +122,23 @@ export default function ClubProfilePage() {
           filter: `id=eq.${clubId}`
         },
         (payload) => {
-          console.log('✅ Club updated in real-time:', payload);
-          // Refresh stats when club XP is updated
-          fetchStats();
+          console.log('✅ Club updated, debouncing stats refresh');
+
+          // Clear previous timer
+          if (statsDebounceRef.current) {
+            clearTimeout(statsDebounceRef.current);
+          }
+
+          // Only refresh after 1 second of no updates
+          statsDebounceRef.current = setTimeout(() => {
+            console.log('🔄 Refreshing stats after debounce');
+            fetchStats();
+          }, 1000);
         }
       )
       .subscribe();
 
-    // ✅ Subscribe to new messages (including system notifications)
+    // Subscribe to new messages with 500ms debounce (faster since messages are more visible to user)
     const messagesSubscription = supabase
       .channel(`messages-${clubId}`)
       .on(
@@ -132,8 +150,18 @@ export default function ClubProfilePage() {
           filter: `club_id=eq.${clubId}`
         },
         (payload) => {
-          console.log('✅ New message:', payload);
-          fetchMessages();
+          console.log('✅ New message, debouncing refresh');
+
+          // Clear previous timer
+          if (messagesDebounceRef.current) {
+            clearTimeout(messagesDebounceRef.current);
+          }
+
+          // Only refresh after 500ms of no new messages
+          messagesDebounceRef.current = setTimeout(() => {
+            console.log('🔄 Refreshing messages after debounce');
+            fetchMessages();
+          }, 500);
         }
       )
       .subscribe();
@@ -141,6 +169,13 @@ export default function ClubProfilePage() {
     return () => {
       clubSubscription.unsubscribe();
       messagesSubscription.unsubscribe();
+      // Cleanup debounce timers
+      if (statsDebounceRef.current) {
+        clearTimeout(statsDebounceRef.current);
+      }
+      if (messagesDebounceRef.current) {
+        clearTimeout(messagesDebounceRef.current);
+      }
     };
   }, [clubId, router]);
 
@@ -480,15 +515,15 @@ export default function ClubProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white">
       <Toaster />
 
-      {/* Animated Background */}
+      {/* Performance optimization: Disable infinite background animation on mobile */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
       </div>

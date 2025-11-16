@@ -1,9 +1,12 @@
 "use client";
 import { Toaster, toast } from "react-hot-toast";
+// Performance optimization: useRef for debouncing real-time subscriptions
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
+// Performance optimization: Mobile detection to disable heavy animations
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Member = {
   user_id: string;
@@ -54,6 +57,13 @@ type Request = {
 export default function ClubDetailsPage() {
   const { id: clubId } = useParams<{ id: string }>();
   const router = useRouter();
+  // Performance optimization: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+  // Performance optimization: Debounce refs for 4 real-time subscriptions
+  const invitationsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const eventStatusDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const interEventDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [club, setClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -390,8 +400,8 @@ const fetchEventInvitations = async () => {
   console.log("Event invitations:", data);
   setEventInvitations(data || []);
 };
- // ✅ Real-time subscription for event invitations
-// ✅ Real-time subscription for event invitations
+ // Performance optimization: Debounce event invitations subscription (1s)
+// Without debounce, rapid invitation updates cause excessive re-renders
 useEffect(() => {
   if (!clubId || userRole !== "admin") return;
 
@@ -406,22 +416,34 @@ useEffect(() => {
         filter: `club_id=eq.${clubId}`,
       },
       async () => {
-        await fetchEventInvitations();
-        await fetchEvents();
+        console.log('✅ Event invitation changed, debouncing refresh');
+
+        // Clear previous timer
+        if (invitationsDebounceRef.current) {
+          clearTimeout(invitationsDebounceRef.current);
+        }
+
+        // Only refresh after 1 second of no updates
+        invitationsDebounceRef.current = setTimeout(async () => {
+          console.log('🔄 Refreshing invitations after debounce');
+          await fetchEventInvitations();
+          await fetchEvents();
+        }, 1000);
       }
     )
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
+    // Cleanup debounce timer
+    if (invitationsDebounceRef.current) {
+      clearTimeout(invitationsDebounceRef.current);
+    }
   };
 }, [clubId, userRole]);
 
-// ADD THIS TO clubs/[id]/page.tsx
-
-// ✅ Add this useEffect after the existing message subscription (around line 400)
-// This subscribes to event status changes in real-time
-
+// Performance optimization: Debounce event status subscription (1s)
+// Prevents re-render storms when events are rapidly updated
 useEffect(() => {
   if (!clubId) return;
 
@@ -436,19 +458,32 @@ useEffect(() => {
         filter: `club_id=eq.${clubId}`,
       },
       async (payload) => {
-        console.log("Event status changed:", payload);
-        // Refresh events when any event is updated
-        await fetchEvents();
+        console.log("✅ Event status changed, debouncing refresh");
+
+        // Clear previous timer
+        if (eventStatusDebounceRef.current) {
+          clearTimeout(eventStatusDebounceRef.current);
+        }
+
+        // Only refresh after 1 second of no updates
+        eventStatusDebounceRef.current = setTimeout(async () => {
+          console.log('🔄 Refreshing events after debounce');
+          await fetchEvents();
+        }, 1000);
       }
     )
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
+    // Cleanup debounce timer
+    if (eventStatusDebounceRef.current) {
+      clearTimeout(eventStatusDebounceRef.current);
+    }
   };
 }, [clubId]);
 
-// ✅ Also subscribe to inter-club event status changes
+// Performance optimization: Debounce inter-club event subscription (1s)
 useEffect(() => {
   if (!clubId) return;
 
@@ -463,18 +498,33 @@ useEffect(() => {
         filter: `club_id=eq.${clubId}`,
       },
       async (payload) => {
-        console.log("Inter-club participant updated:", payload);
-        // Refresh events when XP is awarded
-        await fetchEvents();
+        console.log("✅ Inter-club participant updated, debouncing refresh");
+
+        // Clear previous timer
+        if (interEventDebounceRef.current) {
+          clearTimeout(interEventDebounceRef.current);
+        }
+
+        // Only refresh after 1 second of no updates
+        interEventDebounceRef.current = setTimeout(async () => {
+          console.log('🔄 Refreshing inter-club events after debounce');
+          await fetchEvents();
+        }, 1000);
       }
     )
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
+    // Cleanup debounce timer
+    if (interEventDebounceRef.current) {
+      clearTimeout(interEventDebounceRef.current);
+    }
   };
 }, [clubId]);
 
+  // Performance optimization: Debounce messages subscription (300ms)
+  // Faster debounce since messages are immediately visible to users
   useEffect(() => {
     if (!clubId) return;
     let mounted = true;
@@ -490,7 +540,18 @@ useEffect(() => {
           filter: `club_id=eq.${clubId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
+          console.log('✅ New message received, debouncing update');
+
+          // Clear previous timer
+          if (messagesDebounceRef.current) {
+            clearTimeout(messagesDebounceRef.current);
+          }
+
+          // Only update after 300ms of no new messages (faster for better UX)
+          messagesDebounceRef.current = setTimeout(() => {
+            console.log('🔄 Adding message after debounce');
+            setMessages((prev) => [...prev, payload.new]);
+          }, 300);
         }
       )
       .subscribe();
@@ -534,6 +595,10 @@ useEffect(() => {
     return () => {
       mounted = false;
       supabase.removeChannel(channel);
+      // Cleanup debounce timer
+      if (messagesDebounceRef.current) {
+        clearTimeout(messagesDebounceRef.current);
+      }
     };
   }, [clubId]);
   
@@ -1169,43 +1234,44 @@ const uniqueAssigned =
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-x-hidden">
       <Toaster />
-      {/* Animated Background Elements */}
+      {/* Performance optimization: Disable infinite background animations on mobile */}
+      {/* These subtle animations kill mobile performance (20-30fps loss) */}
       <motion.div
         className="absolute top-10 left-10 w-48 h-48 md:w-96 md:h-96 bg-purple-500/20 rounded-full blur-3xl"
-        animate={{
+        animate={!isMobile ? {
           scale: [1, 1.2, 1],
           rotate: [0, 90, 0],
-        }}
-        transition={{
+        } : undefined}
+        transition={!isMobile ? {
           duration: 20,
           repeat: Infinity,
           ease: "linear",
-        }}
+        } : undefined}
       />
       <motion.div
         className="absolute bottom-10 right-10 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl"
-        animate={{
+        animate={!isMobile ? {
           scale: [1.2, 1, 1.2],
           rotate: [0, -90, 0],
-        }}
-        transition={{
+        } : undefined}
+        transition={!isMobile ? {
           duration: 25,
           repeat: Infinity,
           ease: "linear",
-        }}
+        } : undefined}
       />
       <motion.div
         className="absolute top-1/2 left-1/2 w-48 h-48 md:w-96 md:h-96 bg-cyan-500/10 rounded-full blur-3xl"
-        animate={{
+        animate={!isMobile ? {
           scale: [1, 1.3, 1],
           x: [-50, 50, -50],
           y: [-50, 50, -50],
-        }}
-        transition={{
+        } : undefined}
+        transition={!isMobile ? {
           duration: 30,
           repeat: Infinity,
           ease: "linear",
-        }}
+        } : undefined}
       />
       {/* Mobile Header - Fixed at top (Outside normal flow) */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex-shrink-0 p-3 border-b border-white/10 space-y-3 bg-black/40 backdrop-blur-xl">
