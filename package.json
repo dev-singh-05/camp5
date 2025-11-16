@@ -5,6 +5,12 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:export": "next build",
+    "build:mobile": "next build && npx cap sync",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios",
+    "android:dev": "npm run build:mobile && npm run open:android",
+    "ios:dev": "npm run build:mobile && npm run open:ios",
     "start": "next start",
     "lint": "eslint"
   },
