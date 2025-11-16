@@ -5,9 +5,12 @@ import { User, Mail, Hash, Lock, UserPlus, ArrowLeft, CheckCircle2 } from "lucid
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import { useIsMobile } from "@/hooks/useIsMobile"; // Performance: Detect mobile for conditional animations
 
 export default function Signup() {
   const router = useRouter();
+  const isMobile = useIsMobile(); // Performance: Detect mobile for conditional rendering
+
   const [fullName, setFullName] = useState("");
   const [enrollment, setEnrollment] = useState("");
   const [email, setEmail] = useState("");
@@ -82,27 +85,29 @@ export default function Signup() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white p-4">
       <Toaster position="top-right" />
 
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
-      </div>
+      {/* Performance: Disable animated backgrounds on mobile to save battery and improve FPS */}
+      {!isMobile && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+              opacity: [0.03, 0.06, 0.03],
+            }}
+            transition={{ duration: 20, repeat: Infinity }}
+            className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+          />
+          <motion.div
+            animate={{
+              scale: [1.2, 1, 1.2],
+              rotate: [90, 0, 90],
+              opacity: [0.03, 0.06, 0.03],
+            }}
+            transition={{ duration: 25, repeat: Infinity }}
+            className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+          />
+        </div>
+      )}
 
       {/* Back Button */}
       <motion.button
