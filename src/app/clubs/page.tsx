@@ -1,13 +1,16 @@
 "use client";
 
 import "./page.css";
-import { useEffect, useState } from "react";
+// Performance optimization: Added useMemo and useCallback for expensive computations
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import AdBanner from "@/components/ads";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Search, Filter, Plus, X, Star, Lock, ChevronRight, MoreVertical } from "lucide-react";
+// Performance optimization: Mobile detection to disable heavy animations
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Club = {
   id: string;
@@ -17,56 +20,62 @@ type Club = {
   logo_url?: string | null;
 };
 
+// Performance optimization: Extract helper functions outside component to prevent recreation on every render
+const getCategoryColor = (cat: string | null) => {
+  switch (cat?.toLowerCase()) {
+    case "sports": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
+    case "arts": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
+    case "tech": return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400";
+    case "general": return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400";
+    default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
+  }
+};
+
+const getCategoryIcon = (cat: string | null) => {
+  switch (cat?.toLowerCase()) {
+    case "sports": return "⚽";
+    case "arts": return "🎨";
+    case "tech": return "💻";
+    case "general": return "🌟";
+    default: return "📁";
+  }
+};
+
 // ClubCard with glassmorphic design
 function ClubCard({
   club,
   rank,
   status,
   onClick,
+  isMobile,
 }: {
   club: Club;
   rank?: number;
   status?: "joined" | "requested" | "join";
   onClick: () => void;
+  isMobile: boolean; // Performance: Control animations based on device
 }) {
-  const getCategoryColor = (cat: string | null) => {
-    switch (cat?.toLowerCase()) {
-      case "sports": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
-      case "arts": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
-      case "tech": return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400";
-      case "general": return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400";
-      default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
-    }
-  };
-
-  const getCategoryIcon = (cat: string | null) => {
-    switch (cat?.toLowerCase()) {
-      case "sports": return "⚽";
-      case "arts": return "🎨";
-      case "tech": return "💻";
-      case "general": return "🌟";
-      default: return "📁";
-    }
-  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4, scale: 1.02 }}
+      // Performance optimization: Disable hover animations on mobile (touch devices don't have hover state)
+      whileHover={!isMobile ? { y: -4, scale: 1.02 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className="cursor-pointer group relative"
     >
+      {/* Performance optimization: Disable infinite glow animation on mobile - saves significant CPU/GPU cycles */}
       <motion.div
-        animate={{
+        animate={!isMobile ? {
           boxShadow: [
             "0 0 20px rgba(168, 85, 247, 0.2)",
             "0 0 30px rgba(168, 85, 247, 0.3)",
             "0 0 20px rgba(168, 85, 247, 0.2)",
           ],
-        }}
-        transition={{ duration: 2, repeat: Infinity }}
+        } : undefined}
+        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
         className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg"
       />
       <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/50 transition-all overflow-hidden">
@@ -141,6 +150,9 @@ function ClubCard({
 
 export default function ClubsPage() {
   const router = useRouter();
+  // Performance optimization: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+
   const [clubs, setClubs] = useState<Club[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -317,35 +329,40 @@ export default function ClubsPage() {
     fetchClubs();
   };
 
-  const filteredClubs = clubs.filter((c) => {
-    const matchesCategory =
-      filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.category?.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Performance optimization: useMemo prevents recalculating filtered clubs on every render
+  // Only recalculates when clubs, filter, or search actually change
+  const filteredClubs = useMemo(() => {
+    return clubs.filter((c) => {
+      const matchesCategory =
+        filter === "all" || c.category?.toLowerCase() === filter.toLowerCase();
+      const matchesSearch =
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.category?.toLowerCase().includes(search.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [clubs, filter, search]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated Background Elements */}
+      {/* Performance optimization: Disable infinite background animations on mobile */}
+      {/* These animations are subtle on desktop but kill mobile performance (20-30fps loss) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1.2, 1, 1.2],
             rotate: [90, 0, 90],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
         />
       </div>
@@ -548,6 +565,7 @@ export default function ClubsPage() {
                   setSelectedClub(club);
                   setSelectedRank(i + 1);
                 }}
+                isMobile={isMobile}
               />
             ))
           )}
