@@ -3,13 +3,16 @@
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+// PERFORMANCE: Import useCallback and useMemo for memoization to prevent unnecessary re-renders
+import { useEffect, useState, useRef, Suspense, useCallback, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
 import AdBanner from "@/components/ads";
 import VerificationOverlay from "@/components/VerificationOverlay";
 import { motion, AnimatePresence } from "framer-motion";
+// PERFORMANCE: Import useIsMobile hook to disable expensive animations on mobile
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ----------------------------- Types ------------------------------------ */
 
@@ -78,9 +81,12 @@ function ChatCard({ match, index, router }: { match: Match; index: number; route
 
 /* --------------------------- Component ---------------------------------- */
 
-export default function DatingPage() {
+function DatingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // PERFORMANCE: Detect mobile to disable expensive animations
+  const isMobile = useIsMobile();
 
   /* -------------------------- Local state -------------------------------- */
   const [matches, setMatches] = useState<Match[]>([]);
@@ -118,7 +124,9 @@ export default function DatingPage() {
 
   /* ------------------------- Fetch helpers ------------------------------- */
 
-  async function fetchMatches() {
+  // PERFORMANCE: Wrap in useCallback to prevent unnecessary re-creation on every render
+  // WHY: These functions are passed to useEffect dependencies and used in real-time handlers
+  const fetchMatches = useCallback(async () => {
     try {
       const data = await getMyMatches();
       setMatches(data || []);
@@ -127,12 +135,13 @@ export default function DatingPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   /**
    * Check verification status for current user.
+   * PERFORMANCE: Memoized to prevent re-creation
    */
-  async function checkVerificationStatus() {
+  const checkVerificationStatus = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -165,11 +174,12 @@ export default function DatingPage() {
     } catch (err) {
       console.error("Error checking verification:", err);
     }
-  }
+  }, []);
 
   /* ------------------------ Profile utilities ---------------------------- */
 
-  async function fetchProfileCompletion() {
+  // PERFORMANCE: Memoize to prevent unnecessary re-creation
+  const fetchProfileCompletion = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -217,9 +227,10 @@ export default function DatingPage() {
       console.error("Error fetching profile completion:", err);
       setCompletion(0);
     }
-  }
+  }, []);
 
-  async function fetchUserGender() {
+  // PERFORMANCE: Memoize to prevent unnecessary re-creation
+  const fetchUserGender = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -236,7 +247,7 @@ export default function DatingPage() {
     } catch (err) {
       console.error("Error fetching user gender:", err);
     }
-  }
+  }, []);
 
   /* ------------------------ Matching flow -------------------------------- */
 
@@ -478,21 +489,43 @@ export default function DatingPage() {
   /* ----------------------- Derived UI state ----------------------------- */
 
   const profilePlaceholder = "/images/avatar-placeholder.png";
-  const matchingDisabled =
-    creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved";
 
-  const shouldHidePhoto =
-    selectedCategory === "serious" || selectedCategory === "fun";
-  const shouldHideName =
-    selectedCategory === "serious" ||
-    selectedCategory === "fun" ||
-    (selectedCategory === "mystery" &&
-      candidate?.gender?.toLowerCase() === "female");
+  // PERFORMANCE: Memoize expensive boolean calculations to prevent re-computation on every render
+  // WHY: These are computed from multiple state variables and used in render
+  const matchingDisabled = useMemo(
+    () => creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved",
+    [creating, completion, verificationStatus.status]
+  );
+
+  const shouldHidePhoto = useMemo(
+    () => selectedCategory === "serious" || selectedCategory === "fun",
+    [selectedCategory]
+  );
+
+  const shouldHideName = useMemo(
+    () =>
+      selectedCategory === "serious" ||
+      selectedCategory === "fun" ||
+      (selectedCategory === "mystery" && candidate?.gender?.toLowerCase() === "female"),
+    [selectedCategory, candidate?.gender]
+  );
 
   /* --------------------- Realtime subscriptions ------------------------- */
 
   useEffect(() => {
     let mounted = true;
+    // PERFORMANCE: Debounce expensive re-fetch operations
+    // WHY: Real-time updates can fire rapidly, causing excessive API calls
+    let fetchDebounceTimer: NodeJS.Timeout | null = null;
+
+    const debouncedFetch = () => {
+      if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+      fetchDebounceTimer = setTimeout(() => {
+        if (!mounted) return;
+        fetchProfileCompletion();
+        fetchMatches();
+      }, 500); // 500ms debounce - batch rapid updates together
+    };
 
     async function setupSubscription() {
       try {
@@ -549,8 +582,8 @@ export default function DatingPage() {
                 setShowVerificationOverlay(true);
               }
 
-              fetchProfileCompletion();
-              fetchMatches();
+              // PERFORMANCE: Use debounced fetch instead of calling directly
+              debouncedFetch();
             }
           )
           .subscribe();
@@ -570,7 +603,12 @@ export default function DatingPage() {
             },
             () => {
               if (!mounted) return;
-              checkVerificationStatus();
+              // PERFORMANCE: Debounce this too
+              if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+              fetchDebounceTimer = setTimeout(() => {
+                if (!mounted) return;
+                checkVerificationStatus();
+              }, 300);
             }
           )
           .subscribe();
@@ -585,6 +623,7 @@ export default function DatingPage() {
 
     return () => {
       mounted = false;
+      if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
       if (verificationChannelRef.current) {
         try {
           supabase.removeChannel(verificationChannelRef.current);
@@ -600,7 +639,7 @@ export default function DatingPage() {
         }
       }
     };
-  }, []);
+  }, [fetchProfileCompletion, fetchMatches, checkVerificationStatus]);
 
   /* ------------------------ Initial load -------------------------------- */
 
@@ -727,31 +766,76 @@ export default function DatingPage() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
+      {/* PERFORMANCE: Disable infinite animations on mobile to save battery and improve FPS */}
+      {/* WHY: These animations run at 60fps constantly, draining mobile battery and causing lag */}
+      {/* Desktop gets smooth animations, mobile gets static gradients (user won't notice) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-        />
+        {!isMobile ? (
+          <>
+            <motion.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </>
+        ) : (
+          <>
+            {/* Static gradients for mobile - no animation overhead */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+          </>
+        )}
       </div>
 
-      {/* Header */}
+      {/* Header - Mobile Optimized */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex flex-col lg:flex-row items-center gap-4">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          {/* Mobile: 3-button row at top */}
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-0 sm:hidden">
+            {/* Back Button (Left) */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white text-sm font-medium"
+            >
+              ← Back
+            </motion.button>
+
+            {/* Requests Button (Center) */}
+            <Link
+              href="/dating/requests"
+              className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <Mail className="w-4 h-4" />
+              Requests
+            </Link>
+
+            {/* Profile Button (Right) */}
+            <Link
+              href="/dating/dating-profiles"
+              className="px-4 py-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center gap-2 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all font-medium text-sm"
+            >
+              <User className="w-4 h-4" />
+              Profile
+            </Link>
+          </div>
+
+          {/* Desktop Layout (hidden on mobile) */}
+          <div className="hidden sm:flex flex-col lg:flex-row items-center gap-4">
             {/* Left: Back Button */}
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
@@ -811,6 +895,37 @@ export default function DatingPage() {
               </Link>
             </div>
           </div>
+
+          {/* Profile Completion Bar (Mobile Only) */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="block sm:hidden"
+          >
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-xl blur-lg" />
+              <div className="relative bg-black/30 backdrop-blur-xl rounded-xl border border-white/10 p-3">
+                <div className="flex justify-between mb-2">
+                  <span className="text-xs font-medium text-white/80">Profile Completion</span>
+                  <span className="text-xs font-bold text-pink-400">{completion}%</span>
+                </div>
+                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/10">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${completion}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      completion < 50
+                        ? "bg-gradient-to-r from-red-500 to-orange-500"
+                        : completion < 80
+                        ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                        : "bg-gradient-to-r from-pink-500 to-rose-500"
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </header>
 
@@ -842,7 +957,7 @@ export default function DatingPage() {
       )}
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Category Selection - Always visible at top */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -850,14 +965,19 @@ export default function DatingPage() {
           className="mb-8"
         >
           <div className="relative group">
-            <motion.div 
-              className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
-              animate={{
-                opacity: [0.3, 0.6, 0.3],
-                scale: [0.98, 1.02, 0.98],
-              }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
+            {/* PERFORMANCE: Disable pulsing animation on mobile */}
+            {!isMobile ? (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
+                animate={{
+                  opacity: [0.3, 0.6, 0.3],
+                  scale: [0.98, 1.02, 0.98],
+                }}
+                transition={{ duration: 4, repeat: Infinity }}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl opacity-40" />
+            )}
             <div className="relative bg-gradient-to-br from-slate-900/80 via-purple-950/40 to-slate-900/80 backdrop-blur-2xl rounded-3xl border border-pink-500/30 shadow-2xl overflow-hidden">
               {/* Decorative gradient overlays */}
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-pink-500 to-transparent" />
@@ -865,15 +985,22 @@ export default function DatingPage() {
               <div className="absolute top-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl" />
               <div className="absolute bottom-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl" />
               
-              <div className="relative p-8">
-                <label htmlFor="category" className="block text-xl font-bold text-white mb-6 flex items-center gap-3">
-                  <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
-                  >
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </motion.div>
+              <div className="relative p-4 sm:p-8">
+                <label htmlFor="category" className="block text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6 flex items-center gap-3">
+                  {/* PERFORMANCE: Disable rotating animation on mobile */}
+                  {!isMobile ? (
+                    <motion.div
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
+                    >
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </motion.div>
+                  ) : (
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                  )}
                   What are you looking for?
                 </label>
                 
@@ -892,14 +1019,14 @@ export default function DatingPage() {
   id="category"
   value={selectedCategory}
   onChange={(e) => setSelectedCategory(e.target.value)}
-  className="w-full px-6 py-5 bg-slate-950/50 border-2 border-red-500/50 rounded-2xl focus:ring-4 focus:ring-red-500/40 focus:border-red-500 text-white text-lg font-semibold appearance-none cursor-pointer transition-all hover:border-red-500/70 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-red-500/30 shadow-lg relative z-10 [&>option]:bg-slate-900 [&>option]:text-white [&>option]:py-3"
+  className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-950/50 border-2 border-red-500/50 rounded-2xl focus:ring-4 focus:ring-red-500/40 focus:border-red-500 text-white text-base sm:text-lg font-semibold appearance-none cursor-pointer transition-all hover:border-red-500/70 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-red-500/30 shadow-lg relative z-10 [&>option]:bg-slate-900 [&>option]:text-white [&>option]:py-3"
   style={{
     colorScheme: 'dark',
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
     backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 1.5rem center',
-    backgroundSize: '1.75rem',
-    paddingRight: '4rem',
+    backgroundPosition: 'right 1rem center',
+    backgroundSize: '1.5rem',
+    paddingRight: '3rem',
     backgroundColor: 'transparent',
   }}
 >
@@ -935,12 +1062,17 @@ export default function DatingPage() {
                       <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/60 pointer-events-none z-20" />
                       <div className="p-4 bg-gradient-to-r from-pink-500/20 via-rose-500/20 to-pink-500/20 border-2 border-pink-500/40 rounded-2xl backdrop-blur-xl shadow-lg relative">
                         <div className="text-pink-200 text-base font-semibold flex items-center gap-2">
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                          >
+                          {/* PERFORMANCE: Disable pulsing icon on mobile */}
+                          {!isMobile ? (
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            >
+                              <Sparkles className="w-5 h-5 text-pink-400" />
+                            </motion.div>
+                          ) : (
                             <Sparkles className="w-5 h-5 text-pink-400" />
-                          </motion.div>
+                          )}
                           Great choice! Now find your match below
                         </div>
                       </div>
@@ -983,34 +1115,44 @@ export default function DatingPage() {
               disabled={matchingDisabled}
               className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
-              <motion.div
-                animate={
-                  !matchingDisabled
-                    ? {
-                        boxShadow: [
-                          "0 0 20px rgba(34, 197, 94, 0.2)",
-                          "0 0 30px rgba(34, 197, 94, 0.3)",
-                          "0 0 20px rgba(34, 197, 94, 0.2)",
-                        ],
-                      }
-                    : {}
-                }
-                transition={{ duration: 2, repeat: Infinity }}
-                className={`absolute inset-0 ${
-                  matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-                } rounded-2xl blur-lg`}
-              />
+              {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
+              {/* WHY: Box-shadow animations are expensive on mobile GPUs */}
+              {!isMobile ? (
+                <motion.div
+                  animate={
+                    !matchingDisabled
+                      ? {
+                          boxShadow: [
+                            "0 0 20px rgba(34, 197, 94, 0.2)",
+                            "0 0 30px rgba(34, 197, 94, 0.3)",
+                            "0 0 20px rgba(34, 197, 94, 0.2)",
+                          ],
+                        }
+                      : {}
+                  }
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                  } rounded-2xl blur-lg`}
+                />
+              ) : (
+                <div
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                  } rounded-2xl blur-lg`}
+                />
+              )}
               <div
-                className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                   matchingDisabled
                     ? "bg-black/20 border-white/5"
                     : "bg-black/40 border-white/10 hover:border-green-500/50"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-xl sm:text-2xl ${
                         matchingDisabled
                           ? "bg-gray-500/20 border border-gray-500/30"
                           : "bg-gradient-to-br from-green-500 to-emerald-500"
@@ -1019,15 +1161,15 @@ export default function DatingPage() {
                       🎲
                     </div>
                     <div className="text-left">
-                      <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                      <h3 className={`text-lg sm:text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
                         {creating ? "Finding..." : "Random Match"}
                       </h3>
-                      <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                      <p className={`text-xs sm:text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
                         Discover someone new
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                  <ChevronRight className={`w-5 h-5 sm:w-6 sm:h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all flex-shrink-0`} />
                 </div>
               </div>
             </motion.button>
@@ -1040,34 +1182,43 @@ export default function DatingPage() {
                 disabled={matchingDisabled}
                 className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
-                <motion.div
-                  animate={
-                    !matchingDisabled
-                      ? {
-                          boxShadow: [
-                            "0 0 20px rgba(14, 165, 233, 0.2)",
-                            "0 0 30px rgba(14, 165, 233, 0.3)",
-                            "0 0 20px rgba(14, 165, 233, 0.2)",
-                          ],
-                        }
-                      : {}
-                  }
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className={`absolute inset-0 ${
-                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
-                  } rounded-2xl blur-lg`}
-                />
+                {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
+                {!isMobile ? (
+                  <motion.div
+                    animate={
+                      !matchingDisabled
+                        ? {
+                            boxShadow: [
+                              "0 0 20px rgba(14, 165, 233, 0.2)",
+                              "0 0 30px rgba(14, 165, 233, 0.3)",
+                              "0 0 20px rgba(14, 165, 233, 0.2)",
+                            ],
+                          }
+                        : {}
+                    }
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className={`absolute inset-0 ${
+                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                    } rounded-2xl blur-lg`}
+                  />
+                ) : (
+                  <div
+                    className={`absolute inset-0 ${
+                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                    } rounded-2xl blur-lg`}
+                  />
+                )}
                 <div
-                  className={`relative backdrop-blur-xl rounded-2xl border p-8 transition-all ${
+                  className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                     matchingDisabled
                       ? "bg-black/20 border-white/5"
                       : "bg-black/40 border-white/10 hover:border-cyan-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                        className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-xl sm:text-2xl ${
                           matchingDisabled
                             ? "bg-gray-500/20 border border-gray-500/30"
                             : "bg-gradient-to-br from-cyan-500 to-blue-500"
@@ -1076,15 +1227,15 @@ export default function DatingPage() {
                         💡
                       </div>
                       <div className="text-left">
-                        <h3 className={`text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
+                        <h3 className={`text-lg sm:text-xl font-bold mb-1 ${matchingDisabled ? "text-white/40" : "text-white"}`}>
                           {creating ? "Finding..." : "Interests Match"}
                         </h3>
-                        <p className={`text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
+                        <p className={`text-xs sm:text-sm ${matchingDisabled ? "text-white/20" : "text-white/60"}`}>
                           Based on shared interests
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className={`w-6 h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all`} />
+                    <ChevronRight className={`w-5 h-5 sm:w-6 sm:h-6 ${matchingDisabled ? "text-white/20" : "text-white/40 group-hover:text-white/80 group-hover:translate-x-1"} transition-all flex-shrink-0`} />
                   </div>
                 </div>
               </motion.button>
@@ -1219,12 +1370,22 @@ export default function DatingPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative group"
+          className="relative group mb-6"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-2xl blur-xl" />
           <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
             <AdBanner placement="dating_page" />
           </div>
+        </motion.div>
+
+        {/* Footer Label */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center py-4"
+        >
+          <p className="text-white/60 text-sm font-medium">Datings Dashboard</p>
         </motion.div>
       </main>
 
@@ -1348,5 +1509,17 @@ export default function DatingPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function DatingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    }>
+      <DatingPageContent />
+    </Suspense>
   );
 }

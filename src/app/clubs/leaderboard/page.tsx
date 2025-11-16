@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// Performance optimization: Added useMemo and useRef for expensive computations and debouncing
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Medal, Award, TrendingUp, Search, Filter, X, Lock, ChevronRight, Crown, Zap } from "lucide-react";
+// Performance optimization: Mobile detection to disable heavy animations
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Club = {
   id: string;
@@ -16,46 +19,73 @@ type Club = {
   rank: number;
 };
 
+// Performance optimization: Extract helper functions outside component
+const getRankGradient = (rank: number) => {
+  switch (rank) {
+    case 1: return "from-yellow-500 to-orange-500";
+    case 2: return "from-gray-400 to-gray-500";
+    case 3: return "from-orange-600 to-orange-700";
+    default: return "from-purple-500 to-pink-500";
+  }
+};
+
+const getRankGlow = (rank: number) => {
+  switch (rank) {
+    case 1: return "shadow-yellow-500/50";
+    case 2: return "shadow-gray-400/50";
+    case 3: return "shadow-orange-500/50";
+    default: return "shadow-purple-500/50";
+  }
+};
+
+const getRankColor = (rank: number) => {
+  switch (rank) {
+    case 1: return "yellow";
+    case 2: return "gray";
+    case 3: return "orange";
+    default: return "purple";
+  }
+};
+
+const getCategoryIcon = (cat: string | null) => {
+  switch (cat?.toLowerCase()) {
+    case "sports": return "⚽";
+    case "arts": return "🎨";
+    case "tech": return "💻";
+    case "general": return "🌟";
+    default: return "📁";
+  }
+};
+
+const getBorderClass = (rank: number) => {
+  switch (rank) {
+    case 1: return "border-yellow-500/50";
+    case 2: return "border-gray-400/50";
+    case 3: return "border-orange-500/50";
+    default: return "border-purple-500/50";
+  }
+};
+
+const getTextClass = (rank: number) => {
+  switch (rank) {
+    case 1: return "text-yellow-400";
+    case 2: return "text-gray-400";
+    case 3: return "text-orange-400";
+    default: return "text-purple-400";
+  }
+};
+
+const getBorderXPClass = (rank: number) => {
+  switch (rank) {
+    case 1: return "border-yellow-500/30";
+    case 2: return "border-gray-400/30";
+    case 3: return "border-orange-500/30";
+    default: return "border-purple-500/30";
+  }
+};
+
 // Top 3 Horizontal Card (Mobile-Friendly)
-function TopClubCard({ club, rank }: { club: Club; rank: number }) {
-  const getRankGradient = (rank: number) => {
-    switch (rank) {
-      case 1: return "from-yellow-500 to-orange-500";
-      case 2: return "from-gray-400 to-gray-500";
-      case 3: return "from-orange-600 to-orange-700";
-      default: return "from-purple-500 to-pink-500";
-    }
-  };
-
-  const getRankGlow = (rank: number) => {
-    switch (rank) {
-      case 1: return "shadow-yellow-500/50";
-      case 2: return "shadow-gray-400/50";
-      case 3: return "shadow-orange-500/50";
-      default: return "shadow-purple-500/50";
-    }
-  };
-
-  const getRankColor = (rank: number) => {
-    switch (rank) {
-      case 1: return "yellow";
-      case 2: return "gray";
-      case 3: return "orange";
-      default: return "purple";
-    }
-  };
-
-  const getCategoryIcon = (cat: string | null) => {
-    switch (cat?.toLowerCase()) {
-      case "sports": return "⚽";
-      case "arts": return "🎨";
-      case "tech": return "💻";
-      case "general": return "🌟";
-      default: return "📁";
-    }
-  };
-
-  const color = getRankColor(rank);
+function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
 
   return (
     <motion.div
@@ -64,29 +94,30 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
       transition={{ delay: rank * 0.1 }}
       className="relative group"
     >
+      {/* Performance optimization: Disable infinite glow animation on mobile */}
       <motion.div
-        animate={{
+        animate={!isMobile ? {
           boxShadow: [
             `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
             `0 0 40px ${rank === 1 ? "rgba(234, 179, 8, 0.5)" : rank === 2 ? "rgba(156, 163, 175, 0.5)" : "rgba(249, 115, 22, 0.5)"}`,
             `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
           ],
-        }}
-        transition={{ duration: 2, repeat: Infinity }}
+        } : undefined}
+        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
         className={`absolute inset-0 bg-gradient-to-br ${getRankGradient(rank)}/20 rounded-2xl blur-lg`}
       />
-      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 border-${color}-500/50 p-4 md:p-6`}>
+      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 ${getBorderClass(rank)} p-3 md:p-4`}>
         {/* Horizontal Layout */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Rank Badge */}
-          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center shadow-lg ${getRankGlow(rank)} flex-shrink-0`}>
-            {rank === 1 && <Crown className="w-6 h-6 md:w-7 md:h-7 text-white" />}
-            {rank === 2 && <Medal className="w-6 h-6 md:w-7 md:h-7 text-white" />}
-            {rank === 3 && <Award className="w-6 h-6 md:w-7 md:h-7 text-white" />}
+          <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center shadow-lg ${getRankGlow(rank)} flex-shrink-0`}>
+            {rank === 1 && <Crown className="w-5 h-5 md:w-6 md:h-6 text-white" />}
+            {rank === 2 && <Medal className="w-5 h-5 md:w-6 md:h-6 text-white" />}
+            {rank === 3 && <Award className="w-5 h-5 md:w-6 md:h-6 text-white" />}
           </div>
 
           {/* Club Avatar */}
-          <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center text-2xl md:text-3xl flex-shrink-0 overflow-hidden`}>
+          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center text-xl md:text-2xl flex-shrink-0 overflow-hidden`}>
             {club.logo_url ? (
               <img
                 src={club.logo_url}
@@ -100,28 +131,28 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
 
           {/* Club Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-base md:text-lg font-bold text-white mb-1 line-clamp-1">
+            <h3 className="text-sm md:text-base font-bold text-white mb-0.5 line-clamp-1">
               {club.name}
             </h3>
             {club.category && (
-              <p className="text-xs text-white/60">{club.category}</p>
+              <p className="text-xs text-white/60 hidden md:block">{club.category}</p>
             )}
           </div>
 
           {/* XP Display */}
-          <div className={`bg-gradient-to-r ${getRankGradient(rank)}/20 border border-${color}-500/30 rounded-xl px-3 md:px-4 py-2 md:py-3 text-center flex-shrink-0`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className={`w-4 h-4 text-${color}-400`} />
-              <span className={`text-xl md:text-2xl font-bold text-${color}-400`}>
+          <div className={`bg-gradient-to-r ${getRankGradient(rank)}/20 border ${getBorderXPClass(rank)} rounded-xl px-2 md:px-3 py-1.5 md:py-2 text-center flex-shrink-0`}>
+            <div className="flex items-center justify-center gap-1">
+              <Zap className={`w-3 h-3 md:w-4 md:h-4 ${getTextClass(rank)}`} />
+              <span className={`text-base md:text-xl font-bold ${getTextClass(rank)}`}>
                 {club.total_xp}
               </span>
             </div>
-            <span className="text-xs text-white/60">XP</span>
+            <span className="text-[10px] md:text-xs text-white/60">XP</span>
           </div>
 
           {/* Place Badge */}
-          <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${getRankGradient(rank)}/30 border border-${color}-500/50 flex items-center justify-center flex-shrink-0`}>
-            <span className={`text-base md:text-lg font-bold text-${color}-400`}>#{rank}</span>
+          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${getRankGradient(rank)}/30 border ${getBorderXPClass(rank)} flex items-center justify-center flex-shrink-0`}>
+            <span className={`text-sm md:text-base font-bold ${getTextClass(rank)}`}>#{rank}</span>
           </div>
         </div>
       </div>
@@ -129,43 +160,38 @@ function TopClubCard({ club, rank }: { club: Club; rank: number }) {
   );
 }
 
+// Performance optimization: Extract helper functions outside component
+const getCategoryColor = (cat: string | null) => {
+  switch (cat?.toLowerCase()) {
+    case "sports": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
+    case "arts": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
+    case "tech": return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400";
+    case "general": return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400";
+    default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
+  }
+};
+
 // Regular Club Card (rank 4+)
 function ClubCard({
   club,
   rank,
   status,
   onClick,
+  isMobile,
 }: {
   club: Club;
   rank: number;
   status?: "joined" | "requested" | "none";
   onClick: () => void;
+  isMobile: boolean;
 }) {
-  const getCategoryColor = (cat: string | null) => {
-    switch (cat?.toLowerCase()) {
-      case "sports": return "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400";
-      case "arts": return "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400";
-      case "tech": return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400";
-      case "general": return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400";
-      default: return "from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400";
-    }
-  };
-
-  const getCategoryIcon = (cat: string | null) => {
-    switch (cat?.toLowerCase()) {
-      case "sports": return "⚽";
-      case "arts": return "🎨";
-      case "tech": return "💻";
-      case "general": return "🌟";
-      default: return "📁";
-    }
-  };
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      whileHover={{ x: 4, scale: 1.01 }}
+      // Performance optimization: Disable hover on mobile
+      whileHover={!isMobile ? { x: 4, scale: 1.01 } : undefined}
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className="cursor-pointer group relative"
@@ -483,6 +509,11 @@ function RequestModal({
 
 export default function LeaderboardPage() {
   const router = useRouter();
+  // Performance optimization: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+  // Performance optimization: Debounce timer for real-time subscription updates
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [clubs, setClubs] = useState<Club[]>([]);
   const [joinedClubIds, setJoinedClubIds] = useState<string[]>([]);
   const [requestedClubIds, setRequestedClubIds] = useState<string[]>([]);
@@ -539,26 +570,44 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     fetchClubs();
-const subscription = supabase
-    .channel('all-clubs-leaderboard')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'clubs'
-      },
-      (payload) => {
-        console.log('✅ A club was updated, refreshing leaderboard');
-        fetchClubs(); // Refresh when any club XP changes
-      }
-    )
-    .subscribe();
 
-  return () => {
-    subscription.unsubscribe();
-  };
-}, []);
+    // Performance optimization: Debounce real-time subscription to prevent excessive re-renders
+    // Without debounce, every single club XP update triggers a full refresh (lag spike)
+    // With debounce, we batch multiple updates and only refresh once every 2 seconds
+    const subscription = supabase
+      .channel('all-clubs-leaderboard')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clubs'
+        },
+        (payload) => {
+          console.log('✅ Club updated, debouncing leaderboard refresh');
+
+          // Clear previous timer if it exists
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+
+          // Set new timer - only refresh after 2 seconds of no updates
+          debounceTimerRef.current = setTimeout(() => {
+            console.log('🔄 Refreshing leaderboard after debounce');
+            fetchClubs();
+          }, 2000); // 2 second debounce
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      // Cleanup debounce timer on unmount
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
   
 
   const handleJoin = async (clubId: string) => {
@@ -645,39 +694,42 @@ const subscription = supabase
     setShowRequestModal(false);
   };
 
-  const filteredClubs = clubs.filter((c) => {
-    const matchesCategory =
-      filter === "all" ||
-      c.category?.toLowerCase() === filter.toLowerCase();
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.category?.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Performance optimization: useMemo prevents recalculating filtered clubs on every render
+  const filteredClubs = useMemo(() => {
+    return clubs.filter((c) => {
+      const matchesCategory =
+        filter === "all" ||
+        c.category?.toLowerCase() === filter.toLowerCase();
+      const matchesSearch =
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.category?.toLowerCase().includes(search.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [clubs, filter, search]);
 
   const topThree = filteredClubs.slice(0, 3);
   const restOfClubs = filteredClubs.slice(3);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated Background */}
+      {/* Performance optimization: Disable infinite background animations on mobile */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1.2, 1, 1.2],
             rotate: [90, 0, 90],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
         />
       </div>
@@ -791,7 +843,7 @@ const subscription = supabase
             <div className="space-y-4 md:space-y-5">
               {topThree.map((club) => (
                 <div key={club.id} onClick={() => setSelectedClub(club)} className="cursor-pointer">
-                  <TopClubCard club={club} rank={club.rank} />
+                  <TopClubCard club={club} rank={club.rank} isMobile={isMobile} />
                 </div>
               ))}
             </div>
@@ -826,6 +878,7 @@ const subscription = supabase
                         : "none"
                   }
                   onClick={() => setSelectedClub(club)}
+                  isMobile={isMobile}
                 />
               ))}
             </div>

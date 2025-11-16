@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// Performance optimization: Added useRef for debouncing real-time subscriptions
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { Toaster, toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   ArrowLeft, Edit, Save, X, Upload, Trophy, Users, Calendar,
   Star, TrendingUp, Crown, Shield, History, Activity, Trash2,
   MapPin, Clock, Award, Zap, CheckCircle, XCircle, Image as ImageIcon,
   Lock as LockIcon, AlertCircle, ChevronDown, ChevronUp
 } from "lucide-react";
+// Performance optimization: Mobile detection to disable heavy animations
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Club = {
   id: string;
@@ -35,6 +38,11 @@ type Member = {
 export default function ClubProfilePage() {
   const { id: clubId } = useParams<{ id: string }>();
   const router = useRouter();
+  // Performance optimization: Detect mobile to disable heavy animations
+  const isMobile = useIsMobile();
+  // Performance optimization: Debounce timers for real-time subscriptions
+  const statsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [club, setClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -52,6 +60,7 @@ export default function ClubProfilePage() {
 
   const [showEventHistory, setShowEventHistory] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const [totalEvents, setTotalEvents] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
@@ -59,6 +68,9 @@ export default function ClubProfilePage() {
   const [events, setEvents] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [eventParticipantCounts, setEventParticipantCounts] = useState<Record<string, number>>({});
+  const [requests, setRequests] = useState<any[]>([]);
+  const [eventInvitations, setEventInvitations] = useState<any[]>([]);
+  const [inviteActioning, setInviteActioning] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -87,13 +99,18 @@ export default function ClubProfilePage() {
       await fetchStats();
       await fetchEvents();
       await fetchMessages();
+      if (roleData?.role === "admin") {
+        await fetchRequests();
+        await fetchEventInvitations();
+      }
 
       setLoading(false);
     };
 
     load();
 
-    // ✅ Subscribe to real-time club updates (XP changes)
+    // Performance optimization: Debounce real-time subscriptions to prevent re-render storms
+    // Subscribe to real-time club updates (XP changes) with 1s debounce
     const clubSubscription = supabase
       .channel(`club-${clubId}`)
       .on(
@@ -105,14 +122,23 @@ export default function ClubProfilePage() {
           filter: `id=eq.${clubId}`
         },
         (payload) => {
-          console.log('✅ Club updated in real-time:', payload);
-          // Refresh stats when club XP is updated
-          fetchStats();
+          console.log('✅ Club updated, debouncing stats refresh');
+
+          // Clear previous timer
+          if (statsDebounceRef.current) {
+            clearTimeout(statsDebounceRef.current);
+          }
+
+          // Only refresh after 1 second of no updates
+          statsDebounceRef.current = setTimeout(() => {
+            console.log('🔄 Refreshing stats after debounce');
+            fetchStats();
+          }, 1000);
         }
       )
       .subscribe();
 
-    // ✅ Subscribe to new messages (including system notifications)
+    // Subscribe to new messages with 500ms debounce (faster since messages are more visible to user)
     const messagesSubscription = supabase
       .channel(`messages-${clubId}`)
       .on(
@@ -124,8 +150,18 @@ export default function ClubProfilePage() {
           filter: `club_id=eq.${clubId}`
         },
         (payload) => {
-          console.log('✅ New message:', payload);
-          fetchMessages();
+          console.log('✅ New message, debouncing refresh');
+
+          // Clear previous timer
+          if (messagesDebounceRef.current) {
+            clearTimeout(messagesDebounceRef.current);
+          }
+
+          // Only refresh after 500ms of no new messages
+          messagesDebounceRef.current = setTimeout(() => {
+            console.log('🔄 Refreshing messages after debounce');
+            fetchMessages();
+          }, 500);
         }
       )
       .subscribe();
@@ -133,6 +169,13 @@ export default function ClubProfilePage() {
     return () => {
       clubSubscription.unsubscribe();
       messagesSubscription.unsubscribe();
+      // Cleanup debounce timers
+      if (statsDebounceRef.current) {
+        clearTimeout(statsDebounceRef.current);
+      }
+      if (messagesDebounceRef.current) {
+        clearTimeout(messagesDebounceRef.current);
+      }
     };
   }, [clubId, router]);
 
@@ -264,6 +307,113 @@ export default function ClubProfilePage() {
     setMessages(data || []);
   };
 
+  const fetchRequests = async () => {
+    if (!clubId) return;
+    const { data } = await supabase
+      .from("club_requests")
+      .select(
+        `id, user_id, status, requested_at, profiles ( full_name, enrollment_number, college_email )`
+      )
+      .eq("club_id", clubId)
+      .eq("status", "pending")
+      .order("requested_at", { ascending: true });
+
+    setRequests(
+      (data ?? []).map((r: any) => ({
+        id: r.id,
+        user_id: r.user_id,
+        club_id: r.club_id,
+        status: r.status,
+        requested_at: r.requested_at,
+        profiles: r.profiles
+          ? {
+            full_name: r.profiles.full_name,
+            enrollment_number: r.profiles.enrollment_number,
+            college_email: r.profiles.college_email,
+          }
+          : null,
+      }))
+    );
+  };
+
+  const fetchEventInvitations = async () => {
+    if (!clubId) return;
+
+    const { data, error } = await supabase
+      .from("inter_club_participants")
+      .select(`
+        event_id,
+        club_id,
+        accepted,
+        events!inner(
+          id,
+          title,
+          description,
+          event_date,
+          total_xp_pool,
+          clubs!inner(name)
+        )
+      `)
+      .eq("club_id", clubId)
+      .eq("accepted", false);
+
+    if (error) {
+      console.error("Error fetching event invitations:", error);
+      return;
+    }
+
+    setEventInvitations(data || []);
+  };
+
+  const sendSystemMessage = async (content: string) => {
+    if (!clubId || !currentUserId) return;
+
+    const { error } = await supabase.from("messages").insert([
+      {
+        club_id: clubId,
+        user_id: currentUserId,
+        content: `🔔 SYSTEM: ${content}`,
+      },
+    ]);
+
+    if (error) {
+      console.error("Error sending system message:", error);
+    }
+  };
+
+  const handleApprove = async (requestId: string, userId: string) => {
+    if (!clubId) return;
+
+    const { error: insertError } = await supabase.from("club_members").insert([
+      {
+        club_id: clubId,
+        user_id: userId,
+        role: "member",
+      },
+    ]);
+
+    if (insertError) {
+      toast.error("Failed to add user");
+      return;
+    }
+
+    await supabase.from("club_requests").delete().eq("id", requestId);
+
+    toast.success("✅ Request approved & user added");
+    const approvedUser = requests.find(r => r.id === requestId);
+    if (approvedUser?.profiles?.full_name) {
+      await sendSystemMessage(`${approvedUser.profiles.full_name} joined the club`);
+    }
+    await fetchRequests();
+    await fetchMembers();
+  };
+
+  const handleReject = async (requestId: string) => {
+    await supabase.from("club_requests").delete().eq("id", requestId);
+    toast.success("🚫 Request rejected");
+    await fetchRequests();
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -365,15 +515,15 @@ export default function ClubProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white">
       <Toaster />
 
-      {/* Animated Background */}
+      {/* Performance optimization: Disable infinite background animation on mobile */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
+          } : { opacity: 0.03 }}
+          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
       </div>
@@ -395,17 +545,17 @@ export default function ClubProfilePage() {
             Club Profile
           </h1>
 
-          {isAdmin && (
+          {isAdmin && isEditing && (
             <div className="flex gap-2">
               {!isEditing ? (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsEditing(true)}
-                  className="px-3 md:px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl text-sm md:text-base font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all flex items-center gap-2"
                 >
                   <Edit className="w-4 h-4" />
-                  <span className="hidden sm:inline">Edit</span>
+                  Edit
                 </motion.button>
               ) : (
                 <>
@@ -421,24 +571,26 @@ export default function ClubProfilePage() {
                       setLogoFile(null);
                       setLogoPreview(null);
                     }}
-                    className="px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm md:text-base font-medium transition-all flex items-center gap-2"
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium transition-all flex items-center gap-2"
                   >
                     <X className="w-4 h-4" />
-                    <span className="hidden sm:inline">Cancel</span>
+                    Cancel
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleSave}
-                    className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl text-sm md:text-base font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2"
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span className="hidden sm:inline">Save</span>
+                    Save
                   </motion.button>
                 </>
               )}
             </div>
           )}
+
+          {!isAdmin && <div className="w-10 h-10" />}
         </div>
 
         {/* Main Profile Card */}
@@ -649,11 +801,195 @@ export default function ClubProfilePage() {
           </div>
         </motion.div>
 
+        {/* Admin Panel */}
+        {isAdmin && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="relative group mb-8"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-yellow-500/30">
+              <button
+                onClick={() => setShowAdminPanel(!showAdminPanel)}
+                className="w-full flex justify-between items-center px-6 py-4 hover:bg-white/5 rounded-t-2xl transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="w-6 h-6 text-yellow-400" />
+                  <h3 className="text-xl font-bold text-white">Admin Panel</h3>
+                  {(eventInvitations.length > 0 || requests.length > 0) && (
+                    <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm px-2 py-0.5 rounded-full font-bold">
+                      {eventInvitations.length + requests.length}
+                    </span>
+                  )}
+                </div>
+                {showAdminPanel ? <ChevronUp className="w-5 h-5 text-white/60" /> : <ChevronDown className="w-5 h-5 text-white/60" />}
+              </button>
+
+              <AnimatePresence>
+                {showAdminPanel && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 space-y-6 max-h-96 overflow-y-auto">
+                      {/* Event Invitations */}
+                      {eventInvitations.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-purple-300 mb-3">Event Invitations</h4>
+                          <div className="space-y-2">
+                            {eventInvitations.map((invitation: any) => {
+                              const isBusy = inviteActioning === invitation.event_id;
+                              return (
+                                <motion.div
+                                  key={invitation.event_id}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  className={`p-3 bg-white/5 border border-white/10 rounded-xl ${isBusy ? "opacity-60" : ""}`}
+                                >
+                                  <div className="mb-3">
+                                    <p className="font-semibold text-white text-sm">{invitation.events.title}</p>
+                                    <p className="text-xs text-white/60">
+                                      By: {invitation.events.clubs.name} •{" "}
+                                      {new Date(invitation.events.event_date).toLocaleDateString()} •{" "}
+                                      {invitation.events.total_xp_pool} XP
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <motion.button
+                                      disabled={isBusy}
+                                      whileHover={!isBusy ? { scale: 1.02 } : {}}
+                                      whileTap={!isBusy ? { scale: 0.98 } : {}}
+                                      onClick={async () => {
+                                        setInviteActioning(invitation.event_id);
+                                        setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+                                        const { data: upd, error } = await supabase
+                                          .from("inter_club_participants")
+                                          .update({ accepted: true })
+                                          .eq("event_id", invitation.event_id)
+                                          .eq("club_id", clubId)
+                                          .select("event_id, club_id, accepted")
+                                          .single();
+
+                                        if (error || !upd || upd.accepted !== true) {
+                                          await fetchEventInvitations();
+                                          setInviteActioning(null);
+                                          if (error) {
+                                            toast.error(`Failed to accept challenge: ${error.message}`);
+                                          } else {
+                                            toast.error("Failed to accept challenge (no matching row / RLS / backend issue).");
+                                          }
+                                          return;
+                                        }
+
+                                        toast.success("✅ Challenge accepted!");
+                                        await sendSystemMessage(`Accepted inter-club event: ${invitation.events.title}`);
+                                        await fetchEventInvitations();
+                                        await fetchEvents();
+                                        setInviteActioning(null);
+                                      }}
+                                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold ${isBusy ? "bg-green-300/50" : "bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg hover:shadow-green-500/50"} text-white transition-all`}
+                                    >
+                                      {isBusy ? "Accepting..." : "Accept"}
+                                    </motion.button>
+
+                                    <motion.button
+                                      disabled={isBusy}
+                                      whileHover={!isBusy ? { scale: 1.02 } : {}}
+                                      whileTap={!isBusy ? { scale: 0.98 } : {}}
+                                      onClick={async () => {
+                                        setInviteActioning(invitation.event_id);
+                                        setEventInvitations(prev => prev.filter(i => i.event_id !== invitation.event_id));
+
+                                        const { error } = await supabase
+                                          .from("inter_club_participants")
+                                          .delete()
+                                          .eq("event_id", invitation.event_id)
+                                          .eq("club_id", clubId);
+
+                                        if (error) {
+                                          toast.error("Failed to decline challenge");
+                                          await fetchEventInvitations();
+                                          setInviteActioning(null);
+                                          return;
+                                        }
+
+                                        toast.success("❌ Challenge declined");
+                                        await sendSystemMessage(`Declined inter-club event: ${invitation.events.title}`);
+                                        await fetchEventInvitations();
+                                        await fetchEvents();
+                                        setInviteActioning(null);
+                                      }}
+                                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold ${isBusy ? "bg-red-300/50" : "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"} text-white transition-all`}
+                                    >
+                                      {isBusy ? "Declining..." : "Decline"}
+                                    </motion.button>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pending Join Requests */}
+                      <div>
+                        <h4 className="font-semibold text-purple-300 mb-3">Pending Join Requests</h4>
+                        {requests.length === 0 ? (
+                          <p className="text-white/40 text-sm">No pending requests</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {requests.map((r) => (
+                              <motion.div
+                                key={r.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className="flex justify-between items-center p-3 bg-white/5 border border-white/10 rounded-xl"
+                              >
+                                <span className="text-sm text-white">
+                                  {r.profiles?.full_name || `User: ${r.user_id}`}
+                                </span>
+                                <div className="flex gap-2">
+                                  <motion.button
+                                    onClick={() => handleApprove(r.id, r.user_id)}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-green-500/50 transition-all"
+                                  >
+                                    Approve
+                                  </motion.button>
+                                  <motion.button
+                                    onClick={() => handleReject(r.id)}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all"
+                                  >
+                                    Reject
+                                  </motion.button>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+
         {/* Event History */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.3 }}
           id="history"
           className="relative group mb-8"
         >
@@ -808,37 +1144,35 @@ export default function ClubProfilePage() {
           </motion.div>
         )}
 
-        {/* Danger Zone */}
+        {/* Action Buttons */}
         {isAdmin && !isEditing && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="relative group"
+            className="flex gap-4"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-orange-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-red-500/30 p-6">
-              <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                Danger Zone
-              </h3>
-              <p className="text-sm text-red-400/70 mb-4">
-                Careful! These actions cannot be undone.
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete this club? This cannot be undone!")) {
-                    toast.error("Delete functionality coming soon");
-                  }
-                }}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Club
-              </motion.button>
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (confirm("Are you sure you want to delete this club? This cannot be undone!")) {
+                  toast.error("Delete functionality coming soon");
+                }
+              }}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all text-white lowercase"
+            >
+              delete club
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsEditing(true)}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all text-white lowercase"
+            >
+              edit club
+            </motion.button>
           </motion.div>
         )}
       </div>

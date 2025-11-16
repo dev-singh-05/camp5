@@ -2,25 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import { motion, AnimatePresence } from "framer-motion";
+// OPTIMIZATION: Use LazyMotion instead of full framer-motion import to reduce bundle size by ~30KB
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import AdBanner from "@/components/ads";
 import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
-import { 
-  Users, 
-  Heart, 
-  Star, 
-  Bell, 
-  Menu, 
-  X, 
+import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  Users,
+  Heart,
+  Star,
+  Bell,
+  Menu,
+  X,
   TrendingUp,
   Newspaper,
   Calendar,
   MessageSquare,
   Award,
-  Sparkles,
   ChevronDown,
   ExternalLink,
   Coins,
@@ -56,6 +57,9 @@ type CampusNewsArticle = {
 
 export default function Dashboard() {
   const router = useRouter();
+  // OPTIMIZATION: Detect mobile devices to disable heavy animations
+  const isMobile = useIsMobile();
+
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -77,6 +81,10 @@ export default function Dashboard() {
   const readNewsRef = useRef<Set<string>>(new Set());
   const userIdRef = useRef<string | null>(null);
   const realtimeChannelRef = useRef<any>(null);
+
+  // OPTIMIZATION: Debounce refs for real-time updates to prevent excessive re-renders
+  const newsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const campusNewsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Token balance state
   const [tokenBalance, setTokenBalance] = useState<number>(0);
@@ -562,7 +570,7 @@ export default function Dashboard() {
         }
       );
 
-      await channel.subscribe();
+      channel.subscribe();
       realtimeChannelRef.current = channel;
     } catch (err) {
       console.error("Failed to start realtime:", err);
@@ -576,7 +584,8 @@ export default function Dashboard() {
     }
   }
 
-  function pushNews(item: NewsItem) {
+  // OPTIMIZATION: Debounce pushNews to prevent excessive re-renders from rapid real-time updates
+  const pushNews = useCallback((item: NewsItem) => {
     if (notificationsPausedRef.current) return;
 
     if (item.type === "rating" && !ratingsMsgRef.current) return;
@@ -587,27 +596,35 @@ export default function Dashboard() {
 
     if (removedItemsRef.current.has(item.id)) return;
 
-    setNews((prev) => {
-      if (prev.some((p) => p.id === item.id)) return prev;
-      const next = [item, ...prev].slice(0, 200);
-      next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return next;
-    });
-  }
+    // Debounce updates by 100ms to batch rapid changes
+    if (newsUpdateTimeoutRef.current) {
+      clearTimeout(newsUpdateTimeoutRef.current);
+    }
 
-  function removeNewsItem(id: string) {
+    newsUpdateTimeoutRef.current = setTimeout(() => {
+      setNews((prev) => {
+        if (prev.some((p) => p.id === item.id)) return prev;
+        const next = [item, ...prev].slice(0, 200);
+        next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return next;
+      });
+    }, 100);
+  }, []);
+
+  // OPTIMIZATION: useCallback to prevent recreating these functions on every render
+  const removeNewsItem = useCallback((id: string) => {
     removedItemsRef.current.add(id);
     saveDismissedItems();
     setNews((prev) => prev.filter((n) => n.id !== id));
-  }
+  }, []);
 
-  function clearAllNews() {
+  const clearAllNews = useCallback(() => {
     news.forEach((item) => removedItemsRef.current.add(item.id));
     saveDismissedItems();
     setNews([]);
-  }
+  }, [news]);
 
-  function handleNewsClick(item: NewsItem) {
+  const handleNewsClick = useCallback((item: NewsItem) => {
     // Mark update as read
     readItemsRef.current.add(item.id);
     saveReadItems();
@@ -641,9 +658,9 @@ export default function Dashboard() {
       default:
         router.push("/");
     }
-  }
+  }, [router]);
 
-  const openNewsModal = async (article: CampusNewsArticle) => {
+  const openNewsModal = useCallback(async (article: CampusNewsArticle) => {
     setSelectedNewsArticle(article);
 
     // Mark news as read
@@ -660,11 +677,11 @@ export default function Dashboard() {
         prev.map((n) => (n.id === article.id ? { ...n, views: n.views + 1 } : n))
       );
     }
-  };
+  }, []);
 
-  const closeNewsModal = () => {
+  const closeNewsModal = useCallback(() => {
     setSelectedNewsArticle(null);
-  };
+  }, []);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -750,105 +767,122 @@ export default function Dashboard() {
     setFeedbackMessage("");
   }
 
+  // OPTIMIZATION: Memoize expensive filtering operations to prevent recalculation on every render
+  const unreadCampusNews = useMemo(() => {
+    return campusNews.filter(n => !readNewsRef.current.has(n.id));
+  }, [campusNews]); // Only recalculate when campusNews changes
+
+  const { pinnedNews, newNews } = useMemo(() => {
+    const pinned = unreadCampusNews.filter(n => n.pinned);
+    const regular = unreadCampusNews.filter(n => !n.pinned);
+    return { pinnedNews: pinned, newNews: regular };
+  }, [unreadCampusNews]);
+
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
-          />
-          <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
-        </motion.div>
-      </div>
+      <LazyMotion features={domAnimation}>
+        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+          <m.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center"
+          >
+            <m.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+            />
+            <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
+          </m.div>
+        </div>
+      </LazyMotion>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
-      </div>
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
+        {/* OPTIMIZATION: Animated background only on desktop - too heavy for mobile */}
+        {!isMobile && (
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <m.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <m.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </div>
+        )}
 
       {/* Header */}
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between">
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
+              className="text-base md:text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
             >
               Welcome to Campus5
-            </motion.h1>
+            </m.h1>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               {/* Token Balance */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowTokenBalance(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
               >
-                <Coins className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm font-semibold text-yellow-400">{tokenBalance}</span>
-                <span className="text-xs text-yellow-400/70">Tokens</span>
-              </motion.button>
+                <Coins className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
+                <span className="text-xs md:text-sm font-semibold text-yellow-400">{tokenBalance}</span>
+                <span className="hidden md:inline text-xs text-yellow-400/70">Tokens</span>
+              </m.button>
 
               {/* Profile */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => router.push("/profile")}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
               >
                 {profileName?.charAt(0) || "U"}
-              </motion.button>
+              </m.button>
 
               {/* Menu */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSidebarOpen(true)}
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
               >
-                <Menu className="w-5 h-5" />
-              </motion.button>
+                <Menu className="w-4 h-4 md:w-5 md:h-5" />
+              </m.button>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-3">
-        <div className="grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
+      <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-3 pb-20 md:pb-3">
+        {/* Desktop Layout */}
+        <div className="hidden md:grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left Sidebar: Navigation Cards */}
           <div className="col-span-3 space-y-4">
             {/* Clubs */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -857,7 +891,7 @@ export default function Dashboard() {
               onClick={() => router.push("/clubs")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(168, 85, 247, 0.3)",
@@ -879,10 +913,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
 
             {/* Dating */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -891,7 +925,7 @@ export default function Dashboard() {
               onClick={() => router.push("/dating")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(236, 72, 153, 0.3)",
@@ -913,10 +947,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
 
             {/* Rating */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -925,7 +959,7 @@ export default function Dashboard() {
               onClick={() => router.push("/ratings")}
               className="cursor-pointer group relative"
             >
-              <motion.div
+              <m.div
                 animate={{
                   boxShadow: [
                     "0 0 20px rgba(34, 211, 238, 0.3)",
@@ -947,12 +981,12 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Center: Featured/Ads Section */}
           <div className="col-span-6">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="relative group"
@@ -970,13 +1004,13 @@ export default function Dashboard() {
                   <AdBanner placement="dashboard" />
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Right Sidebar: Updates & News */}
           <div className="col-span-3 space-y-4">
             {/* Updates Card with Dropdown */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="relative group"
@@ -996,17 +1030,17 @@ export default function Dashboard() {
                       <span className="text-xs text-white/40">{news.length} items</span>
                     </div>
                   </div>
-                  <motion.div
+                  <m.div
                     animate={{ rotate: updatesExpanded ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
-                  </motion.div>
+                  </m.div>
                 </button>
 
                 <AnimatePresence>
                   {updatesExpanded && (
-                    <motion.div
+                    <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -1031,7 +1065,7 @@ export default function Dashboard() {
                           <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
                         ) : (
                           news.slice(0, 3).map((item, index) => (
-                            <motion.div
+                            <m.div
                               key={item.id}
                               initial={{ opacity: 0, x: 20 }}
                               animate={{ opacity: 1, x: 0 }}
@@ -1076,21 +1110,21 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                               </div>
-                            </motion.div>
+                            </m.div>
                           ))
                         )}
                       </div>
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </m.div>
 
             
             
 
             {/* News Card with Dropdown */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
@@ -1109,21 +1143,21 @@ export default function Dashboard() {
                     <div className="text-left">
                       <h3 className="text-base font-bold text-white">News</h3>
                       <span className="text-xs text-white/40">
-                        {campusNews.filter(n => !readNewsRef.current.has(n.id)).length} new
+                        {unreadCampusNews.length} new
                       </span>
                     </div>
                   </div>
-                  <motion.div
+                  <m.div
                     animate={{ rotate: newsExpanded ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
-                  </motion.div>
+                  </m.div>
                 </button>
 
                 <AnimatePresence>
                   {newsExpanded && (
-                    <motion.div
+                    <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -1137,10 +1171,7 @@ export default function Dashboard() {
 
                       <div className="space-y-2">
                         {(() => {
-                          // Filter unread news
-                          const unreadNews = campusNews.filter(n => !readNewsRef.current.has(n.id));
-                          const pinnedNews = unreadNews.filter(n => n.pinned);
-                          const newNews = unreadNews.filter(n => !n.pinned);
+                          // OPTIMIZATION: Use memoized unread news instead of filtering on every render
 
                           // Get current items to display
                           const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
@@ -1155,7 +1186,7 @@ export default function Dashboard() {
                           return displayNews.map((article, slotIndex) => (
                             <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
                               <AnimatePresence mode="wait">
-                                <motion.div
+                                <m.div
                                   key={article.id}
                                   initial={{ x: slideDirection === 'left' ? 100 : -100, opacity: 0 }}
                                   animate={{ x: 0, opacity: 1 }}
@@ -1212,33 +1243,330 @@ export default function Dashboard() {
                                       </div>
                                     </div>
                                   </div>
-                                </motion.div>
+                                </m.div>
                               </AnimatePresence>
                             </div>
                           ));
                         })()}
                       </div>
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </m.div>
           </div>
         </div>
+
+        {/* Mobile Layout */}
+        <div className="md:hidden space-y-4">
+          {/* Ads Section */}
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  📢 Ads
+                </h3>
+              </div>
+              <div>
+                <AdBanner placement="dashboard" />
+              </div>
+            </div>
+          </m.div>
+
+          {/* Updates Card */}
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <button
+                onClick={() => setUpdatesExpanded(!updatesExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-white">Updates</h3>
+                    <span className="text-xs text-white/40">{news.length} items</span>
+                  </div>
+                </div>
+                <m.div
+                  animate={{ rotate: updatesExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-white/60"
+                >
+                  {updatesExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
+                </m.div>
+              </button>
+
+              <AnimatePresence>
+                {updatesExpanded && (
+                  <m.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-4 py-3"
+                  >
+                    {news.length > 0 && (
+                      <div className="flex items-center justify-end mb-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllNews();
+                          }}
+                          className="text-xs text-white/40 hover:text-white/60"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      {news.length === 0 ? (
+                        <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
+                      ) : (
+                        news.slice(0, 5).map((item, index) => (
+                          <m.div
+                            key={item.id}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="group/item cursor-pointer"
+                          >
+                            <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-cyan-500/30 transition-all">
+                              <div className="flex items-start gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                  {getNewsIcon(item.type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <button
+                                      onClick={() => handleNewsClick(item)}
+                                      className="flex-1 text-left"
+                                    >
+                                      <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1">
+                                        {item.title}
+                                      </h4>
+                                      {item.body && (
+                                        <p className="text-xs text-white/60 line-clamp-2">{item.body}</p>
+                                      )}
+                                      <time className="text-xs text-white/40 mt-0.5 block">
+                                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </time>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeNewsItem(item.id);
+                                      }}
+                                      className="text-white/40 hover:text-white/80 flex-shrink-0"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </m.div>
+                        ))
+                      )}
+                    </div>
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </m.div>
+
+          {/* News Card */}
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <button
+                onClick={() => setNewsExpanded(!newsExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Newspaper className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-white">News</h3>
+                    <span className="text-xs text-white/40">
+                      {unreadCampusNews.length} new
+                    </span>
+                  </div>
+                </div>
+                <m.div
+                  animate={{ rotate: newsExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-white/60"
+                >
+                  {newsExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
+                </m.div>
+              </button>
+
+              <AnimatePresence>
+                {newsExpanded && (
+                  <m.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-4 py-3"
+                  >
+                    <div className="flex items-center justify-end mb-3">
+                      <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300">
+                        View all
+                      </Link>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(() => {
+                        // OPTIMIZATION: Use memoized unread news instead of filtering on every render
+                        const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
+                        const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
+
+                        const displayNews = [currentPinned, currentNew].filter(Boolean) as CampusNewsArticle[];
+
+                        if (displayNews.length === 0) {
+                          return <p className="text-white/40 text-sm text-center py-6">No new news</p>;
+                        }
+
+                        return displayNews.map((article, slotIndex) => (
+                          <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
+                            <m.div
+                              key={article.id}
+                              onClick={() => openNewsModal(article)}
+                              className="group/item cursor-pointer"
+                            >
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-purple-500/30 transition-all">
+                                <div className="flex items-start gap-2">
+                                  {article.image_url ? (
+                                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img
+                                        src={article.image_url}
+                                        alt={article.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl`}>
+                                      {getCategoryIcon(article.category)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
+                                        {article.category}
+                                      </span>
+                                      {article.pinned && (
+                                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                          📌
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-2">
+                                      {article.title}
+                                    </h4>
+                                    {article.excerpt && (
+                                      <p className="text-xs text-white/60 line-clamp-2">{article.excerpt}</p>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        👁️ {article.views}
+                                      </span>
+                                      <span>•</span>
+                                      <time>
+                                        {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </time>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </m.div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </m.div>
+        </div>
       </main>
+
+      {/* Bottom Navigation (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-xl border-t border-white/10">
+        <div className="grid grid-cols-3 gap-1 px-4 py-3">
+          <m.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/clubs")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Clubs</span>
+          </m.button>
+
+          <m.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/ratings")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
+              <Star className="w-5 h-5 text-cyan-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Ratings</span>
+          </m.button>
+
+          <m.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/dating")}
+            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-pink-400" />
+            </div>
+            <span className="text-xs font-medium text-white/80">Dating</span>
+          </m.button>
+        </div>
+      </nav>
 
       {/* All Modals */}
       
       {/* Onboarding Modal */}
       <AnimatePresence>
         {showOnboardingModal && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1336,8 +1664,8 @@ export default function Dashboard() {
                   Complete Profile
                 </button>
               </form>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1361,14 +1689,14 @@ export default function Dashboard() {
       {/* News Detail Modal */}
       <AnimatePresence>
         {selectedNewsArticle && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeNewsModal}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1446,8 +1774,8 @@ export default function Dashboard() {
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1455,14 +1783,14 @@ export default function Dashboard() {
       <AnimatePresence>
         {sidebarOpen && (
           <>
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSidebarOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             />
-            <motion.aside
+            <m.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -1635,7 +1963,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>
@@ -1801,28 +2129,31 @@ export default function Dashboard() {
           </ModalOverlay>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </LazyMotion>
   );
 }
 
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="relative z-10 w-full max-w-2xl mx-auto"
-        onClick={(e) => e.stopPropagation()}
+    <LazyMotion features={domAnimation}>
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
       >
-        {children}
-      </motion.div>
-    </motion.div>
+        <m.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative z-10 w-full max-w-2xl mx-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </m.div>
+      </m.div>
+    </LazyMotion>
   );
 }
