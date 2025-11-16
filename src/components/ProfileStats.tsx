@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Star, Link as LinkIcon, Clock, MessageSquare, Sparkles } from "lucide-react";
+// OPTIMIZATION: Import mobile detection hook
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ProfileStatsProps {
   user: any;
@@ -13,15 +15,18 @@ interface ProfileStatsProps {
   onOpenRating?: () => void;
 }
 
-function ProfileStats({ 
-  user, 
-  getAvatar, 
+function ProfileStats({
+  user,
+  getAvatar,
   currentUserId,
   connectionStatus,
   onConnect,
   onRate,
   onOpenRating
 }: ProfileStatsProps) {
+  // OPTIMIZATION: Mobile detection hook - disables expensive animations on mobile
+  const isMobile = useIsMobile();
+
   const [stats, setStats] = useState<any>(null);
   const [recentReviews, setRecentReviews] = useState<any[]>([]);
   const [hasRated, setHasRated] = useState(false);
@@ -105,17 +110,20 @@ function ProfileStats({
           transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
           className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full relative overflow-hidden"
         >
-          <motion.div
-            animate={{
-              x: ["-100%", "100%"],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full"
-          />
+          {/* OPTIMIZATION: Disable shimmer animation on mobile - it's expensive and not critical */}
+          {!isMobile && (
+            <motion.div
+              animate={{
+                x: ["-100%", "100%"],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full"
+            />
+          )}
         </motion.div>
       </div>
     </motion.div>
@@ -202,10 +210,11 @@ function ProfileStats({
             >
               <div className="text-center p-6 max-w-xs">
                 <motion.div
-                  animate={{ 
+                  // OPTIMIZATION: Disable lock icon animation on mobile - reduces CPU usage
+                  animate={!isMobile ? {
                     scale: [1, 1.1, 1],
                     rotate: [0, 5, -5, 0]
-                  }}
+                  } : undefined}
                   transition={{ duration: 2, repeat: Infinity }}
                   className="text-6xl mb-4"
                 >
