@@ -1,8 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
-import { SafeArea } from '@capacitor/safe-area';
-import { isNative } from '@/utils/capacitor';
+import { ReactNode, CSSProperties } from 'react';
 
 interface SafeAreaProps {
   children: ReactNode;
@@ -13,16 +11,13 @@ interface SafeAreaProps {
   right?: boolean;
 }
 
-interface SafeAreaInsets {
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-}
-
 /**
  * SafeArea component that wraps children with safe area padding
- * Handles iOS notches and Android navigation bars
+ * Uses CSS env() variables to handle iOS notches and Android navigation bars
+ * Works on all platforms without requiring Capacitor packages
+ *
+ * The safe-area-inset values are automatically provided by the browser/WebView
+ * and work with the viewport-fit=cover meta tag in the HTML head
  */
 export const SafeAreaWrapper = ({
   children,
@@ -32,61 +27,26 @@ export const SafeAreaWrapper = ({
   left = true,
   right = true,
 }: SafeAreaProps) => {
-  const [insets, setInsets] = useState<SafeAreaInsets>({
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-  });
-
-  useEffect(() => {
-    if (!isNative()) {
-      return;
-    }
-
-    const getSafeAreaInsets = async () => {
-      try {
-        const safeAreaData = await SafeArea.getSafeAreaInsets();
-        setInsets(safeAreaData.insets);
-      } catch (error) {
-        console.warn('SafeArea API error:', error);
-      }
-    };
-
-    getSafeAreaInsets();
-
-    // Listen for safe area changes (e.g., device rotation)
-    const listener = SafeArea.addListener('safeAreaChanged', (data) => {
-      setInsets(data.insets);
-    });
-
-    return () => {
-      listener.remove();
-    };
-  }, []);
-
-  // Only apply safe area padding on native platforms
-  if (!isNative()) {
-    return <div className={className}>{children}</div>;
-  }
-
-  const paddingStyle = {
-    paddingTop: top ? `${insets.top}px` : undefined,
-    paddingBottom: bottom ? `${insets.bottom}px` : undefined,
-    paddingLeft: left ? `${insets.left}px` : undefined,
-    paddingRight: right ? `${insets.right}px` : undefined,
+  // Build inline styles using CSS env() variables
+  const safeAreaStyle: CSSProperties = {
+    paddingTop: top ? 'env(safe-area-inset-top, 0px)' : undefined,
+    paddingBottom: bottom ? 'env(safe-area-inset-bottom, 0px)' : undefined,
+    paddingLeft: left ? 'env(safe-area-inset-left, 0px)' : undefined,
+    paddingRight: right ? 'env(safe-area-inset-right, 0px)' : undefined,
   };
 
   return (
-    <div className={className} style={paddingStyle}>
+    <div className={className} style={safeAreaStyle}>
       {children}
     </div>
   );
 };
 
 /**
- * SafeArea component using CSS safe-area-inset variables
- * Fallback option that works with CSS env() variables
+ * SafeArea component using CSS safe-area-inset with Tailwind classes
+ * Alternative approach using Tailwind's arbitrary values
+ * Note: Tailwind's arbitrary values may not work with env() in all cases
+ * Use SafeAreaWrapper (inline styles) for better compatibility
  */
 export const SafeAreaCSS = ({
   children,
@@ -97,10 +57,10 @@ export const SafeAreaCSS = ({
   right = true,
 }: SafeAreaProps) => {
   const safeAreaClass = `
-    ${top ? 'pt-[env(safe-area-inset-top)]' : ''}
-    ${bottom ? 'pb-[env(safe-area-inset-bottom)]' : ''}
-    ${left ? 'pl-[env(safe-area-inset-left)]' : ''}
-    ${right ? 'pr-[env(safe-area-inset-right)]' : ''}
+    ${top ? 'pt-[env(safe-area-inset-top,0px)]' : ''}
+    ${bottom ? 'pb-[env(safe-area-inset-bottom,0px)]' : ''}
+    ${left ? 'pl-[env(safe-area-inset-left,0px)]' : ''}
+    ${right ? 'pr-[env(safe-area-inset-right,0px)]' : ''}
   `.trim();
 
   return (
@@ -108,5 +68,5 @@ export const SafeAreaCSS = ({
   );
 };
 
-// Default export uses the API-based approach
+// Default export uses inline styles approach for better compatibility
 export default SafeAreaWrapper;
