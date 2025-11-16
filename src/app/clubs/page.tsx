@@ -12,6 +12,30 @@ import { Users, Search, Filter, Plus, X, Star, Lock, ChevronRight, MoreVertical 
 // Performance optimization: Mobile detection to disable heavy animations
 import { useIsMobile } from "@/hooks/useIsMobile";
 
+/**
+ * MOBILE OPTIMIZATION NOTES:
+ *
+ * 🔄 Pull-to-Refresh: Ideal for clubs list refresh
+ *    - Wrap the main clubs grid with PullToRefresh component
+ *    - onRefresh should call fetchClubs() to refresh club list
+ *    - Provides native feel when checking for new clubs
+ *
+ * 📱 Native Share: Add share functionality to clubs
+ *    - In club details modal, add NativeShareButton to invite friends
+ *    - Share club info: title={club.name}, text={club.description}, url
+ *    - Example: <NativeShareButton title={club.name} text="Join my club!" />
+ *
+ * ⚡ Haptic Feedback: Enhance button feedback
+ *    - "Join Now" button - use HapticButton with hapticType="success"
+ *    - "Create Club" button - use hapticType="success"
+ *    - Club card clicks - wrap in HapticButton with hapticType="light"
+ *
+ * 🌐 Network Status: Show offline indicator
+ *    - Use useNetworkStatus() hook to detect offline state
+ *    - Display banner when offline: "You're offline. Some features may not work."
+ *    - Disable join/create actions when offline
+ */
+
 type Club = {
   id: string;
   name: string;

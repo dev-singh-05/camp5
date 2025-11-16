@@ -14,6 +14,28 @@ import { motion, AnimatePresence } from "framer-motion";
 // PERFORMANCE: Import useIsMobile hook to disable expensive animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
 
+/**
+ * MOBILE OPTIMIZATION NOTES:
+ *
+ * 🔄 Pull-to-Refresh: Consider adding PullToRefresh wrapper around the matches list
+ *    - Wrap the "My Chats" section with PullToRefresh component
+ *    - onRefresh should call fetchMatches() to refresh chat list
+ *    - Example: <PullToRefresh onRefresh={async () => await fetchMatches()}>
+ *
+ * 📱 Native Share: Add NativeShareButton to share dating profiles
+ *    - In the request modal, add share button to share profile with friends
+ *    - Example: <NativeShareButton title="Check out this match!" url={profileUrl} />
+ *
+ * ⚡ Haptic Feedback: Replace important buttons with HapticButton
+ *    - Match buttons (Random Match, Interest Match) - use hapticType="success"
+ *    - Send Request button - use hapticType="success"
+ *    - Delete/Reject actions - use hapticType="warning"
+ *
+ * 🔙 Back Button: BackButton component should be added to root layout
+ *    - Add to app/layout.tsx with homeRoutes={['/', '/dating', '/dashboard']}
+ *    - This page doesn't need individual integration
+ */
+
 /* ----------------------------- Types ------------------------------------ */
 
 type Match = {
