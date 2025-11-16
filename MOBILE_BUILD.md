@@ -473,35 +473,302 @@ server: {
 
 ## 🌍 Environment Variables Setup
 
-### For Development
+Environment variables are **critical** for mobile deployment. They configure your app's connection to Supabase and other services. This section covers everything you need to know about environment configuration for Campus5.
 
-Create `.env.local` (not committed to Git):
+### 📝 Quick Start
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### For Production Builds
-
-Environment variables are baked into the build at build time:
+**Step 1:** Create your environment file from the example:
 
 ```bash
-# Build with production env vars
-NEXT_PUBLIC_SUPABASE_URL=prod_url npm run build:export
+# For development
+cp .env.production.example .env.local
+
+# For production
+cp .env.production.example .env.production
 ```
 
-Or use `.env.production`:
+**Step 2:** Edit the file and replace all placeholder values:
+
 ```bash
-# .env.production
-NEXT_PUBLIC_SUPABASE_URL=your_production_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_production_anon_key
+# Open in your editor
+nano .env.production  # or use VS Code, vim, etc.
 ```
 
-Then build normally:
+**Step 3:** Get your Supabase credentials:
+
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project
+3. Go to **Settings → API**
+4. Copy these values:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### 🔑 Required Environment Variables
+
+These variables are **required** for the app to work:
+
 ```bash
-npm run build:export  # Automatically uses .env.production
+# Supabase Configuration (REQUIRED)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
+
+❌ **The app will NOT work without these!**
+
+### ⚙️ Optional Environment Variables
+
+These variables are optional but recommended:
+
+```bash
+# App Configuration
+NEXT_PUBLIC_APP_ENV=production              # development, staging, or production
+NEXT_PUBLIC_APP_VERSION=1.0.0              # Should match package.json
+
+# Feature Flags
+NEXT_PUBLIC_ENABLE_DATING_TEST=false       # Enable testing mode (dev only!)
+
+# Deep Linking
+NEXT_PUBLIC_APP_SCHEME=com.campus5.app     # Should match capacitor.config.ts
+```
+
+See `.env.production.example` for the complete list of available variables.
+
+### 🏗️ How Environment Variables Work in Capacitor
+
+**Important Concepts:**
+
+1. **Build-Time vs Runtime:**
+   - Environment variables are **baked into the JavaScript bundle** at build time
+   - They are NOT loaded dynamically at runtime
+   - Changes require a full rebuild
+
+2. **NEXT_PUBLIC_ Prefix:**
+   - Only variables starting with `NEXT_PUBLIC_` are available in the browser
+   - These are **NOT secret** - they will be visible in the compiled JavaScript
+   - Never put sensitive keys (like service role keys) in `NEXT_PUBLIC_` variables
+
+3. **Different Environments:**
+   - `.env.local` - Local development (not committed to Git)
+   - `.env.production` - Production builds (not committed to Git)
+   - `.env.staging` - Staging builds (not committed to Git)
+   - `.env.production.example` - Template file (committed to Git)
+
+### 📱 Environment Setup for Mobile Builds
+
+#### For Development Builds
+
+1. **Create `.env.local`:**
+   ```bash
+   cp .env.production.example .env.local
+   ```
+
+2. **Edit `.env.local` with your development credentials:**
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://dev-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-dev-anon-key
+   NEXT_PUBLIC_APP_ENV=development
+   NEXT_PUBLIC_ENABLE_DATING_TEST=true  # Optional: for testing
+   ```
+
+3. **Build and sync:**
+   ```bash
+   npm run build:export
+   npx cap sync android
+   ```
+
+#### For Production Builds
+
+1. **Create `.env.production`:**
+   ```bash
+   cp .env.production.example .env.production
+   ```
+
+2. **Edit `.env.production` with your production credentials:**
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://prod-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-prod-anon-key
+   NEXT_PUBLIC_APP_ENV=production
+   NEXT_PUBLIC_ENABLE_DATING_TEST=false  # Disable testing in prod!
+   ```
+
+3. **Build and sync:**
+   ```bash
+   npm run build:export
+   npx cap sync android
+   ```
+
+4. **Build signed APK/AAB in Android Studio** (see Production Build section)
+
+### 🔄 Updating Environment Variables After Build
+
+**IMPORTANT:** Environment variables are embedded in the JavaScript bundle. To update them:
+
+1. **Edit your `.env.production` or `.env.local` file**
+
+2. **Rebuild the Next.js app:**
+   ```bash
+   npm run build:export
+   ```
+
+3. **Sync to native platform:**
+   ```bash
+   npx cap sync android  # or ios
+   ```
+
+4. **Rebuild in Android Studio / Xcode:**
+   - Clean project
+   - Rebuild project
+   - Reinstall on device/emulator
+
+You **CANNOT** just change the `.env` file without rebuilding!
+
+### 🔐 Using the Environment Helper (lib/env.ts)
+
+The app includes a safe environment variable helper at `src/lib/env.ts`:
+
+#### Basic Usage
+
+```typescript
+import { getEnv, getRequiredEnv, env } from '@/lib/env';
+
+// Get optional variable with default
+const apiUrl = getEnv('NEXT_PUBLIC_API_URL', 'https://default.com');
+
+// Get required variable (throws error if missing)
+const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
+
+// Use pre-configured helpers
+const url = env.supabase.url();
+const key = env.supabase.anonKey();
+const isTestMode = env.features.datingTest();
+```
+
+#### Validation
+
+Add this to your app's entry point to validate env vars on startup:
+
+```typescript
+// In app/layout.tsx or pages/_app.tsx
+import { validateEnv } from '@/lib/env';
+
+// Validate on app startup (client-side only)
+if (typeof window !== 'undefined') {
+  validateEnv();
+}
+```
+
+This will show helpful error messages if required variables are missing.
+
+#### Error Messages
+
+If a required variable is missing, you'll see a helpful error:
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                   MISSING ENVIRONMENT VARIABLE                      ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Environment variable "NEXT_PUBLIC_SUPABASE_URL" is required but not set.
+
+📱 Capacitor Native App Environment
+
+To fix this:
+1. Copy .env.production.example to .env.production
+2. Edit .env.production and set the value
+3. Rebuild the app: npm run build:export && npx cap sync android
+```
+
+### 🌐 Web vs Mobile Differences
+
+| Aspect | Web (Next.js) | Mobile (Capacitor) |
+|--------|---------------|-------------------|
+| **Loading** | Runtime via process.env | Bundled at build time |
+| **Updates** | Restart dev server | Full rebuild + sync |
+| **Location** | `.env.local`, `.env.production` | Same files, but baked into bundle |
+| **Access** | `process.env.NEXT_PUBLIC_*` | `process.env.NEXT_PUBLIC_*` |
+| **Security** | Same - NEXT_PUBLIC_ is NOT secret | Same - NEXT_PUBLIC_ is NOT secret |
+
+### ⚠️ Important Security Notes
+
+1. **NEVER commit `.env.local` or `.env.production` to Git**
+   - These files contain real credentials
+   - They are in `.gitignore` by default
+
+2. **NEVER put secret keys in NEXT_PUBLIC_ variables**
+   - These are visible in the JavaScript bundle
+   - Anyone can extract them from the compiled app
+   - Only use for public/client-safe keys (like Supabase anon key)
+
+3. **Use different credentials for dev/staging/prod**
+   - Development: Use a separate Supabase project
+   - Production: Use your production Supabase project
+   - Never mix environments!
+
+4. **Rotate keys if exposed**
+   - If you accidentally commit credentials, rotate them immediately
+   - Update all environment files
+   - Rebuild and redeploy
+
+### 🐛 Troubleshooting Environment Variables
+
+#### "Environment variable not found"
+
+```bash
+# Solution: Check your .env file exists and has the variable
+cat .env.production | grep NEXT_PUBLIC_SUPABASE_URL
+
+# If missing, add it
+echo "NEXT_PUBLIC_SUPABASE_URL=your-url" >> .env.production
+```
+
+#### "Environment variable has placeholder value"
+
+```bash
+# The helper detects placeholder values like "your_supabase_url_here"
+# Replace with real values in .env.production
+```
+
+#### "Changes not reflected in app"
+
+```bash
+# Environment variables are baked in at build time
+# You MUST rebuild after changes:
+npm run build:export
+npx cap sync android
+# Then rebuild in Android Studio
+```
+
+#### "Different values in web vs mobile"
+
+```bash
+# Both use the same .env files
+# But mobile uses build-time values
+# If they differ, rebuild mobile:
+npm run build:export
+npx cap sync android
+```
+
+### 📚 Additional Resources
+
+- [Next.js Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables)
+- [Capacitor Environment Setup](https://capacitorjs.com/docs/guides/environment-specific-configurations)
+- [Supabase Dashboard](https://supabase.com/dashboard)
+
+### ✅ Environment Setup Checklist
+
+Before building for production, verify:
+
+- [ ] `.env.production.example` exists and is up to date
+- [ ] `.env.production` created with real values (not committed to Git)
+- [ ] All required variables are set (Supabase URL and anon key)
+- [ ] Placeholder values replaced with real credentials
+- [ ] Using production Supabase project (not development)
+- [ ] Testing mode disabled (`NEXT_PUBLIC_ENABLE_DATING_TEST=false`)
+- [ ] Environment validation passes (`validateEnv()` in code)
+- [ ] App builds without environment errors
+- [ ] App connects to Supabase successfully
+
+✅ **Ready to build!**
 
 ## 📱 Android-Specific Notes
 
