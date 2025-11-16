@@ -6,6 +6,8 @@ import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRandomMatchIcebreakerQuestion } from "@/utils/icebreaker";
+// PERFORMANCE: Import useIsMobile to disable animations on mobile
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Heart,
   X,
@@ -45,6 +47,8 @@ type Request = {
 
 export default function RequestsPage() {
   const router = useRouter();
+  // PERFORMANCE: Detect mobile to disable expensive animations
+  const isMobile = useIsMobile();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null);
@@ -227,25 +231,35 @@ export default function RequestsPage() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
+      {/* PERFORMANCE: Disable infinite animations on mobile */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-        />
+        {!isMobile ? (
+          <>
+            <motion.div
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 90, 0],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [90, 0, 90],
+                opacity: [0.03, 0.06, 0.03],
+              }}
+              transition={{ duration: 25, repeat: Infinity }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+            />
+          </>
+        ) : (
+          <>
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+          </>
+        )}
       </div>
 
       {/* Header */}
@@ -309,17 +323,22 @@ export default function RequestsPage() {
                 transition={{ delay: index * 0.1 }}
                 className="relative group"
               >
-                <motion.div
-                  animate={{
-                    boxShadow: [
-                      "0 0 20px rgba(236, 72, 153, 0.2)",
-                      "0 0 30px rgba(236, 72, 153, 0.3)",
-                      "0 0 20px rgba(236, 72, 153, 0.2)",
-                    ],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
-                />
+                {/* PERFORMANCE: Disable pulsing box-shadow on mobile */}
+                {!isMobile ? (
+                  <motion.div
+                    animate={{
+                      boxShadow: [
+                        "0 0 20px rgba(236, 72, 153, 0.2)",
+                        "0 0 30px rgba(236, 72, 153, 0.3)",
+                        "0 0 20px rgba(236, 72, 153, 0.2)",
+                      ],
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
+                )}
                 <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
                   {/* Category Badge - Top Right */}
                   <div className="absolute top-4 right-4 z-10">
