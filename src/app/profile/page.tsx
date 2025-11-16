@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  User, 
-  Mail, 
-  Award, 
-  Users, 
-  Edit2, 
-  Check, 
-  X, 
+import {
+  User,
+  Mail,
+  Award,
+  Users,
+  Edit2,
+  Check,
+  X,
   ChevronDown,
   Camera,
   Star,
@@ -22,6 +22,7 @@ import {
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import { useIsMobile } from "@/hooks/useIsMobile"; // Performance: Detect mobile for conditional animations
 
 type Profile = {
   id: string;
@@ -76,37 +77,41 @@ type Rating = {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const isMobile = useIsMobile(); // Performance: Detect mobile for conditional rendering
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [description, setDescription] = useState("");
   const [requestsSent, setRequestsSent] = useState<Request[]>([]);
   const [requestsReceived, setRequestsReceived] = useState<Request[]>([]);
   const [uploading, setUploading] = useState(false);
-  
+
   const [showSent, setShowSent] = useState(false);
   const [showReceived, setShowReceived] = useState(false);
   const [showAllDetails, setShowAllDetails] = useState(false);
-  
+
   const [showRatingsModal, setShowRatingsModal] = useState(false);
   const [ratingsReceived, setRatingsReceived] = useState<Rating[]>([]);
   const [ratingsGiven, setRatingsGiven] = useState<Rating[]>([]);
   const [activeTab, setActiveTab] = useState<"received" | "given">("received");
-  
+
   const [totalConnections, setTotalConnections] = useState<number>(0);
   const [globalRank, setGlobalRank] = useState<number | null>(null);
-  
+
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<any>("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [fieldToUpdate, setFieldToUpdate] = useState<string | null>(null);
-  
+
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set());
 
-  const getAvatarUrl = (profile: Profile) => {
+  // Performance: Memoize avatar URL calculation to avoid recalculating on every render
+  const avatarUrl = useMemo(() => {
+    if (!profile) return "";
     if (profile.profile_photo) return profile.profile_photo;
     const fallbackName = encodeURIComponent(profile.full_name || "User");
     return `https://ui-avatars.com/api/?name=${fallbackName}&background=random&size=128`;
-  };
+  }, [profile?.profile_photo, profile?.full_name]);
 
   useEffect(() => {
     async function fetchData() {
@@ -246,7 +251,8 @@ export default function ProfilePage() {
     fetchData();
   }, [router]);
 
-  async function handleSaveDescription() {
+  // Performance: useCallback to prevent function recreation on every render
+  const handleSaveDescription = useCallback(async () => {
     if (!profile) return;
 
     const { error } = await supabase
@@ -260,9 +266,10 @@ export default function ProfilePage() {
     } else {
       toast.error("Failed to save description ❌");
     }
-  }
+  }, [profile, description]);
 
-  async function handleUploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  // Performance: useCallback to prevent function recreation
+  const handleUploadPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
     const file = e.target.files?.[0];
     if (!file) return toast.error("No file selected");
@@ -291,35 +298,39 @@ export default function ProfilePage() {
     } finally {
       setUploading(false);
     }
-  }
+  }, [profile]);
 
-  async function handleRequestAction(id: string, status: "accepted" | "declined") {
+  // Performance: useCallback to prevent function recreation
+  const handleRequestAction = useCallback(async (id: string, status: "accepted" | "declined") => {
     const { error } = await supabase.from("profile_requests").update({ status }).eq("id", id);
     if (!error) {
       setRequestsReceived((prev) => prev.filter((r) => r.id !== id));
       toast.success(`Request ${status} ✅`);
     } else toast.error("Failed to update request ❌");
-  }
+  }, []);
 
-  const handleEditField = (field: string, currentValue: any) => {
+  // Performance: useCallback to prevent function recreation
+  const handleEditField = useCallback((field: string, currentValue: any) => {
     if (editedFields.has(field)) {
       toast.error("This field has already been edited and cannot be changed again");
       return;
     }
     setEditingField(field);
     setTempValue(currentValue || "");
-  };
+  }, [editedFields]);
 
-  const handleConfirmEdit = (field: string) => {
+  // Performance: useCallback to prevent function recreation
+  const handleConfirmEdit = useCallback((field: string) => {
     setFieldToUpdate(field);
     setShowConfirmModal(true);
-  };
+  }, []);
 
-  const handleFinalUpdate = async () => {
+  // Performance: useCallback to prevent function recreation
+  const handleFinalUpdate = useCallback(async () => {
     if (!profile || !fieldToUpdate) return;
 
     const updateData: any = { [fieldToUpdate]: tempValue };
-    
+
     if (fieldToUpdate === "gender") updateData.gender_locked = true;
     if (fieldToUpdate === "height") updateData.height_locked = true;
     if (fieldToUpdate === "year") updateData.year_locked = true;
@@ -339,7 +350,7 @@ export default function ProfilePage() {
     } else {
       toast.error("Failed to update field ❌");
     }
-  };
+  }, [profile, fieldToUpdate, tempValue]);
 
   const profileFields = [
     { key: "full_name", label: "Full Name", type: "text" },
@@ -389,27 +400,30 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white py-8 px-4">
       <Toaster position="top-right" />
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
-      </div>
+
+      {/* Performance: Disable animated backgrounds on mobile to save battery and improve FPS */}
+      {!isMobile && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+              opacity: [0.03, 0.06, 0.03],
+            }}
+            transition={{ duration: 20, repeat: Infinity }}
+            className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+          />
+          <motion.div
+            animate={{
+              scale: [1.2, 1, 1.2],
+              rotate: [90, 0, 90],
+              opacity: [0.03, 0.06, 0.03],
+            }}
+            transition={{ duration: 25, repeat: Infinity }}
+            className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+          />
+        </div>
+      )}
 
       {/* Back Button */}
       <div className="relative z-10 max-w-6xl mx-auto mb-6">
@@ -439,7 +453,7 @@ export default function ProfilePage() {
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-cyan-500/30 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
                 <div className="relative">
                   <img
-                    src={getAvatarUrl(profile)}
+                    src={avatarUrl}
                     alt="Profile Avatar"
                     className="w-32 h-32 rounded-2xl object-cover border-2 border-white/20 shadow-lg"
                   />
@@ -926,7 +940,7 @@ export default function ProfilePage() {
                           key={r.id}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
+                          transition={{ delay: isMobile ? 0 : index * 0.05 }} // Performance: Remove stagger delay on mobile
                           className="p-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"
                         >
                           <div className="flex items-start gap-3">
@@ -956,7 +970,7 @@ export default function ProfilePage() {
                         key={r.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
+                        transition={{ delay: isMobile ? 0 : index * 0.05 }} // Performance: Remove stagger delay on mobile
                         className="p-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"
                       >
                         <div className="flex items-start gap-3">
