@@ -17,7 +17,12 @@
       "Bash(npm run dev)",
       "Bash(dir /s /b *.png *.jpg *.jpeg *.svg 2)",
       "mcp__ide__getDiagnostics",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nMerge branch ''main'' of https://github.com/dev-singh-05/campus into main\n\nResolved merge conflicts by accepting incoming changes for:\n- src/app/clubs/leaderboard/page.tsx\n- src/app/dating/chat/[id]/page.tsx\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
