@@ -1,9 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+// OPTIMIZATION: Added useMemo and useCallback for performance
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Search, Filter, X } from "lucide-react";
+// OPTIMIZATION: Import performance hooks
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useDebounce } from "@/hooks/useDebounce";
 
 type Profile = {
   id: string;
@@ -21,11 +25,15 @@ type Profile = {
 };
 
 export default function LeaderboardPage() {
+  // OPTIMIZATION: Mobile detection hook - disables expensive animations on mobile
+  const isMobile = useIsMobile();
+
   const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [search, setSearch] = useState("");
+  // OPTIMIZATION: Debounce search to reduce re-renders
+  const debouncedSearch = useDebounce(search, 300);
 
   // ✅ Fetch leaderboard data
   useEffect(() => {
@@ -53,37 +61,39 @@ export default function LeaderboardPage() {
     fetchLeaderboard();
   }, []);
 
-  // ✅ Search filter
-  useEffect(() => {
-    const filtered = profiles.filter((p) =>
-      (p.full_name || "").toLowerCase().includes(search.toLowerCase())
+  // OPTIMIZATION: Use useMemo instead of useEffect for filtering
+  // WHY: Reduces unnecessary state updates and re-renders. Uses debounced search to avoid filtering on every keystroke
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter((p) =>
+      (p.full_name || "").toLowerCase().includes(debouncedSearch.toLowerCase())
     );
-    setFilteredProfiles(filtered);
-  }, [search, profiles]);
+  }, [profiles, debouncedSearch]);
 
-  const getAvatar = (user: Profile) =>
+  // OPTIMIZATION: Wrap in useCallback to prevent recreating on every render
+  const getAvatar = useCallback((user: Profile) =>
     user.profile_photo ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`;
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white relative overflow-x-hidden">
       {/* Animated Background Elements */}
+      {/* OPTIMIZATION: Only animate on desktop - mobile devices struggle with infinite blur animations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 20, repeat: Infinity }}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1.2, 1, 1.2],
             rotate: [90, 0, 90],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 25, repeat: Infinity }}
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
         />
@@ -187,7 +197,8 @@ export default function LeaderboardPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    whileHover={{ scale: 1.02 }}
+                    // OPTIMIZATION: Disable scale animation on mobile for better performance
+                    whileHover={!isMobile ? { scale: 1.02 } : undefined}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedUser(user)}
                     className={`flex items-center ${bgColor} cursor-pointer p-4 rounded-2xl ${borderStyle} transition-all shadow-lg`}
@@ -195,7 +206,8 @@ export default function LeaderboardPage() {
                     {/* Rank number on the left */}
                     <div className="w-12 text-center flex-shrink-0">
                       <motion.p
-                        whileHover={{ scale: 1.2 }}
+                        // OPTIMIZATION: Disable scale animation on mobile
+                        whileHover={!isMobile ? { scale: 1.2 } : undefined}
                         className={`text-2xl font-extrabold ${rankColor}`}
                       >
                         #{rank}
@@ -205,7 +217,8 @@ export default function LeaderboardPage() {
                     {/* Profile photo + details */}
                     <div className="flex items-center gap-3 flex-1 min-w-0 ml-2">
                       <motion.img
-                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        // OPTIMIZATION: Disable hover animation on mobile
+                        whileHover={!isMobile ? { scale: 1.1, rotate: 5 } : undefined}
                         src={getAvatar(user)}
                         alt={user.full_name}
                         className={`w-12 h-12 rounded-full object-cover ring-2 ${ringColor} flex-shrink-0 shadow-lg`}
