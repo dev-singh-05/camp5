@@ -1,12 +1,15 @@
 "use client";
 import "../page.css";
-import { useState, useEffect, useRef } from "react";
+// OPTIMIZATION: Added useCallback for performance
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import ProfileStats from "@/components/ProfileStats";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, MessageSquare, Star, X, Search, TrendingUp, Sparkles } from "lucide-react";
+// OPTIMIZATION: Import performance hook
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Profile = {
   id: string;
@@ -33,6 +36,9 @@ type Message = {
 };
 
 export default function ConnectionsPage() {
+  // OPTIMIZATION: Mobile detection hook - disables expensive animations on mobile
+  const isMobile = useIsMobile();
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -47,6 +53,18 @@ export default function ConnectionsPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
+  // OPTIMIZATION: Track subscription for proper cleanup
+  const subscriptionRef = useRef<any>(null);
+
+  // OPTIMIZATION: Cleanup subscription on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current).catch(console.warn);
+        subscriptionRef.current = null;
+      }
+    };
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -122,11 +140,12 @@ export default function ConnectionsPage() {
   }, [currentUserId]);
 
   // Avatar fallback
-  const getAvatar = (profile: Profile) => {
+  // OPTIMIZATION: Wrap in useCallback to prevent recreating on every render
+  const getAvatar = useCallback((profile: Profile) => {
     if (profile.profile_photo) return profile.profile_photo;
     const name = encodeURIComponent(profile.full_name || profile.username || "User");
     return `https://ui-avatars.com/api/?name=${name}&background=random&size=128`;
-  };
+  }, []);
 
   // Open chat
   const openChat = async (user: Profile) => {
@@ -241,22 +260,23 @@ export default function ConnectionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white relative overflow-x-hidden">
       {/* Animated Background Elements */}
+      {/* OPTIMIZATION: Only animate on desktop - mobile devices struggle with infinite blur animations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 20, repeat: Infinity }}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1.2, 1, 1.2],
             rotate: [90, 0, 90],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 25, repeat: Infinity }}
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
         />
@@ -315,7 +335,8 @@ export default function ConnectionsPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
-                  whileHover={{ scale: 1.02 }}
+                  // OPTIMIZATION: Disable scale animation on mobile for better performance
+                  whileHover={!isMobile ? { scale: 1.02 } : undefined}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setSelectedUser(profile);
@@ -325,7 +346,8 @@ export default function ConnectionsPage() {
                 >
                   {/* Avatar */}
                   <motion.img
-                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    // OPTIMIZATION: Disable hover animation on mobile
+                    whileHover={!isMobile ? { scale: 1.1, rotate: 5 } : undefined}
                     src={getAvatar(profile)}
                     alt={profile.full_name}
                     className="w-14 h-14 rounded-full ring-2 ring-purple-500/30 shadow-lg"
@@ -346,7 +368,8 @@ export default function ConnectionsPage() {
 
                   {/* Indicator */}
                   <motion.div
-                    whileHover={{ scale: 1.2, rotate: 90 }}
+                    // OPTIMIZATION: Disable rotation animation on mobile
+                    whileHover={!isMobile ? { scale: 1.2, rotate: 90 } : undefined}
                     className="text-white/40"
                   >
                     →
@@ -574,7 +597,8 @@ export default function ConnectionsPage() {
                   className="flex flex-col items-center mb-6 pb-6 border-b border-white/10"
                 >
                   <motion.img
-                    whileHover={{ scale: 1.05, rotate: 5 }}
+                    // OPTIMIZATION: Disable hover animation on mobile for modal images
+                    whileHover={!isMobile ? { scale: 1.05, rotate: 5 } : undefined}
                     src={getAvatar(selectedUser)}
                     alt={selectedUser.full_name}
                     className="w-24 h-24 rounded-full ring-4 ring-purple-500/30 shadow-lg mb-4"
