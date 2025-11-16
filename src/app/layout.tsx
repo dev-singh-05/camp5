@@ -1,17 +1,19 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// Temporarily disable Google Fonts to allow static export build
+// import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// Using fallback fonts for static export compatibility
+// const geistSans = Geist({
+//   variable: "--font-geist-sans",
+//   subsets: ["latin"],
+// });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// const geistMono = Geist_Mono({
+//   variable: "--font-geist-mono",
+//   subsets: ["latin"],
+// });
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -55,7 +57,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Campus5" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="font-sans">{/* Using Tailwind's default sans-serif font stack */}
         {children}
         {/* ✅ Global toast container */}
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
