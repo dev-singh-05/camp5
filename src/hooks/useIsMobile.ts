@@ -1,32 +1,32 @@
-// Mobile detection hook for performance optimizations
-// Disables heavy animations on mobile devices for 60fps performance
-
 import { useState, useEffect } from 'react';
 
+/**
+ * Hook to detect if the user is on a mobile device
+ * Uses window.matchMedia to detect screen width
+ * Returns true for screens < 768px (Tailwind's md breakpoint)
+ *
+ * Performance: Uses matchMedia API which is more efficient than resize listeners
+ */
 export function useIsMobile(breakpoint: number = 768): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    // Performance optimization: Only run on client side
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < breakpoint);
-    };
-
     // Initial check
-    checkMobile();
+    const mediaQuery = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mediaQuery.matches);
 
-    // Performance optimization: Debounce resize events to prevent excessive re-renders
-    let timeoutId: NodeJS.Timeout;
-    const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkMobile, 150);
-    };
+    // Listen for changes
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
 
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId);
-    };
+    // Modern browsers support addEventListener
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handler);
+      return () => mediaQuery.removeListener(handler);
+    }
   }, [breakpoint]);
 
   return isMobile;

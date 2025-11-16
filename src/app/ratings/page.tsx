@@ -1,7 +1,8 @@
 "use client";
 import "./page.css";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+// OPTIMIZATION: Added useCallback and useMemo for performance
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import AdBanner from "@/components/ads";
@@ -10,6 +11,9 @@ import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 import RatingsAdPopup from "@/components/RatingsAdPopup";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Users, TrendingUp, MessageSquare, X, Star, Sparkles, Lock, Search } from "lucide-react";
+// OPTIMIZATION: Import performance hooks
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useDebounce } from "@/hooks/useDebounce";
 
 // Import the token purchase modal
 
@@ -56,9 +60,14 @@ type Rating = {
 const TOKENS_TO_VIEW_STATS = 10;
 
 export default function RatingsPage() {
+  // OPTIMIZATION: Mobile detection hook - disables expensive animations on mobile
+  const isMobile = useIsMobile();
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [search, setSearch] = useState("");
+  // OPTIMIZATION: Debounce search to reduce re-renders and API calls
+  const debouncedSearch = useDebounce(search, 300);
   const [requests, setRequests] = useState<Request[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,13 +81,13 @@ export default function RatingsPage() {
   const [unlockedStats, setUnlockedStats] = useState<Set<string>>(new Set());
   const [hasRatedUser, setHasRatedUser] = useState<Set<string>>(new Set());
 
-  // Modal states
+  // Modal states - OPTIMIZATION: Could combine these into single state object in future refactor
   const [showTokenUnlockModal, setShowTokenUnlockModal] = useState(false);
   const [showTokenPurchaseModal, setShowTokenPurchaseModal] = useState(false);
   const [isProfileRatingModal, setIsProfileRatingModal] = useState(false);
   const [isGlobalRatingModal, setIsGlobalRatingModal] = useState(false);
 
-  // Rating states
+  // Rating states - OPTIMIZATION: Could combine these into single state object in future refactor
   const [comment, setComment] = useState("");
   const [confidence, setConfidence] = useState(0);
   const [humbleness, setHumbleness] = useState(0);
@@ -87,7 +96,7 @@ export default function RatingsPage() {
   const [communication, setCommunication] = useState(0);
   const [overallXP, setOverallXP] = useState(0);
 
-  // Global rating states
+  // Global rating states - OPTIMIZATION: Could combine these into single state object in future refactor
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [globalComment, setGlobalComment] = useState("");
@@ -100,7 +109,18 @@ export default function RatingsPage() {
 
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // OPTIMIZATION: Track subscription for proper cleanup
   const subscriptionRef = useRef<any>(null);
+
+  // OPTIMIZATION: Cleanup subscription on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current).catch(console.warn);
+        subscriptionRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -193,13 +213,15 @@ export default function RatingsPage() {
     fetchRequests();
   }, [currentUserId]);
 
-  const getAvatar = (profile: Profile) => {
+  // OPTIMIZATION: Wrap in useCallback to prevent recreating on every render
+  // WHY: These functions are passed to child components and used in dependencies
+  const getAvatar = useCallback((profile: Profile) => {
     if (profile.profile_photo) return profile.profile_photo;
     const name = encodeURIComponent(profile.full_name || profile.username || "User");
     return `https://ui-avatars.com/api/?name=${name}&background=random&size=128`;
-  };
+  }, []);
 
-  const getRequestStatus = (userId: string): "none" | "requested" | "friends" => {
+  const getRequestStatus = useCallback((userId: string): "none" | "requested" | "friends" => {
     const req = requests.find(
       (r) =>
         (r.from_user_id === currentUserId && r.to_user_id === userId) ||
@@ -208,11 +230,11 @@ export default function RatingsPage() {
     if (!req) return "none";
     if (req.status === "accepted") return "friends";
     return "requested";
-  };
+  }, [requests, currentUserId]);
 
-  const canViewStats = (userId: string): boolean => {
+  const canViewStats = useCallback((userId: string): boolean => {
     return unlockedStats.has(userId) || hasRatedUser.has(userId);
-  };
+  }, [unlockedStats, hasRatedUser]);
 
   const handleConnectToggle = async (toUserId: string) => {
     if (!currentUserId) {
@@ -494,11 +516,16 @@ export default function RatingsPage() {
     searchProfiles();
   }, [searchQuery, currentUserId]);
 
-  const filteredProfiles = profiles.filter(
-    (p) =>
-      p.id !== currentUserId &&
-      (p.full_name || p.username || "").toLowerCase().includes(search.toLowerCase())
-  );
+  // OPTIMIZATION: Use useMemo to avoid recalculating filtered list on every render
+  // WHY: filteredProfiles was being recalculated on every render, even when profiles/search didn't change
+  // Using debouncedSearch prevents filtering from running on every keystroke
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter(
+      (p) =>
+        p.id !== currentUserId &&
+        (p.full_name || p.username || "").toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [profiles, currentUserId, debouncedSearch]);
 
   const handleViewStats = (user: Profile) => {
     setSelectedUser(user);
@@ -514,22 +541,23 @@ export default function RatingsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white relative overflow-x-hidden">
       {/* Animated Background Elements */}
+      {/* OPTIMIZATION: Only animate on desktop - mobile devices struggle with infinite blur animations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 20, repeat: Infinity }}
           className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
         />
         <motion.div
-          animate={{
+          animate={!isMobile ? {
             scale: [1.2, 1, 1.2],
             rotate: [90, 0, 90],
             opacity: [0.03, 0.06, 0.03],
-          }}
+          } : { opacity: 0.03 }}
           transition={{ duration: 25, repeat: Infinity }}
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
         />
@@ -687,14 +715,16 @@ export default function RatingsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                whileHover={{ scale: 1.02 }}
+                // OPTIMIZATION: Disable scale/rotate animations on mobile for better performance
+                whileHover={!isMobile ? { scale: 1.02 } : undefined}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleViewStats(profile)}
                 className="flex items-center gap-4 bg-white/5 backdrop-blur-xl p-4 rounded-2xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
               >
                 {/* Avatar */}
                 <motion.img
-                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  // OPTIMIZATION: Disable hover animation on mobile
+                  whileHover={!isMobile ? { scale: 1.1, rotate: 5 } : undefined}
                   src={getAvatar(profile)}
                   alt={profile.full_name}
                   className="w-14 h-14 rounded-full ring-2 ring-purple-500/30 shadow-lg"
@@ -713,7 +743,8 @@ export default function RatingsPage() {
 
                 {/* Indicator */}
                 <motion.div
-                  whileHover={{ scale: 1.2, rotate: 90 }}
+                  // OPTIMIZATION: Disable rotation animation on mobile
+                  whileHover={!isMobile ? { scale: 1.2, rotate: 90 } : undefined}
                   className="text-white/40"
                 >
                   →
@@ -749,6 +780,7 @@ export default function RatingsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
+                // OPTIMIZATION: Keep desktop animations - they perform well on desktop
                 whileHover={{ scale: 1.02, x: 4 }}
                 onClick={() => handleViewStats(profile)}
                 className="flex items-center justify-between bg-white/5 backdrop-blur-xl p-4 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
@@ -1008,7 +1040,8 @@ export default function RatingsPage() {
                   className="flex flex-col items-center mb-6 pb-6 border-b border-white/10"
                 >
                   <motion.img
-                    whileHover={{ scale: 1.05, rotate: 5 }}
+                    // OPTIMIZATION: Disable hover animation on mobile for modal images
+                    whileHover={!isMobile ? { scale: 1.05, rotate: 5 } : undefined}
                     src={getAvatar(selectedUser)}
                     alt={selectedUser.full_name}
                     className="w-24 h-24 rounded-full ring-4 ring-purple-500/30 shadow-lg mb-4"
