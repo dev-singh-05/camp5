@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 // Temporarily disable Google Fonts to allow static export build
 // import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "react-hot-toast";
+import LayoutContent from "@/components/LayoutContent";
 
 // Using fallback fonts for static export compatibility
 // const geistSans = Geist({
@@ -58,9 +58,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Campus5" />
       </head>
       <body className="font-sans">{/* Using Tailwind's default sans-serif font stack */}
-        {children}
-        {/* ✅ Global toast container */}
-        <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        <LayoutContent>{children}</LayoutContent>
       </body>
     </html>
   );
