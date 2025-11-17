@@ -11,8 +11,9 @@ import { createClient } from "@supabase/supabase-js";
 import { isNative, isAndroid } from "./capacitor";
 
 // ✅ Make sure you have these defined in `.env.local` (no quotes)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Use placeholder values during build if env vars are not available (for static export)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 // Configure redirect URLs based on platform
 const getRedirectUrl = (): string => {
