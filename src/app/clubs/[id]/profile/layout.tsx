@@ -5,7 +5,7 @@ export async function generateStaticParams() {
   return [{ id: 'placeholder' }];
 }
 
-export default function ClubLayout({
+export default function ClubProfileLayout({
   children,
 }: {
   children: React.ReactNode;
