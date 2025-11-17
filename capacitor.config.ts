@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.campus5.app',
   appName: 'Campus5',
   webDir: 'out',
-  bundledWebRuntime: false,
   server: {
     // FOR LIVE RELOAD: Uncomment the line below and replace YOUR_IP with your computer's IP address
     // url: 'http://YOUR_IP:3000',
