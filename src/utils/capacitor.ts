@@ -1,10 +1,17 @@
 import { Capacitor } from '@capacitor/core';
 
 /**
+ * Check if we're running in a browser environment
+ * This prevents SSR errors during Next.js static export
+ */
+const isBrowser = typeof window !== 'undefined';
+
+/**
  * Check if the app is running in a native Capacitor environment
  * @returns true if running on iOS or Android via Capacitor
  */
 export const isNative = (): boolean => {
+  if (!isBrowser) return false;
   return Capacitor.isNativePlatform();
 };
 
@@ -13,6 +20,7 @@ export const isNative = (): boolean => {
  * @returns true if running on iOS platform
  */
 export const isIOS = (): boolean => {
+  if (!isBrowser) return false;
   return Capacitor.getPlatform() === 'ios';
 };
 
@@ -21,6 +29,7 @@ export const isIOS = (): boolean => {
  * @returns true if running on Android platform
  */
 export const isAndroid = (): boolean => {
+  if (!isBrowser) return false;
   return Capacitor.getPlatform() === 'android';
 };
 
@@ -29,6 +38,7 @@ export const isAndroid = (): boolean => {
  * @returns true if running on web platform
  */
 export const isWeb = (): boolean => {
+  if (!isBrowser) return true; // Default to web during SSR
   return Capacitor.getPlatform() === 'web';
 };
 
@@ -37,6 +47,7 @@ export const isWeb = (): boolean => {
  * @returns 'ios' | 'android' | 'web'
  */
 export const getPlatform = (): 'ios' | 'android' | 'web' => {
+  if (!isBrowser) return 'web'; // Default to web during SSR
   return Capacitor.getPlatform() as 'ios' | 'android' | 'web';
 };
 
@@ -46,5 +57,6 @@ export const getPlatform = (): 'ios' | 'android' | 'web' => {
  * @returns true if the plugin is available
  */
 export const isPluginAvailable = (pluginName: string): boolean => {
+  if (!isBrowser) return false;
   return Capacitor.isPluginAvailable(pluginName);
 };

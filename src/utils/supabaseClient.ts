@@ -9,21 +9,20 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { isNative, isAndroid } from "./capacitor";
-import {
-  NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  validateEnv,
-} from "@/config/env";
+import { getEnv } from "@/lib/env";
 
-// ✅ Environment variables are loaded from .env.local at build time
-// Validate that env vars are properly loaded
-if (typeof window !== "undefined") {
-  validateEnv();
-}
+// Get environment variables safely for both SSR and client-side
+// During build (SSR), use process.env directly to avoid validation errors
+// On client-side, use the env helper which validates properly
+const isBrowser = typeof window !== 'undefined';
 
-// Use placeholder values if env vars are not available (for build process)
-const supabaseUrl = NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const supabaseUrl = isBrowser
+  ? (getEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://placeholder.supabase.co')
+  : (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co');
+
+const supabaseAnonKey = isBrowser
+  ? (getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 'placeholder-anon-key')
+  : (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key');
 
 // Configure redirect URLs based on platform
 const getRedirectUrl = (): string => {
