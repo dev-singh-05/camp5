@@ -1,8 +1,8 @@
 "use client";
 
 import "./page.css";
-// Performance optimization: Added useMemo and useCallback for expensive computations
-import { useEffect, useState, useMemo, useCallback } from "react";
+// Performance optimization: Added useMemo, useCallback, and React.memo for expensive computations
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
@@ -65,8 +65,9 @@ const getCategoryIcon = (cat: string | null) => {
   }
 };
 
-// ClubCard with glassmorphic design
-function ClubCard({
+// Performance optimization: Memoize ClubCard to prevent unnecessary re-renders
+// This component is rendered in a loop, so memoization significantly improves performance
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -91,7 +92,8 @@ function ClubCard({
       className="cursor-pointer group relative"
     >
       {/* Performance optimization: Disable infinite glow animation on mobile - saves significant CPU/GPU cycles */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
+      {/* Reduced blur from blur-lg to blur-md for better performance */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-md opacity-70 group-hover:opacity-100 transition-opacity" />
       <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/50 transition-all overflow-hidden">
         {/* Rank Badge */}
         {rank !== undefined && (
@@ -160,7 +162,7 @@ function ClubCard({
       </div>
     </motion.div>
   );
-}
+});
 
 export default function ClubsPage() {
   const router = useRouter();
@@ -356,10 +358,30 @@ export default function ClubsPage() {
     });
   }, [clubs, filter, search]);
 
+  // Performance optimization: useCallback for event handlers to prevent breaking ClubCard memoization
+  const handleClubClick = useCallback((club: Club, rank: number) => {
+    setSelectedClub(club);
+    setSelectedRank(rank);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setFilter("all");
+  }, []);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  }, []);
+
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilter(e.target.value);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
       {/* Performance optimization: Simplified animations for better desktop performance */}
       {/* Desktop gets optimized smooth animations, mobile gets static gradients */}
+      {/* Reduced blur from blur-3xl to blur-xl for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={!isMobile ? {
@@ -368,7 +390,7 @@ export default function ClubsPage() {
           } : { opacity: 0.02 }}
           transition={!isMobile ? { duration: 25, repeat: Infinity, ease: "easeInOut" } : undefined}
           style={!isMobile ? { willChange: "transform, opacity" } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-2xl"
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-xl"
         />
         <motion.div
           animate={!isMobile ? {
@@ -377,7 +399,7 @@ export default function ClubsPage() {
           } : { opacity: 0.02 }}
           transition={!isMobile ? { duration: 30, repeat: Infinity, ease: "easeInOut" } : undefined}
           style={!isMobile ? { willChange: "transform, opacity" } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-2xl"
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-xl"
         />
       </div>
 
@@ -469,7 +491,7 @@ export default function ClubsPage() {
           className="mb-6 md:mb-8"
         >
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-lg" />
             <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
               <div className="flex flex-col md:flex-row gap-4">
                 {/* Search */}
@@ -478,7 +500,7 @@ export default function ClubsPage() {
                   <input
                     type="text"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={handleSearchChange}
                     placeholder="search clubs..."
                     className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all text-sm md:text-base"
                   />
@@ -489,7 +511,7 @@ export default function ClubsPage() {
                   <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={handleFilterChange}
                     className="pl-12 pr-8 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white appearance-none cursor-pointer min-w-[200px] transition-all"
                   >
                     <option value="all">All Categories</option>
@@ -509,10 +531,7 @@ export default function ClubsPage() {
                 <div className="flex items-center gap-3">
                   {(search || filter !== "all") && (
                     <button
-                      onClick={() => {
-                        setSearch("");
-                        setFilter("all");
-                      }}
+                      onClick={handleClearFilters}
                       className="text-purple-400 hover:text-purple-300 transition-colors lowercase"
                     >
                       clear filters
@@ -542,7 +561,7 @@ export default function ClubsPage() {
               className="col-span-full"
             >
               <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-lg" />
                 <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
                   <Users className="w-16 h-16 text-white/20 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-white mb-2">No clubs found</h3>
@@ -575,10 +594,7 @@ export default function ClubsPage() {
                       ? "requested"
                       : "join"
                 }
-                onClick={() => {
-                  setSelectedClub(club);
-                  setSelectedRank(i + 1);
-                }}
+                onClick={() => handleClubClick(club, i + 1)}
                 isMobile={isMobile}
               />
             ))
@@ -591,7 +607,7 @@ export default function ClubsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="relative group mb-8"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-xl" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-lg" />
           <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
             <AdBanner placement="clubs_page" />
           </div>

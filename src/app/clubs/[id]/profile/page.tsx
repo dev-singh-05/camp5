@@ -1,7 +1,8 @@
 "use client";
 
 // Performance optimization: Added useRef for debouncing real-time subscriptions
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react"
+import { memo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { Toaster, toast } from "react-hot-toast";
@@ -524,7 +525,7 @@ export default function ClubProfilePage() {
             opacity: [0.03, 0.06, 0.03],
           } : { opacity: 0.03 }}
           transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-xl"
         />
       </div>
 

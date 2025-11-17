@@ -1,7 +1,7 @@
 "use client";
 
-// Performance optimization: Added useMemo for expensive computations
-import { useEffect, useState, useMemo } from "react";
+// Performance optimization: Added useMemo, useCallback, and React.memo for expensive computations
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,8 +39,8 @@ const getCategoryIcon = (cat: string | null) => {
   }
 };
 
-// 🔹 Reusable ClubCard with glassmorphic design
-function ClubCard({
+// Performance optimization: Memoize ClubCard to prevent unnecessary re-renders
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -166,10 +166,10 @@ function ClubCard({
       </div>
     </motion.div>
   );
-}
+});
 
-// 🔹 Club Modal
-function ClubModal({
+// Performance optimization: Memoize ClubModal to prevent unnecessary re-renders
+const ClubModal = memo(function ClubModal({
   club,
   status,
   onClose,
@@ -286,7 +286,7 @@ function ClubModal({
       </motion.div>
     </motion.div>
   );
-}
+});
 
 export default function MyClubs() {
   const router = useRouter();
@@ -441,6 +441,7 @@ export default function MyClubs() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
       {/* Performance optimization: Disable infinite background animations on mobile */}
       {/* These animations are subtle on desktop but kill mobile performance (20-30fps loss) */}
+      {/* Reduced blur from blur-3xl to blur-xl for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={!isMobile ? {
@@ -449,7 +450,8 @@ export default function MyClubs() {
             opacity: [0.03, 0.06, 0.03],
           } : { opacity: 0.03 }}
           transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-xl"
         />
         <motion.div
           animate={!isMobile ? {
@@ -458,7 +460,8 @@ export default function MyClubs() {
             opacity: [0.03, 0.06, 0.03],
           } : { opacity: 0.03 }}
           transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-xl"
         />
       </div>
 
@@ -510,7 +513,7 @@ export default function MyClubs() {
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl blur-lg" />
             <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-green-500/30 p-6">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
@@ -530,7 +533,7 @@ export default function MyClubs() {
             transition={{ delay: 0.1 }}
             className="relative group"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl blur-lg" />
             <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-6">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
@@ -564,7 +567,7 @@ export default function MyClubs() {
 
           {joined.length === 0 ? (
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-lg" />
               <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
                 <Users className="w-16 h-16 text-white/20 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">No clubs yet</h3>
@@ -611,7 +614,7 @@ export default function MyClubs() {
 
           {pending.length === 0 ? (
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-2xl blur-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-2xl blur-lg" />
               <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
                 <Clock className="w-16 h-16 text-white/20 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">No pending requests</h3>

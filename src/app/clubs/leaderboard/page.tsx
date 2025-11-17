@@ -1,7 +1,7 @@
 "use client";
 
-// Performance optimization: Added useMemo and useRef for expensive computations and debouncing
-import { useEffect, useState, useMemo, useRef } from "react";
+// Performance optimization: Added useMemo, useRef, useCallback, and React.memo for expensive computations and debouncing
+import { useEffect, useState, useMemo, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,8 +84,8 @@ const getBorderXPClass = (rank: number) => {
   }
 };
 
-// Top 3 Horizontal Card (Mobile-Friendly)
-function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
+// Performance optimization: Memoize TopClubCard to prevent unnecessary re-renders
+const TopClubCard = memo(function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
 
   return (
     <motion.div
@@ -158,7 +158,7 @@ function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMob
       </div>
     </motion.div>
   );
-}
+});
 
 // Performance optimization: Extract helper functions outside component
 const getCategoryColor = (cat: string | null) => {
@@ -171,8 +171,8 @@ const getCategoryColor = (cat: string | null) => {
   }
 };
 
-// Regular Club Card (rank 4+)
-function ClubCard({
+// Performance optimization: Memoize ClubCard to prevent unnecessary re-renders
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -252,10 +252,10 @@ function ClubCard({
       </div>
     </motion.div>
   );
-}
+});
 
-// Club Detail Modal
-function ClubModal({
+// Performance optimization: Memoize ClubModal to prevent unnecessary re-renders
+const ClubModal = memo(function ClubModal({
   club,
   status,
   onClose,
@@ -380,10 +380,10 @@ function ClubModal({
       </motion.div>
     </motion.div>
   );
-}
+});
 
-// Passcode Modal
-function JoinModal({
+// Performance optimization: Memoize JoinModal to prevent unnecessary re-renders
+const JoinModal = memo(function JoinModal({
   onClose,
   onSubmit,
   error,
@@ -454,10 +454,10 @@ function JoinModal({
       </motion.div>
     </motion.div>
   );
-}
+});
 
-// Request Modal
-function RequestModal({
+// Performance optimization: Memoize RequestModal to prevent unnecessary re-renders
+const RequestModal = memo(function RequestModal({
   onClose,
   onRequest,
 }: {
@@ -505,7 +505,7 @@ function RequestModal({
       </motion.div>
     </motion.div>
   );
-}
+});
 
 export default function LeaderboardPage() {
   const router = useRouter();
@@ -707,12 +707,31 @@ export default function LeaderboardPage() {
     });
   }, [clubs, filter, search]);
 
-  const topThree = filteredClubs.slice(0, 3);
-  const restOfClubs = filteredClubs.slice(3);
+  const topThree = useMemo(() => filteredClubs.slice(0, 3), [filteredClubs]);
+  const restOfClubs = useMemo(() => filteredClubs.slice(3), [filteredClubs]);
+
+  // Performance optimization: useCallback for event handlers to prevent breaking memoization
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  }, []);
+
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilter(e.target.value);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setFilter("all");
+  }, []);
+
+  const handleClubClick = useCallback((club: Club) => {
+    setSelectedClub(club);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
       {/* Performance optimization: Disable infinite background animations on mobile */}
+      {/* Reduced blur from blur-3xl to blur-xl for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={!isMobile ? {
@@ -721,7 +740,8 @@ export default function LeaderboardPage() {
             opacity: [0.03, 0.06, 0.03],
           } : { opacity: 0.03 }}
           transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-xl"
         />
         <motion.div
           animate={!isMobile ? {
@@ -730,7 +750,8 @@ export default function LeaderboardPage() {
             opacity: [0.03, 0.06, 0.03],
           } : { opacity: 0.03 }}
           transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-xl"
         />
       </div>
 
@@ -772,7 +793,7 @@ export default function LeaderboardPage() {
           className="mb-6 md:mb-8"
         >
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl blur-lg" />
             <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-3 md:p-6">
               <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                 <div className="flex-1 relative">
@@ -780,7 +801,7 @@ export default function LeaderboardPage() {
                   <input
                     type="text"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={handleSearchChange}
                     placeholder="Search clubs..."
                     className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-white/40 transition-all text-sm md:text-base"
                   />
@@ -790,7 +811,7 @@ export default function LeaderboardPage() {
                   <Filter className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-white/40" />
                   <select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={handleFilterChange}
                     className="w-full md:min-w-[200px] pl-10 md:pl-12 pr-8 py-2.5 md:py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white appearance-none cursor-pointer transition-all text-sm md:text-base"
                   >
                     <option value="all">All Categories</option>
@@ -808,10 +829,7 @@ export default function LeaderboardPage() {
                 </span>
                 {(search || filter !== "all") && (
                   <button
-                    onClick={() => {
-                      setSearch("");
-                      setFilter("all");
-                    }}
+                    onClick={handleClearFilters}
                     className="text-purple-400 hover:text-purple-300 transition-colors"
                   >
                     Clear filters
@@ -830,7 +848,7 @@ export default function LeaderboardPage() {
             className="mb-8 md:mb-12"
           >
             <div className="relative group mb-6 md:mb-8">
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-lg" />
               <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-4 md:p-8">
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <Trophy className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
@@ -842,7 +860,7 @@ export default function LeaderboardPage() {
 
             <div className="space-y-4 md:space-y-5">
               {topThree.map((club) => (
-                <div key={club.id} onClick={() => setSelectedClub(club)} className="cursor-pointer">
+                <div key={club.id} onClick={() => handleClubClick(club)} className="cursor-pointer">
                   <TopClubCard club={club} rank={club.rank} isMobile={isMobile} />
                 </div>
               ))}
@@ -877,7 +895,7 @@ export default function LeaderboardPage() {
                         ? "requested"
                         : "none"
                   }
-                  onClick={() => setSelectedClub(club)}
+                  onClick={() => handleClubClick(club)}
                   isMobile={isMobile}
                 />
               ))}
@@ -891,7 +909,7 @@ export default function LeaderboardPage() {
             animate={{ opacity: 1 }}
             className="relative group"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-lg" />
             <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
               <Trophy className="w-16 h-16 text-white/20 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No clubs found</h3>
