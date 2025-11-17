@@ -9,20 +9,30 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { isNative, isAndroid } from "./capacitor";
-import { getEnv } from "@/lib/env";
 
-// Get environment variables safely for both SSR and client-side
-// During build (SSR), use process.env directly to avoid validation errors
-// On client-side, use the env helper which validates properly
-const isBrowser = typeof window !== 'undefined';
+// IMPORTANT: Direct access to process.env.NEXT_PUBLIC_* is required
+// for Next.js to replace these at build time. Dynamic lookups don't work!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-const supabaseUrl = isBrowser
-  ? (getEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://placeholder.supabase.co')
-  : (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co');
+// Debug logging for mobile
+const logMobileConfig = () => {
+  if (typeof window !== 'undefined' && isNative()) {
+    console.log('[Mobile Supabase] Initializing with config:', {
+      url: supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      keyLength: supabaseAnonKey?.length,
+      platform: isAndroid() ? 'Android' : 'iOS',
+      isPlaceholder: supabaseUrl.includes('placeholder'),
+    });
 
-const supabaseAnonKey = isBrowser
-  ? (getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 'placeholder-anon-key')
-  : (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key');
+    if (supabaseUrl.includes('placeholder')) {
+      console.error(
+        '[Mobile Supabase] ⚠️ WARNING: Using placeholder URL! Check .env.production file.'
+      );
+    }
+  }
+};
 
 // Configure redirect URLs based on platform
 const getRedirectUrl = (): string => {
@@ -36,6 +46,40 @@ const getRedirectUrl = (): string => {
   }
   // Web - use standard HTTP callback
   return `${window.location.origin}/auth/callback`;
+};
+
+// Mobile-specific fetch configuration with timeout support
+const getMobileFetchConfig = () => {
+  if (!isNative()) return {};
+
+  // Custom fetch wrapper with timeout for mobile
+  const fetchWithTimeout = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const timeout = 30000; // 30 second timeout for mobile networks
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if ((error as Error).name === 'AbortError') {
+        throw new Error('Request timeout - please check your network connection');
+      }
+      throw error;
+    }
+  };
+
+  return {
+    global: {
+      fetch: fetchWithTimeout,
+    },
+  };
 };
 
 // ✅ Create the Supabase client for client-side use with mobile support
@@ -57,4 +101,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10,
     },
   },
+  // Apply mobile-specific fetch configuration
+  ...getMobileFetchConfig(),
 });
+
+// Log configuration on mobile for debugging
+if (typeof window !== 'undefined') {
+  logMobileConfig();
+}
