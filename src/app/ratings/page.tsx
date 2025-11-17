@@ -541,25 +541,25 @@ export default function RatingsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white relative overflow-x-hidden">
       {/* Animated Background Elements */}
-      {/* OPTIMIZATION: Only animate on desktop - mobile devices struggle with infinite blur animations */}
+      {/* OPTIMIZATION: Simplified animations for better desktop performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={!isMobile ? {
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+            scale: [1, 1.15, 1],
+            opacity: [0.02, 0.04, 0.02],
+          } : { opacity: 0.02 }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform, opacity" }}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-2xl"
         />
         <motion.div
           animate={!isMobile ? {
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={{ duration: 25, repeat: Infinity }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+            scale: [1.15, 1, 1.15],
+            opacity: [0.02, 0.04, 0.02],
+          } : { opacity: 0.02 }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform, opacity" }}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-2xl"
         />
       </div>
 
@@ -714,12 +714,13 @@ export default function RatingsPage() {
                 key={profile.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
+                transition={{ delay: Math.min(index * 0.015, 0.3) }}
                 // OPTIMIZATION: Disable scale/rotate animations on mobile for better performance
                 whileHover={!isMobile ? { scale: 1.02 } : undefined}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleViewStats(profile)}
                 className="flex items-center gap-4 bg-white/5 backdrop-blur-xl p-4 rounded-2xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
+                style={{ willChange: "transform" }}
               >
                 {/* Avatar */}
                 <motion.img
@@ -779,11 +780,12 @@ export default function RatingsPage() {
                 key={profile.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: Math.min(index * 0.02, 0.4) }}
                 // OPTIMIZATION: Keep desktop animations - they perform well on desktop
                 whileHover={{ scale: 1.02, x: 4 }}
                 onClick={() => handleViewStats(profile)}
                 className="flex items-center justify-between bg-white/5 backdrop-blur-xl p-4 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
+                style={{ willChange: "transform" }}
               >
                 <div className="flex items-center gap-3">
                   <img

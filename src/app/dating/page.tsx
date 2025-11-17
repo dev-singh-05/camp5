@@ -788,36 +788,35 @@ function DatingPageContent() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile to save battery and improve FPS */}
-      {/* WHY: These animations run at 60fps constantly, draining mobile battery and causing lag */}
-      {/* Desktop gets smooth animations, mobile gets static gradients (user won't notice) */}
+      {/* PERFORMANCE: Simplified animations for better desktop performance */}
+      {/* Desktop gets optimized smooth animations, mobile gets static gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
             <motion.div
               animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
+                scale: [1, 1.15, 1],
+                opacity: [0.02, 0.04, 0.02],
               }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
+              transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+              style={{ willChange: "transform, opacity" }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/8 to-transparent rounded-full blur-2xl"
             />
             <motion.div
               animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
+                scale: [1.15, 1, 1.15],
+                opacity: [0.02, 0.04, 0.02],
               }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
+              transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+              style={{ willChange: "transform, opacity" }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/8 to-transparent rounded-full blur-2xl"
             />
           </>
         ) : (
           <>
             {/* Static gradients for mobile - no animation overhead */}
-            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
-            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl opacity-[0.05]" />
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/8 to-transparent rounded-full blur-2xl opacity-[0.04]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/8 to-transparent rounded-full blur-2xl opacity-[0.04]" />
           </>
         )}
       </div>
@@ -1140,22 +1139,10 @@ function DatingPageContent() {
               {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
               {/* WHY: Box-shadow animations are expensive on mobile GPUs */}
               {!isMobile ? (
-                <motion.div
-                  animate={
-                    !matchingDisabled
-                      ? {
-                          boxShadow: [
-                            "0 0 20px rgba(34, 197, 94, 0.2)",
-                            "0 0 30px rgba(34, 197, 94, 0.3)",
-                            "0 0 20px rgba(34, 197, 94, 0.2)",
-                          ],
-                        }
-                      : {}
-                  }
-                  transition={{ duration: 2, repeat: Infinity }}
+                <div
                   className={`absolute inset-0 ${
                     matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-                  } rounded-2xl blur-lg`}
+                  } rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity`}
                 />
               ) : (
                 <div
@@ -1206,22 +1193,10 @@ function DatingPageContent() {
               >
                 {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
                 {!isMobile ? (
-                  <motion.div
-                    animate={
-                      !matchingDisabled
-                        ? {
-                            boxShadow: [
-                              "0 0 20px rgba(14, 165, 233, 0.2)",
-                              "0 0 30px rgba(14, 165, 233, 0.3)",
-                              "0 0 20px rgba(14, 165, 233, 0.2)",
-                            ],
-                          }
-                        : {}
-                    }
-                    transition={{ duration: 2, repeat: Infinity }}
+                  <div
                     className={`absolute inset-0 ${
                       matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
-                    } rounded-2xl blur-lg`}
+                    } rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity`}
                   />
                 ) : (
                   <div
