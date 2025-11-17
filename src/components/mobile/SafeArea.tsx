@@ -41,7 +41,7 @@ export const SafeAreaWrapper = ({
   };
 
   return (
-    <div className={className} style={safeAreaStyle}>
+    <div className={className} style={paddingStyle}>
       {children}
     </div>
   );
