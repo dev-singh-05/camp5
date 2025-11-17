@@ -4,6 +4,7 @@ import "./page.css";
 // Performance optimization: Added useMemo, useCallback, and React.memo for expensive computations
 import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import AdBanner from "@/components/ads";
@@ -106,10 +107,14 @@ const ClubCard = memo(function ClubCard({
           {/* Club Avatar */}
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
             {club.logo_url ? (
-              <img
+              <Image
                 src={club.logo_url}
                 alt={club.name}
+                width={64}
+                height={64}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                unoptimized
               />
             ) : (
               getCategoryIcon(club.category)
@@ -746,10 +751,14 @@ export default function ClubsPage() {
                 <div className="flex items-start gap-6 mb-6">
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden">
                     {selectedClub.logo_url ? (
-                      <img
+                      <Image
                         src={selectedClub.logo_url}
                         alt={selectedClub.name}
+                        width={80}
+                        height={80}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        unoptimized
                       />
                     ) : (
                       selectedClub.category === "Sports" ? "⚽" :
