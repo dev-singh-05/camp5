@@ -1,11 +1,28 @@
+import { supabase } from "@/utils/supabaseClient";
 import ClubProfilePage from "./ClientPage";
 
-// Minimal page for dynamic route with static export
-// For Capacitor mobile app, we use client-side routing
+// Generate static params for static export
 export async function generateStaticParams() {
-  // Return placeholder - actual routes will be handled client-side in mobile app
-  return [{ id: 'placeholder' }];
+  try {
+    const { data: clubs, error } = await supabase
+      .from('clubs')
+      .select('id');
+
+    if (error || !clubs || clubs.length === 0) {
+      console.warn('Failed to fetch clubs for generateStaticParams, using placeholder');
+      return [{ id: 'placeholder' }];
+    }
+
+    return clubs.map((club) => ({
+      id: club.id,
+    }));
+  } catch (error) {
+    console.warn('Error in generateStaticParams:', error);
+    return [{ id: 'placeholder' }];
+  }
 }
+
+export const dynamicParams = false;
 
 export default function Page() {
   return <ClubProfilePage />;
