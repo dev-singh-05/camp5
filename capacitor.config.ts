@@ -5,10 +5,12 @@ const config: CapacitorConfig = {
   appName: 'Campus5',
   webDir: 'out',
   server: {
-    // FOR LIVE RELOAD: Uncomment the line below and replace YOUR_IP with your computer's IP address
-    // url: 'http://YOUR_IP:3000',
+    // FOR PRODUCTION: Use HTTPS scheme to load local files securely
     androidScheme: 'https',
-    cleartext: true,
+
+    // FOR DEVELOPMENT ONLY: Uncomment these lines for live reload
+    // url: 'http://YOUR_IP:3000',
+    // cleartext: true,
   },
   plugins: {
     SplashScreen: {
