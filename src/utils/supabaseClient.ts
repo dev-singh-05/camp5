@@ -12,7 +12,15 @@ import { isNative, isAndroid } from "./capacitor";
 
 // IMPORTANT: Direct access to process.env.NEXT_PUBLIC_* is required
 // for Next.js to replace these at build time. Dynamic lookups don't work!
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+
+// FIX: Ensure the URL always has the https:// protocol
+// This prevents ERR_NAME_NOT_RESOLVED errors when the env var is set without the protocol
+if (supabaseUrl && !supabaseUrl.startsWith('http://') && !supabaseUrl.startsWith('https://')) {
+  supabaseUrl = `https://${supabaseUrl}`;
+  console.warn('[Supabase] URL was missing protocol, added https://', supabaseUrl);
+}
+
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 // Debug logging for mobile
