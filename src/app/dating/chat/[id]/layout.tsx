@@ -1,15 +1,29 @@
+import { supabase } from "@/utils/supabaseClient";
+
 // Server component layout for dynamic route
 // Generate static params for static export
 export async function generateStaticParams() {
-  // Return placeholder param to allow build to complete
-  // In production, you should fetch actual match IDs from your database
-  return [
-    { id: 'placeholder' }
-  ];
+  try {
+    const { data: matches, error } = await supabase
+      .from('matches')
+      .select('id');
+
+    if (error || !matches || matches.length === 0) {
+      console.warn('Failed to fetch matches for generateStaticParams, using placeholder');
+      return [{ id: 'placeholder' }];
+    }
+
+    return matches.map((match) => ({
+      id: match.id,
+    }));
+  } catch (error) {
+    console.warn('Error in generateStaticParams:', error);
+    return [{ id: 'placeholder' }];
+  }
 }
 
-// Allow dynamic params to enable runtime rendering (does not work with static export)
-// export const dynamicParams = true;
+// Disable dynamic params for static export
+export const dynamicParams = false;
 
 export default function ChatLayout({
   children,
