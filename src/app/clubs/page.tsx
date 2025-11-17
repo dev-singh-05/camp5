@@ -91,17 +91,7 @@ function ClubCard({
       className="cursor-pointer group relative"
     >
       {/* Performance optimization: Disable infinite glow animation on mobile - saves significant CPU/GPU cycles */}
-      <motion.div
-        animate={!isMobile ? {
-          boxShadow: [
-            "0 0 20px rgba(168, 85, 247, 0.2)",
-            "0 0 30px rgba(168, 85, 247, 0.3)",
-            "0 0 20px rgba(168, 85, 247, 0.2)",
-          ],
-        } : undefined}
-        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
-        className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg"
-      />
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
       <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-purple-500/50 transition-all overflow-hidden">
         {/* Rank Badge */}
         {rank !== undefined && (
@@ -368,26 +358,26 @@ export default function ClubsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Performance optimization: Disable infinite background animations on mobile */}
-      {/* These animations are subtle on desktop but kill mobile performance (20-30fps loss) */}
+      {/* Performance optimization: Simplified animations for better desktop performance */}
+      {/* Desktop gets optimized smooth animations, mobile gets static gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={!isMobile ? {
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+            scale: [1, 1.15, 1],
+            opacity: [0.02, 0.04, 0.02],
+          } : { opacity: 0.02 }}
+          transition={!isMobile ? { duration: 25, repeat: Infinity, ease: "easeInOut" } : undefined}
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-2xl"
         />
         <motion.div
           animate={!isMobile ? {
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+            scale: [1.15, 1, 1.15],
+            opacity: [0.02, 0.04, 0.02],
+          } : { opacity: 0.02 }}
+          transition={!isMobile ? { duration: 30, repeat: Infinity, ease: "easeInOut" } : undefined}
+          style={!isMobile ? { willChange: "transform, opacity" } : undefined}
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-2xl"
         />
       </div>
 

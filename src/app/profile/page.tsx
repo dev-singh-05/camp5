@@ -401,26 +401,26 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white py-8 px-4">
       <Toaster position="top-right" />
 
-      {/* Performance: Disable animated backgrounds on mobile to save battery and improve FPS */}
+      {/* Performance: Simplified animations for better desktop performance */}
       {!isMobile && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <motion.div
             animate={{
-              scale: [1, 1.2, 1],
-              rotate: [0, 90, 0],
-              opacity: [0.03, 0.06, 0.03],
+              scale: [1, 1.15, 1],
+              opacity: [0.02, 0.04, 0.02],
             }}
-            transition={{ duration: 20, repeat: Infinity }}
-            className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+            style={{ willChange: "transform, opacity" }}
+            className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-2xl"
           />
           <motion.div
             animate={{
-              scale: [1.2, 1, 1.2],
-              rotate: [90, 0, 90],
-              opacity: [0.03, 0.06, 0.03],
+              scale: [1.15, 1, 1.15],
+              opacity: [0.02, 0.04, 0.02],
             }}
-            transition={{ duration: 25, repeat: Infinity }}
-            className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+            transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+            style={{ willChange: "transform, opacity" }}
+            className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-2xl"
           />
         </div>
       )}

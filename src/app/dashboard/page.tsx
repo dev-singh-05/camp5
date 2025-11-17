@@ -802,26 +802,26 @@ export default function Dashboard() {
   return (
     <LazyMotion features={domAnimation}>
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-        {/* OPTIMIZATION: Animated background only on desktop - too heavy for mobile */}
+        {/* OPTIMIZATION: Animated background only on desktop - simplified for better performance */}
         {!isMobile && (
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
             <m.div
               animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
+                scale: [1, 1.15, 1],
+                opacity: [0.02, 0.04, 0.02],
               }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
+              transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+              style={{ willChange: "transform, opacity" }}
+              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/8 to-transparent rounded-full blur-2xl"
             />
             <m.div
               animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
+                scale: [1.15, 1, 1.15],
+                opacity: [0.02, 0.04, 0.02],
               }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
+              transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+              style={{ willChange: "transform, opacity" }}
+              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/8 to-transparent rounded-full blur-2xl"
             />
           </div>
         )}
@@ -890,18 +890,9 @@ export default function Dashboard() {
               whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/clubs")}
               className="cursor-pointer group relative"
+              style={{ willChange: "transform" }}
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(168, 85, 247, 0.3)",
-                    "0 0 40px rgba(168, 85, 247, 0.5)",
-                    "0 0 20px rgba(168, 85, 247, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg"
-              />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
               <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:border-purple-500/50 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -924,18 +915,9 @@ export default function Dashboard() {
               whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/dating")}
               className="cursor-pointer group relative"
+              style={{ willChange: "transform" }}
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(236, 72, 153, 0.3)",
-                    "0 0 40px rgba(236, 72, 153, 0.5)",
-                    "0 0 20px rgba(236, 72, 153, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg"
-              />
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
               <div className="relative bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl rounded-2xl border border-pink-500/30 p-6 hover:border-pink-500/50 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -958,18 +940,9 @@ export default function Dashboard() {
               whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/ratings")}
               className="cursor-pointer group relative"
+              style={{ willChange: "transform" }}
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(34, 211, 238, 0.3)",
-                    "0 0 40px rgba(34, 211, 238, 0.5)",
-                    "0 0 20px rgba(34, 211, 238, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-                className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg"
-              />
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
               <div className="relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-xl rounded-2xl border border-cyan-500/30 p-6 hover:border-cyan-500/50 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
