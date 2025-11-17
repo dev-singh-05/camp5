@@ -1,29 +1,9 @@
-import { supabase } from "@/utils/supabaseClient";
-
-// Server component layout for dynamic route
-// Generate static params for static export
+// Minimal layout for dynamic route with static export
+// For Capacitor mobile app, we use client-side routing
 export async function generateStaticParams() {
-  try {
-    const { data: matches, error } = await supabase
-      .from('matches')
-      .select('id');
-
-    if (error || !matches || matches.length === 0) {
-      console.warn('Failed to fetch matches for generateStaticParams, using placeholder');
-      return [{ id: 'placeholder' }];
-    }
-
-    return matches.map((match) => ({
-      id: match.id,
-    }));
-  } catch (error) {
-    console.warn('Error in generateStaticParams:', error);
-    return [{ id: 'placeholder' }];
-  }
+  // Return placeholder - actual routes will be handled client-side in mobile app
+  return [{ id: 'placeholder' }];
 }
-
-// Disable dynamic params for static export
-export const dynamicParams = false;
 
 export default function ChatLayout({
   children,
