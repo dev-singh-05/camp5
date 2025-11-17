@@ -10,6 +10,9 @@ interface LayoutContentProps {
   children: ReactNode;
 }
 
+// Define home routes outside component to prevent re-creation on every render
+const HOME_ROUTES = ['/', '/dashboard', '/dating', '/clubs', '/ratings', '/profile'];
+
 /**
  * Client-side layout content wrapper that conditionally applies SafeArea
  * Only wraps content with SafeArea when running in native app
@@ -22,7 +25,7 @@ export default function LayoutContent({ children }: LayoutContentProps) {
       <>
         {/* Handle Android back button navigation */}
         <BackButton
-          homeRoutes={['/', '/dashboard', '/dating', '/clubs', '/ratings', '/profile']}
+          homeRoutes={HOME_ROUTES}
           confirmExit={false}
         />
         <SafeAreaWrapper className="min-h-screen">
