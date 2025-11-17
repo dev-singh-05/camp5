@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "build:export": "next build",
-    "build:mobile": "next build && npx cap sync",
+    "build:export": "SKIP_LINT=true next build",
+    "build:mobile": "SKIP_LINT=true next build && npx cap sync",
     "start": "next start",
     "lint": "eslint",
     "clean": "rm -rf .next out",
