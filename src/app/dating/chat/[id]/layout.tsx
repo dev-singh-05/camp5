@@ -13,6 +13,7 @@ export async function generateStaticParams() {
       return [{ id: 'placeholder' }];
     }
 
+    console.log(`✅ Generated static params for ${matches.length} chat matches`);
     return matches.map((match) => ({
       id: match.id,
     }));
@@ -24,6 +25,10 @@ export async function generateStaticParams() {
 
 // Disable dynamic params for static export
 export const dynamicParams = false;
+
+// Force static generation
+export const dynamic = 'force-static';
+export const revalidate = false;
 
 export default function ChatLayout({
   children,

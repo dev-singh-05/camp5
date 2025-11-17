@@ -13,6 +13,7 @@ export async function generateStaticParams() {
       return [{ id: 'placeholder' }];
     }
 
+    console.log(`✅ Generated static params for ${clubs.length} clubs`);
     return clubs.map((club) => ({
       id: club.id,
     }));
@@ -24,6 +25,10 @@ export async function generateStaticParams() {
 
 // Disable dynamic params for static export
 export const dynamicParams = false;
+
+// Force static generation
+export const dynamic = 'force-static';
+export const revalidate = false;
 
 export default function ClubLayout({
   children,
