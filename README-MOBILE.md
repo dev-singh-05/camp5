@@ -2,6 +2,8 @@
 
 Quick start guide and command reference for Campus5 mobile development.
 
+> **🪟 Windows Users:** Before proceeding, please see [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) for Java and Android SDK setup instructions. Run `.\check-setup.ps1` to verify your environment.
+
 ## 🚀 Quick Start
 
 Get up and running in 3 steps:
@@ -25,6 +27,7 @@ Then click the green "Run" button ▶️ in Android Studio.
 |----------|-------------|-------------|
 | **[MOBILE_SETUP.md](./MOBILE_SETUP.md)** | Initial setup and Capacitor configuration | First-time setup, understanding architecture |
 | **[MOBILE_BUILD.md](./MOBILE_BUILD.md)** | Build instructions and troubleshooting | Daily development, fixing build issues |
+| **[WINDOWS_SETUP.md](./WINDOWS_SETUP.md)** 🪟 | **Windows-specific setup guide** | **Windows users: Java, Android SDK setup** |
 | **[TESTING_CHECKLIST.md](./TESTING_CHECKLIST.md)** | Comprehensive testing procedures | Before releases, bug testing |
 | **[DEPLOYMENT.md](./DEPLOYMENT.md)** | Google Play Store deployment | Publishing app, creating releases |
 | **README-MOBILE.md** (this file) | Quick reference | Daily development workflow |
