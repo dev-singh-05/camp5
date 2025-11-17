@@ -59,9 +59,9 @@ android/.gradle/
 android/build/
 android/local.properties
 android/.idea/
-android/gradle/
-android/gradlew
-android/gradlew.bat
+# Note: gradlew and gradlew.bat are needed for builds and should be committed
+# android/gradle/ is also needed - only ignoring the downloaded wrapper jar
+android/gradle/wrapper/gradle-wrapper.jar
 ios/App/Pods/
 ios/App/build/
 ios/App/*.xcworkspace
