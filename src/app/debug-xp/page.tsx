@@ -50,7 +50,7 @@ export default function DebugXPUpdatePage() {
         .from("clubs")
         .select("id, name, total_xp")
         .eq("id", clubId)
-        .single();
+        .maybeSingle();
 
       if (beforeError) {
         addLog(`❌ Fetch error: ${beforeError.message}`);
@@ -102,7 +102,7 @@ export default function DebugXPUpdatePage() {
         .from("clubs")
         .select("id, name, total_xp")
         .eq("id", clubId)
-        .single();
+        .maybeSingle();
 
       if (verifyError) {
         addLog(`❌ Verification query failed: ${verifyError.message}`);
@@ -147,7 +147,7 @@ export default function DebugXPUpdatePage() {
         .from("clubs")
         .select("id, name, total_xp")
         .eq("id", clubId)
-        .single();
+        .maybeSingle();
 
       if (!beforeData) return;
 
@@ -195,7 +195,7 @@ export default function DebugXPUpdatePage() {
           .from("admins")
           .select("user_id")
           .eq("user_id", userData.user.id)
-          .single();
+          .maybeSingle();
 
         if (adminError) {
           addLog(`⚠️ Admin check error: ${adminError.message}`);
@@ -226,7 +226,7 @@ export default function DebugXPUpdatePage() {
           .from("clubs")
           .select("total_xp")
           .eq("id", clubId)
-          .single();
+          .maybeSingle();
 
         if (currentData) {
           const { error: updateTestError } = await supabase

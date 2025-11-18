@@ -249,7 +249,7 @@ export default function ClubsPage() {
       .from("clubs")
       .select("passcode")
       .eq("id", joiningClub.id)
-      .single();
+      .maybeSingle();
 
     const realPass = clubData?.passcode;
     const userRes = await supabase.auth.getUser();
@@ -271,7 +271,7 @@ export default function ClubsPage() {
         .from("profiles")
         .select("full_name")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       // Send system message to club chat
       await supabase.from("messages").insert([{

@@ -744,7 +744,7 @@ export default function ChatPage() {
             .from("dating_matches")
             .select("dating_category, user1_id, user2_id")
             .eq("id", matchId)
-            .single();
+            .maybeSingle();
 
           if (!matchErr && matchData) {
             setDatingCategory(matchData.dating_category);
@@ -757,7 +757,7 @@ export default function ChatPage() {
                 .from("profiles")
                 .select("gender")
                 .eq("id", auth.user.id)
-                .single();
+                .maybeSingle();
               if (userProfile) setUserGender(userProfile.gender);
             }
 
@@ -769,7 +769,7 @@ export default function ChatPage() {
                   "id, full_name, gender, year, branch, height, profile_photo, dating_description, interests, age, location, hometown, work, education, exercise, drinking, smoking, kids, religion, gallery_photos"
                 )
                 .eq("id", otherId)
-                .single();
+                .maybeSingle();
 
               if (!partnerErr && partner) {
                 setPartnerProfile(partner);
@@ -1057,7 +1057,7 @@ export default function ChatPage() {
       .from("user_tokens")
       .select("balance")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       throw new Error("Failed to fetch token balance");
@@ -1090,7 +1090,7 @@ export default function ChatPage() {
       .from("dating_matches")
       .select("user1_id, user2_id")
       .eq("id", matchId)
-      .single();
+      .maybeSingle();
 
     if (!match) {
       throw new Error("Match not found");
@@ -1174,7 +1174,7 @@ function handleAddTokens() {
         .from("dating_matches")
         .select("user1_id, user2_id")
         .eq("id", matchId)
-        .single();
+        .maybeSingle();
 
       if (matchErr || !match) {
         console.error("Match fetch error:", matchErr);
@@ -1225,7 +1225,7 @@ function handleAddTokens() {
             "id, full_name, profile_photo, dating_description, interests, year, height, looking_for, gender, branch, age, location, hometown, work, education, exercise, drinking, smoking, kids, religion, gallery_photos"
           )
           .eq("id", partnerId)
-          .single();
+          .maybeSingle();
 
         if (profileErr) {
           console.error("Profiles fetch error:", profileErr);

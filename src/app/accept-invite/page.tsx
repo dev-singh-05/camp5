@@ -28,7 +28,7 @@ function AcceptInviteContent() {
           .from("club_invites")
           .select("id, club_id, role, max_uses, uses, expires_at, clubs(name)")
           .eq("token", token)
-          .single();
+          .maybeSingle();
 
         if (error || !invite) {
           toast.error("Invite link is invalid or expired.");
@@ -84,7 +84,7 @@ function AcceptInviteContent() {
         .from("club_invites")
         .select("id, club_id, role, max_uses, uses, expires_at")
         .eq("token", token)
-        .single();
+        .maybeSingle();
 
       if (inviteError || !invite) {
         toast.error("Invalid or expired invite.");

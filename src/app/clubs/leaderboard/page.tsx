@@ -628,7 +628,7 @@ export default function LeaderboardPage() {
       .from("clubs")
       .select("passcode")
       .eq("id", clubId)
-      .single();
+      .maybeSingle();
 
     if (clubErr) {
       console.error("Error fetching club passcode:", clubErr.message);
@@ -672,7 +672,7 @@ export default function LeaderboardPage() {
         .from("profiles")
         .select("full_name")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       await supabase.from("messages").insert([{
         club_id: currentClubId,

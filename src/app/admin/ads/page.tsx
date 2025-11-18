@@ -36,7 +36,7 @@ export default function AdminAdsPage() {
         .from("admins")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error || !adminData) {
         toast.error("Access denied: Admin only");

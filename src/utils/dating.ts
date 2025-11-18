@@ -115,7 +115,7 @@ export async function requestReveal(match_id: string, user_id: string) {
       .from("dating_matches")
       .select("user1_id, user2_id")
       .eq("id", match_id)
-      .single();
+      .maybeSingle();
 
     if (matchErr || !match) throw matchErr || new Error("Match not found.");
 

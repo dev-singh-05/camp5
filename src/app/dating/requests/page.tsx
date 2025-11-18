@@ -85,7 +85,7 @@ export default function RequestsPage() {
             .from("profiles")
             .select("id, full_name, profile_photo, gender, branch, year, height, dating_description, interests")
             .eq("id", req.requester_id)
-            .single();
+            .maybeSingle();
 
           return { ...req, requester: profile || undefined };
         })
