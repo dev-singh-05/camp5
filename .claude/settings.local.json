@@ -23,7 +23,13 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nMerge branch ''main'' of https://github.com/dev-singh-05/campus into main\n\nResolved merge conflicts by accepting incoming changes for:\n- src/app/clubs/leaderboard/page.tsx\n- src/app/dating/chat/[id]/page.tsx\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
       "Bash(git commit:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init)",
+      "Bash(npm start)",
+      "Bash(timeout /t 5)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []
