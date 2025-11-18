@@ -43,7 +43,7 @@ export default function XPDistributionConfigsPage() {
       .from("admins")
       .select("user_id")
       .eq("user_id", userData.user.id)
-      .single();
+      .maybeSingle();
 
     if (!adminData) {
       toast.error("Access denied. Admins only.");

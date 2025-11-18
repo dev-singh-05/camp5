@@ -42,7 +42,7 @@ export default function ClubModal({
         .from("clubs")
         .select("passcode")
         .eq("id", club.id)
-        .single();
+        .maybeSingle();
 
       if (clubErr) {
         setError("Failed to fetch club data.");

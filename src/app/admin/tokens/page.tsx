@@ -235,7 +235,7 @@ export default function AdminTokensPage() {
         .from("token_purchase_requests")
         .select("status")
         .eq("id", selectedRequest.id)
-        .single();
+        .maybeSingle();
 
       if (checkError || !currentRequest) {
         throw new Error("Failed to verify request status");

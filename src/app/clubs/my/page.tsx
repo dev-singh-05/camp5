@@ -373,7 +373,7 @@ export default function MyClubs() {
       .from("clubs")
       .select("passcode")
       .eq("id", clubId)
-      .single();
+      .maybeSingle();
 
     if (clubErr) {
       console.error("Error fetching club passcode:", clubErr.message);
@@ -414,7 +414,7 @@ export default function MyClubs() {
           .from("profiles")
           .select("full_name")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         // Send system message to club chat
         await supabase.from("messages").insert([{

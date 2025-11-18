@@ -35,7 +35,7 @@ export async function getIcebreakerQuestion(questionId: string): Promise<Icebrea
     .from("icebreaker_questions")
     .select("*")
     .eq("id", questionId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("Error fetching icebreaker question:", error);
@@ -122,7 +122,7 @@ export async function getMatchIcebreakerQuestion(matchId: string): Promise<Icebr
     .from("dating_matches")
     .select("icebreaker_question_id")
     .eq("id", matchId)
-    .single();
+    .maybeSingle();
 
   if (matchError || !match?.icebreaker_question_id) {
     console.error("Error fetching match icebreaker question:", matchError);

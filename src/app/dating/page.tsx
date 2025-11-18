@@ -214,7 +214,7 @@ function DatingPageContent() {
           "age, work, education, branch, gender, location, hometown, height, exercise, drinking, smoking, kids, religion, year, profile_photo"
         )
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error || !profile) {
         setCompletion(0);
@@ -303,7 +303,7 @@ function DatingPageContent() {
         .from("profiles")
         .select("interests, gender")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       // Determine opposite gender
       const oppositeGender =

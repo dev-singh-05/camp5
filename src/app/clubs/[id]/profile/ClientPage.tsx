@@ -91,7 +91,7 @@ export default function ClubProfilePage() {
         .select("role")
         .eq("club_id", clubId)
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       setUserRole(roleData?.role || null);
 
@@ -185,7 +185,7 @@ export default function ClubProfilePage() {
       .from("clubs")
       .select("*")
       .eq("id", clubId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       toast.error("Failed to load club data");
@@ -233,7 +233,7 @@ export default function ClubProfilePage() {
       .from("clubs")
       .select("total_xp")
       .eq("id", clubId)
-      .single();
+      .maybeSingle();
 
     if (clubError) {
       console.error("❌ Error fetching club XP:", clubError);

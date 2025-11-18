@@ -45,7 +45,7 @@ function ProfileStats({
         .select("id")
         .eq("from_user_id", currentUserId)
         .eq("to_user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         setHasRated(true);
@@ -64,7 +64,7 @@ function ProfileStats({
           "avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings"
         )
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!error && data) setStats(data);
 
