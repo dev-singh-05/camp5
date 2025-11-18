@@ -1,15 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable static export for Capacitor
-  output: 'export',
+  // Disable static export - Supabase auth requires server-side runtime
+  // output: 'export',
 
-  // Disable image optimization for static export
+  // Keep image optimization disabled for compatibility
   images: {
     unoptimized: true,
   },
 
-  // Trailing slash for better compatibility with mobile
+  // Trailing slash for better compatibility
   trailingSlash: true,
 
   typescript: {
