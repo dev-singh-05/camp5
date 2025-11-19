@@ -1,7 +1,7 @@
 "use client";
 
 // Performance optimization: Added useMemo and useRef for expensive computations and debouncing
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,8 +84,8 @@ const getBorderXPClass = (rank: number) => {
   }
 };
 
-// Top 3 Horizontal Card (Mobile-Friendly)
-function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
+// Top 3 Horizontal Card (Mobile-Friendly) - Memoized to prevent unnecessary re-renders
+const TopClubCard = memo(function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
 
   return (
     <motion.div
@@ -94,19 +94,9 @@ function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMob
       transition={{ delay: rank * 0.1 }}
       className="relative group"
     >
-      {/* Performance optimization: Disable infinite glow animation on mobile */}
-      <motion.div
-        animate={!isMobile ? {
-          boxShadow: [
-            `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
-            `0 0 40px ${rank === 1 ? "rgba(234, 179, 8, 0.5)" : rank === 2 ? "rgba(156, 163, 175, 0.5)" : "rgba(249, 115, 22, 0.5)"}`,
-            `0 0 20px ${rank === 1 ? "rgba(234, 179, 8, 0.3)" : rank === 2 ? "rgba(156, 163, 175, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
-          ],
-        } : undefined}
-        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
-        className={`absolute inset-0 bg-gradient-to-br ${getRankGradient(rank)}/20 rounded-2xl blur-lg`}
-      />
-      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 ${getBorderClass(rank)} p-3 md:p-4`}>
+      {/* Desktop: Simplified glow effect using CSS only - replaced infinite animation with hover state */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${getRankGradient(rank)}/20 rounded-2xl blur-md opacity-60 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border-2 ${getBorderClass(rank)} p-3 md:p-4 hover:shadow-xl transition-all duration-300`}>
         {/* Horizontal Layout */}
         <div className="flex items-center gap-2 md:gap-3">
           {/* Rank Badge */}
@@ -158,7 +148,7 @@ function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMob
       </div>
     </motion.div>
   );
-}
+});
 
 // Performance optimization: Extract helper functions outside component
 const getCategoryColor = (cat: string | null) => {
@@ -171,8 +161,8 @@ const getCategoryColor = (cat: string | null) => {
   }
 };
 
-// Regular Club Card (rank 4+)
-function ClubCard({
+// Regular Club Card (rank 4+) - Memoized to prevent unnecessary re-renders
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -196,8 +186,8 @@ function ClubCard({
       onClick={onClick}
       className="cursor-pointer group relative"
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 hover:border-purple-500/30 transition-all">
+      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-4 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-300">
         <div className="flex items-center gap-4">
           {/* Rank */}
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
@@ -252,7 +242,7 @@ function ClubCard({
       </div>
     </motion.div>
   );
-}
+});
 
 // Club Detail Modal
 function ClubModal({
@@ -293,13 +283,15 @@ function ClubModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
       >
@@ -401,12 +393,14 @@ function JoinModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.2 }}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10"
       >
         <div className="p-8">
@@ -469,12 +463,14 @@ function RequestModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.2 }}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10"
       >
         <div className="p-8">
@@ -712,26 +708,10 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Performance optimization: Disable infinite background animations on mobile */}
+      {/* Desktop: Simplified static background - removed heavy infinite animations for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl opacity-50" />
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl opacity-50" />
       </div>
 
       {/* Header - Mobile First */}
