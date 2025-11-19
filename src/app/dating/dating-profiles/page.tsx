@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
@@ -334,28 +334,13 @@ export default function DatingProfileDashboard() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile */}
+      {/* PERFORMANCE: Use CSS animations instead of JS for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-            />
+            {/* PERFORMANCE: Replaced Framer Motion with pure CSS animations */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl animate-pulse-slow opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl animate-pulse-slower opacity-[0.05]" />
           </>
         ) : (
           <>
@@ -534,13 +519,12 @@ export default function DatingProfileDashboard() {
                       key={item.key}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ x: 4, scale: 1.01 }}
+                      transition={{ delay: index * 0.03, duration: 0.2 }}
                       onClick={() => setActiveField(item.key)}
                       className="relative group/item cursor-pointer"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -586,13 +570,12 @@ export default function DatingProfileDashboard() {
                       key={item.key}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ x: 4, scale: 1.01 }}
+                      transition={{ delay: index * 0.03, duration: 0.2 }}
                       onClick={() => setActiveField(item.key)}
                       className="relative group/item cursor-pointer"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -635,12 +618,11 @@ export default function DatingProfileDashboard() {
                 <div className="space-y-2">
                   {/* Dating Bio */}
                   <motion.div
-                    whileHover={{ x: 4, scale: 1.01 }}
                     onClick={() => setShowDescriptionModal(true)}
                     className="relative group/item cursor-pointer"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -653,19 +635,18 @@ export default function DatingProfileDashboard() {
                             </p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all flex-shrink-0" />
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 transition-all duration-200 flex-shrink-0" />
                       </div>
                     </div>
                   </motion.div>
 
                   {/* Interests */}
                   <motion.div
-                    whileHover={{ x: 4, scale: 1.01 }}
                     onClick={() => setShowInterestsModal(true)}
                     className="relative group/item cursor-pointer"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -680,7 +661,7 @@ export default function DatingProfileDashboard() {
                             </p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 transition-all duration-200" />
                       </div>
                     </div>
                   </motion.div>
@@ -968,6 +949,24 @@ export default function DatingProfileDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* PERFORMANCE: Custom CSS animations for better performance than JS */}
+      <style jsx global>{`
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-slower {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 20s ease-in-out infinite;
+        }
+        .animate-pulse-slower {
+          animation: pulse-slower 25s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

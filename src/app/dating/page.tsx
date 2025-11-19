@@ -3,8 +3,8 @@
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-// PERFORMANCE: Import useCallback and useMemo for memoization to prevent unnecessary re-renders
-import { useEffect, useState, useRef, Suspense, useCallback, useMemo } from "react";
+// PERFORMANCE: Import useCallback, useMemo, and React.memo for memoization to prevent unnecessary re-renders
+import React, { useEffect, useState, useRef, Suspense, useCallback, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
@@ -48,18 +48,19 @@ type VerificationStatus = {
 
 /* --------------------------- ChatCard Component ------------------------- */
 
-function ChatCard({ match, index, router }: { match: Match; index: number; router: any }) {
+// PERFORMANCE: Memoize ChatCard to prevent unnecessary re-renders
+const ChatCard = React.memo(({ match, index, router }: { match: Match; index: number; router: any }) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05 }}
-      whileHover={{ x: 4, scale: 1.01 }}
+      transition={{ delay: index * 0.05, duration: 0.2 }}
       onClick={() => router.push(`/dating/chat/${match.id}`)}
       className="relative group cursor-pointer"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+      {/* PERFORMANCE: Simplified hover effect using CSS only */}
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover:translate-x-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-xl flex-shrink-0">
@@ -72,12 +73,12 @@ function ChatCard({ match, index, router }: { match: Match; index: number; route
               <p className="text-xs text-white/60">Click to open chat</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0" />
+          <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 transition-all duration-200 flex-shrink-0" />
         </div>
       </div>
     </motion.div>
   );
-}
+});
 
 /* --------------------------- Component ---------------------------------- */
 
@@ -766,30 +767,14 @@ function DatingPageContent() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile to save battery and improve FPS */}
-      {/* WHY: These animations run at 60fps constantly, draining mobile battery and causing lag */}
-      {/* Desktop gets smooth animations, mobile gets static gradients (user won't notice) */}
+      {/* PERFORMANCE: Use CSS animations instead of JS for better performance */}
+      {/* WHY: CSS animations are GPU-accelerated and don't block the main thread */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-            />
+            {/* PERFORMANCE: Replaced Framer Motion with pure CSS animations */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl animate-pulse-slow opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl animate-pulse-slower opacity-[0.05]" />
           </>
         ) : (
           <>
@@ -965,16 +950,9 @@ function DatingPageContent() {
           className="mb-8"
         >
           <div className="relative group">
-            {/* PERFORMANCE: Disable pulsing animation on mobile */}
+            {/* PERFORMANCE: Replaced JS animation with CSS for better performance */}
             {!isMobile ? (
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl"
-                animate={{
-                  opacity: [0.3, 0.6, 0.3],
-                  scale: [0.98, 1.02, 0.98],
-                }}
-                transition={{ duration: 4, repeat: Infinity }}
-              />
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl animate-pulse-medium opacity-40" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-r from-pink-500/30 to-rose-500/30 rounded-3xl blur-2xl opacity-40" />
             )}
@@ -987,20 +965,10 @@ function DatingPageContent() {
               
               <div className="relative p-4 sm:p-8">
                 <label htmlFor="category" className="block text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6 flex items-center gap-3">
-                  {/* PERFORMANCE: Disable rotating animation on mobile */}
-                  {!isMobile ? (
-                    <motion.div
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center"
-                    >
-                      <Sparkles className="w-4 h-4 text-white" />
-                    </motion.div>
-                  ) : (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-white" />
-                    </div>
-                  )}
+                  {/* PERFORMANCE: Replaced rotating animation with static icon for better performance */}
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
                   What are you looking for?
                 </label>
                 
@@ -1056,23 +1024,15 @@ function DatingPageContent() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
                       className="mt-4 relative"
                     >
                       {/* Red outline wrapper */}
                       <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/60 pointer-events-none z-20" />
                       <div className="p-4 bg-gradient-to-r from-pink-500/20 via-rose-500/20 to-pink-500/20 border-2 border-pink-500/40 rounded-2xl backdrop-blur-xl shadow-lg relative">
                         <div className="text-pink-200 text-base font-semibold flex items-center gap-2">
-                          {/* PERFORMANCE: Disable pulsing icon on mobile */}
-                          {!isMobile ? (
-                            <motion.div
-                              animate={{ scale: [1, 1.2, 1] }}
-                              transition={{ duration: 1, repeat: Infinity }}
-                            >
-                              <Sparkles className="w-5 h-5 text-pink-400" />
-                            </motion.div>
-                          ) : (
-                            <Sparkles className="w-5 h-5 text-pink-400" />
-                          )}
+                          {/* PERFORMANCE: Replaced pulsing animation with static icon */}
+                          <Sparkles className="w-5 h-5 text-pink-400" />
                           Great choice! Now find your match below
                         </div>
                       </div>
@@ -1115,33 +1075,13 @@ function DatingPageContent() {
               disabled={matchingDisabled}
               className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
-              {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
-              {/* WHY: Box-shadow animations are expensive on mobile GPUs */}
-              {!isMobile ? (
-                <motion.div
-                  animate={
-                    !matchingDisabled
-                      ? {
-                          boxShadow: [
-                            "0 0 20px rgba(34, 197, 94, 0.2)",
-                            "0 0 30px rgba(34, 197, 94, 0.3)",
-                            "0 0 20px rgba(34, 197, 94, 0.2)",
-                          ],
-                        }
-                      : {}
-                  }
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className={`absolute inset-0 ${
-                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-                  } rounded-2xl blur-lg`}
-                />
-              ) : (
-                <div
-                  className={`absolute inset-0 ${
-                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-                  } rounded-2xl blur-lg`}
-                />
-              )}
+              {/* PERFORMANCE: Replaced box-shadow animation with static glow */}
+              {/* WHY: Box-shadow animations are expensive and cause layout thrashing */}
+              <div
+                className={`absolute inset-0 ${
+                  matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+                } rounded-2xl blur-lg transition-opacity duration-300 ${!matchingDisabled ? "group-hover:opacity-80" : ""}`}
+              />
               <div
                 className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                   matchingDisabled
@@ -1182,32 +1122,13 @@ function DatingPageContent() {
                 disabled={matchingDisabled}
                 className={`relative group ${matchingDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
-                {/* PERFORMANCE: Disable pulsing box-shadow animation on mobile */}
-                {!isMobile ? (
-                  <motion.div
-                    animate={
-                      !matchingDisabled
-                        ? {
-                            boxShadow: [
-                              "0 0 20px rgba(14, 165, 233, 0.2)",
-                              "0 0 30px rgba(14, 165, 233, 0.3)",
-                              "0 0 20px rgba(14, 165, 233, 0.2)",
-                            ],
-                          }
-                        : {}
-                    }
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className={`absolute inset-0 ${
-                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
-                    } rounded-2xl blur-lg`}
-                  />
-                ) : (
-                  <div
-                    className={`absolute inset-0 ${
-                      matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
-                    } rounded-2xl blur-lg`}
-                  />
-                )}
+                {/* PERFORMANCE: Replaced box-shadow animation with static glow */}
+                {/* WHY: Box-shadow animations are expensive and cause layout thrashing */}
+                <div
+                  className={`absolute inset-0 ${
+                    matchingDisabled ? "bg-gray-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+                  } rounded-2xl blur-lg transition-opacity duration-300 ${!matchingDisabled ? "group-hover:opacity-80" : ""}`}
+                />
                 <div
                   className={`relative backdrop-blur-xl rounded-2xl border p-4 sm:p-8 transition-all ${
                     matchingDisabled
@@ -1344,14 +1265,15 @@ function DatingPageContent() {
                         <ChatCard match={matches[0]} index={0} router={router} />
                         
                         {/* Show rest only when expanded */}
+                        {/* PERFORMANCE: Simplified transitions for better performance */}
                         <AnimatePresence>
                           {isChatsExpanded && matches.slice(1).map((match, index) => (
                             <motion.div
                               key={match.id}
-                              initial={{ height: 0, opacity: 0, y: -10 }}
-                              animate={{ height: "auto", opacity: 1, y: 0 }}
-                              exit={{ height: 0, opacity: 0, y: -10 }}
-                              transition={{ delay: index * 0.05 }}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.15, delay: index * 0.03 }}
                             >
                               <ChatCard match={match} index={index + 1} router={router} />
                             </motion.div>
@@ -1508,6 +1430,31 @@ function DatingPageContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* PERFORMANCE: Custom CSS animations for better performance than JS */}
+      <style jsx global>{`
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-slower {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-medium {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 20s ease-in-out infinite;
+        }
+        .animate-pulse-slower {
+          animation: pulse-slower 25s ease-in-out infinite;
+        }
+        .animate-pulse-medium {
+          animation: pulse-medium 4s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
