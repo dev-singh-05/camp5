@@ -1,7 +1,7 @@
 "use client";
 
 // Performance optimization: Added useMemo for expensive computations
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, memo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,8 +39,8 @@ const getCategoryIcon = (cat: string | null) => {
   }
 };
 
-// 🔹 Reusable ClubCard with glassmorphic design
-function ClubCard({
+// 🔹 Reusable ClubCard with glassmorphic design - Memoized to prevent unnecessary re-renders
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -64,32 +64,16 @@ function ClubCard({
       onClick={onClick}
       className="cursor-pointer group relative"
     >
-      {/* Performance optimization: Disable infinite glow animation on mobile - saves significant CPU/GPU cycles */}
-      <motion.div
-        animate={!isMobile ? {
-          boxShadow: status === "joined"
-            ? [
-                "0 0 20px rgba(34, 197, 94, 0.2)",
-                "0 0 30px rgba(34, 197, 94, 0.3)",
-                "0 0 20px rgba(34, 197, 94, 0.2)",
-              ]
-            : [
-                "0 0 20px rgba(168, 85, 247, 0.2)",
-                "0 0 30px rgba(168, 85, 247, 0.3)",
-                "0 0 20px rgba(168, 85, 247, 0.2)",
-              ],
-        } : undefined}
-        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
-        className={`absolute inset-0 ${
-          status === "joined"
-            ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-            : "bg-gradient-to-br from-purple-500/20 to-pink-500/20"
-        } rounded-2xl blur-lg`}
-      />
-      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border p-6 transition-all overflow-hidden ${
-        status === "joined" 
-          ? "border-green-500/30 hover:border-green-500/50" 
-          : "border-white/10 hover:border-purple-500/50"
+      {/* Desktop: Simplified glow effect using CSS only - replaced infinite animation with hover state */}
+      <div className={`absolute inset-0 ${
+        status === "joined"
+          ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+          : "bg-gradient-to-br from-purple-500/20 to-pink-500/20"
+      } rounded-2xl blur-md opacity-50 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border p-6 transition-all duration-300 overflow-hidden ${
+        status === "joined"
+          ? "border-green-500/30 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20"
+          : "border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20"
       }`}>
         {/* Status Badge */}
         <div className="absolute top-4 right-4">
@@ -166,7 +150,7 @@ function ClubCard({
       </div>
     </motion.div>
   );
-}
+});
 
 // 🔹 Club Modal
 function ClubModal({
@@ -198,13 +182,15 @@ function ClubModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
       >
@@ -439,27 +425,10 @@ export default function MyClubs() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Performance optimization: Disable infinite background animations on mobile */}
-      {/* These animations are subtle on desktop but kill mobile performance (20-30fps loss) */}
+      {/* Desktop: Simplified static background - removed heavy infinite animations for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl opacity-50" />
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl opacity-50" />
       </div>
 
       {/* Header - Mobile First */}
@@ -670,13 +639,15 @@ export default function MyClubs() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
             onClick={() => setShowModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 max-h-[90vh] overflow-y-auto"
             >
