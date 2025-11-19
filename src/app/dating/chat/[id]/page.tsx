@@ -1434,18 +1434,17 @@ function handleAddTokens() {
         {/* Header - Desktop View */}
         <header className="hidden md:flex px-4 py-3 bg-white/95 backdrop-blur-sm border-b items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05, x: -2 }}
-              whileTap={{ scale: 0.95 }}
+            {/* PERFORMANCE: Simplified hover effects using CSS only */}
+            <button
               onClick={() => router.back()}
               aria-label="Go back"
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all"
+              className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105 active:scale-95"
               title="Back"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </motion.button>
+            </button>
 
             <div className="flex items-center gap-3">
               <Avatar
@@ -1518,18 +1517,18 @@ function handleAddTokens() {
           <div className="px-3 py-2 border-b border-gray-100">
             <div className="flex items-center justify-between gap-2">
               {/* Close Button */}
-              <motion.button
-                whileTap={{ scale: 0.95 }}
+              {/* PERFORMANCE: Use CSS transitions instead of JS animations */}
+              <button
                 onClick={() => router.back()}
                 aria-label="Close chat"
-                className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all text-gray-700 text-xs font-medium flex items-center gap-1"
+                className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all duration-200 text-gray-700 text-xs font-medium flex items-center gap-1 active:scale-95"
                 title="Close"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Close
-              </motion.button>
+              </button>
 
               {/* Token Balance */}
               <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-100 to-yellow-100 px-2 py-1.5 rounded-full border border-amber-300">

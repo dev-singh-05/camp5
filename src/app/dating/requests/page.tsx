@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
@@ -231,28 +231,13 @@ export default function RequestsPage() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile */}
+      {/* PERFORMANCE: Use CSS animations instead of JS for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-            />
+            {/* PERFORMANCE: Replaced Framer Motion with pure CSS animations */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl animate-pulse-slow opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl animate-pulse-slower opacity-[0.05]" />
           </>
         ) : (
           <>
@@ -320,25 +305,12 @@ export default function RequestsPage() {
                 key={req.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.08, duration: 0.3 }}
                 className="relative group"
               >
-                {/* PERFORMANCE: Disable pulsing box-shadow on mobile */}
-                {!isMobile ? (
-                  <motion.div
-                    animate={{
-                      boxShadow: [
-                        "0 0 20px rgba(236, 72, 153, 0.2)",
-                        "0 0 30px rgba(236, 72, 153, 0.3)",
-                        "0 0 20px rgba(236, 72, 153, 0.2)",
-                      ],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
-                )}
+                {/* PERFORMANCE: Replaced pulsing box-shadow with static glow */}
+                {/* WHY: Box-shadow animations cause expensive repaints */}
+                <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl transition-opacity duration-300 group-hover:opacity-80" />
                 <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
                   {/* Category Badge - Top Right */}
                   <div className="absolute top-4 right-4 z-10">
@@ -477,7 +449,25 @@ export default function RequestsPage() {
           </div>
         )}
       </main>
+
+      {/* PERFORMANCE: Custom CSS animations for better performance than JS */}
+      <style jsx global>{`
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-slower {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 20s ease-in-out infinite;
+        }
+        .animate-pulse-slower {
+          animation: pulse-slower 25s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
-  
+
 }
