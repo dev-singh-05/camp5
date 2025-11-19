@@ -10,6 +10,7 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { ChevronLeft } from "lucide-react-native";
 import { supabase } from "../../utils/supabaseClient";
 import Toast from "react-native-toast-message";
 
@@ -90,7 +91,16 @@ export default function Ratings() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>⭐ Ratings</Text>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.push("/(tabs)/dashboard")}
+            >
+              <ChevronLeft color="#fff" size={24} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>⭐ Ratings</Text>
+            <View style={{ width: 40 }} />
+          </View>
           <Text style={styles.headerSubtitle}>Rate your peers anonymously</Text>
         </View>
 
@@ -227,13 +237,25 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 20,
+  },
+  headerTop: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 8,
   },
   headerSubtitle: {
     fontSize: 16,

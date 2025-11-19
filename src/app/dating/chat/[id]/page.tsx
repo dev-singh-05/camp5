@@ -1499,7 +1499,7 @@ function handleAddTokens() {
             </button>
 
             {/* Reveal Button */}
-            {shouldShowRevealButton() && (
+            {shouldShowRevealButton && (
               <button onClick={handleReveal} className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600">
                 Reveal Identity
               </button>
@@ -1570,7 +1570,7 @@ function handleAddTokens() {
           {/* Second Row - Reveal Identity & Surprise Question */}
           <div className="px-3 py-2 flex items-center justify-center gap-2">
             {/* Reveal Identity Button */}
-            {shouldShowRevealButton() && (
+            {shouldShowRevealButton && (
               <button
                 onClick={handleReveal}
                 className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-medium hover:from-red-600 hover:to-pink-600 shadow-md flex items-center justify-center gap-1"
@@ -1622,7 +1622,7 @@ function handleAddTokens() {
         )}
 
         {/* Reveal banner */}
-        {shouldShowRevealButton() && revealStatus && (
+        {shouldShowRevealButton && revealStatus && (
           <div className="px-4 py-2 bg-yellow-100 text-yellow-900 text-sm text-center">
             {revealStatus.user1_reveal && revealStatus.user2_reveal ? "Both identities revealed!" : "Waiting for both users to reveal..."}
           </div>

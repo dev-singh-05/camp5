@@ -25,23 +25,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconFocused]}>
-              <Text style={{ fontSize: 24 }}>🏠</Text>
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="dating"
-        options={{
-          title: "Dating",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconFocused]}>
-              <Text style={{ fontSize: 24 }}>💖</Text>
-            </View>
-          ),
+          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
@@ -67,14 +51,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="dating"
         options={{
-          title: "Profile",
+          title: "Dating",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconFocused]}>
-              <Text style={{ fontSize: 24 }}>👤</Text>
+              <Text style={{ fontSize: 24 }}>💖</Text>
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

@@ -83,8 +83,8 @@ export default function Dashboard() {
   const realtimeChannelRef = useRef<any>(null);
 
   // OPTIMIZATION: Debounce refs for real-time updates to prevent excessive re-renders
-  const newsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const campusNewsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const newsUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const campusNewsUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Token balance state
   const [tokenBalance, setTokenBalance] = useState<number>(0);

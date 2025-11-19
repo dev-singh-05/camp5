@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../utils/supabaseClient";
 import Toast from "react-native-toast-message";
+import { ProfileEditModal } from "../../components/ProfileEditModal";
 
 export default function Profile() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function Profile() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -182,13 +184,7 @@ export default function Profile() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => {
-              Toast.show({
-                type: "info",
-                text1: "Edit Profile",
-                text2: "Full profile editing coming in production version",
-              });
-            }}
+            onPress={() => setEditModalVisible(true)}
           >
             <Text style={styles.actionButtonText}>✏️ Edit Profile</Text>
           </TouchableOpacity>
@@ -198,6 +194,17 @@ export default function Profile() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Profile Edit Modal */}
+      {user && (
+        <ProfileEditModal
+          visible={editModalVisible}
+          userId={user.id}
+          onClose={() => setEditModalVisible(false)}
+          onProfileUpdated={loadData}
+        />
+      )}
+
       <Toast />
     </LinearGradient>
   );
