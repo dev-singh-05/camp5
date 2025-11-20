@@ -2,6 +2,8 @@
 
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 // PERFORMANCE: Import useCallback, useMemo, and React.memo for memoization to prevent unnecessary re-renders
 import React, { useEffect, useState, useRef, Suspense, useCallback, useMemo } from "react";
@@ -9,10 +11,14 @@ import { supabase } from "@/utils/supabaseClient";
 import { getMyMatches } from "@/utils/dating";
 import { User, Heart, Sparkles, Mail, ChevronRight, X, Send, Users, Zap, ChevronDown } from "lucide-react";
 import AdBanner from "@/components/ads";
-import VerificationOverlay from "@/components/VerificationOverlay";
 import { motion, AnimatePresence } from "framer-motion";
 // PERFORMANCE: Import useIsMobile hook to disable expensive animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
+
+// Performance optimization: Dynamically import VerificationOverlay to reduce initial bundle size
+const VerificationOverlay = dynamic(() => import("@/components/VerificationOverlay"), {
+  ssr: false,
+});
 
 /* ----------------------------- Types ------------------------------------ */
 
@@ -296,16 +302,20 @@ function DatingPageContent() {
       const excludedIds = new Set<string>([user.id]);
 
       if (!testingMode) {
-        // Find existing matches and pending requests to exclude
-        const { data: existingMatches } = await supabase
-          .from("dating_matches")
-          .select("user1_id, user2_id")
-          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        // Performance optimization: Run matches and requests queries in parallel
+        const [matchesResult, requestsResult] = await Promise.all([
+          supabase
+            .from("dating_matches")
+            .select("user1_id, user2_id")
+            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`),
+          supabase
+            .from("dating_requests")
+            .select("requester_id, candidate_id")
+            .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`)
+        ]);
 
-        const { data: existingRequests } = await supabase
-          .from("dating_requests")
-          .select("requester_id, candidate_id")
-          .or(`requester_id.eq.${user.id},candidate_id.eq.${user.id}`);
+        const existingMatches = matchesResult.data;
+        const existingRequests = requestsResult.data;
 
         (existingMatches || []).forEach((m: any) => {
           if (m.user1_id === user.id) {
@@ -350,6 +360,9 @@ function DatingPageContent() {
       ) {
         candidateQuery = candidateQuery.overlaps("interests", myProfile.interests);
       }
+
+      // Performance optimization: Limit candidates to reduce data transfer and improve performance
+      candidateQuery = candidateQuery.limit(100);
 
       const { data: allCandidates, error: candidateErr } = await candidateQuery;
 
@@ -1353,10 +1366,13 @@ function DatingPageContent() {
                             Hidden
                           </div>
                         ) : (
-                          <img
+                          <Image
                             src={candidate.profile_photo || profilePlaceholder}
                             alt="Match"
+                            width={80}
+                            height={80}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         )}
                       </div>
