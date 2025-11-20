@@ -1,19 +1,25 @@
 "use client";
 import "./page.css";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 // OPTIMIZATION: Added useCallback and useMemo for performance
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import AdBanner from "@/components/ads";
 import ProfileStats from "@/components/ProfileStats";
-import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 import RatingsAdPopup from "@/components/RatingsAdPopup";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Users, TrendingUp, MessageSquare, X, Star, Sparkles, Lock, Search } from "lucide-react";
 // OPTIMIZATION: Import performance hooks
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDebounce } from "@/hooks/useDebounce";
+
+// Performance optimization: Dynamically import heavy modal components
+const TokenPurchaseModal = dynamic(() => import("@/components/tokens/TokenPurchaseModal"), {
+  ssr: false,
+});
 
 // Import the token purchase modal
 
@@ -146,59 +152,65 @@ export default function RatingsPage() {
     getUser();
   }, []);
 
-  // Fetch token balance
+  // Performance optimization: Combine user-related queries into a single effect with parallel execution
   useEffect(() => {
     if (!currentUserId) return;
-    async function loadBalance() {
-      const { data } = await supabase
-        .from("user_tokens")
-        .select("balance")
-        .eq("user_id", currentUserId)
-        .maybeSingle();
-      setTokenBalance(data?.balance || 0);
-    }
-    loadBalance();
-  }, [currentUserId]);
 
-  // Check if user has rated someone
-  useEffect(() => {
-    if (!currentUserId) return;
-    async function checkRatings() {
-      const { data } = await supabase
-        .from("ratings")
-        .select("to_user_id")
-        .eq("from_user_id", currentUserId);
-      
-      if (data) {
-        const ratedIds = new Set(data.map(r => r.to_user_id));
+    async function loadUserData() {
+      // Run all user-related queries in parallel
+      const [balanceResult, ratingsResult, unlocksResult, requestsResult] = await Promise.all([
+        supabase
+          .from("user_tokens")
+          .select("balance")
+          .eq("user_id", currentUserId)
+          .maybeSingle(),
+        supabase
+          .from("ratings")
+          .select("to_user_id")
+          .eq("from_user_id", currentUserId),
+        supabase
+          .from("stats_unlocks")
+          .select("profile_id")
+          .eq("user_id", currentUserId),
+        supabase
+          .from("profile_requests")
+          .select("*")
+          .or(`from_user_id.eq.${currentUserId},to_user_id.eq.${currentUserId}`)
+      ]);
+
+      // Update token balance
+      setTokenBalance(balanceResult.data?.balance || 0);
+
+      // Update rated users
+      if (ratingsResult.data) {
+        const ratedIds = new Set(ratingsResult.data.map(r => r.to_user_id));
         setHasRatedUser(ratedIds);
       }
-    }
-    checkRatings();
-  }, [currentUserId]);
 
-  // Check unlocked stats
-  useEffect(() => {
-    if (!currentUserId) return;
-    async function checkUnlocks() {
-      const { data } = await supabase
-        .from("stats_unlocks")
-        .select("profile_id")
-        .eq("user_id", currentUserId);
-      
-      if (data) {
-        const unlockedIds = new Set(data.map(u => u.profile_id));
+      // Update unlocked stats
+      if (unlocksResult.data) {
+        const unlockedIds = new Set(unlocksResult.data.map(u => u.profile_id));
         setUnlockedStats(unlockedIds);
       }
+
+      // Update requests
+      if (requestsResult.error) {
+        console.error("Requests fetch error:", requestsResult.error);
+      } else {
+        setRequests(requestsResult.data || []);
+      }
     }
-    checkUnlocks();
+
+    loadUserData();
   }, [currentUserId]);
 
+  // Fetch profiles (independent of currentUserId)
   useEffect(() => {
     async function fetchProfiles() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, username, description, profile_photo, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings, branch, gender, hometown, year");
+        .select("id, full_name, username, description, profile_photo, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings, branch, gender, hometown, year")
+        .limit(100); // Performance optimization: Limit profiles to reduce data transfer
       if (error) return console.error("Profiles fetch error:", error);
       const withRank = (data || []).map((p: any, i: number) => ({
         ...p,
@@ -208,19 +220,6 @@ export default function RatingsPage() {
     }
     fetchProfiles();
   }, []);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    async function fetchRequests() {
-      const { data, error } = await supabase
-        .from("profile_requests")
-        .select("*")
-        .or(`from_user_id.eq.${currentUserId},to_user_id.eq.${currentUserId}`);
-      if (error) return console.error("Requests fetch error:", error);
-      setRequests(data || []);
-    }
-    fetchRequests();
-  }, [currentUserId]);
 
   // OPTIMIZATION: Wrap in useCallback to prevent recreating on every render
   // WHY: These functions are passed to child components and used in dependencies
@@ -829,10 +828,13 @@ export default function RatingsPage() {
                 className="flex items-center justify-between bg-white/5 backdrop-blur-xl p-4 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer hover:bg-white/10 transition-all shadow-lg"
               >
                 <div className="flex items-center gap-3">
-                  <img
+                  <Image
                     src={getAvatar(profile)}
                     alt={profile.full_name}
+                    width={48}
+                    height={48}
                     className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
+                    loading="lazy"
                   />
                   <p className="font-medium text-white">{profile.full_name}</p>
                 </div>
@@ -889,10 +891,13 @@ export default function RatingsPage() {
                     // Stats locked - show basic info and unlock option
                     <div className="p-4">
                       <div className="text-center mb-6">
-                        <img
+                        <Image
                           src={getAvatar(selectedUser)}
                           alt={selectedUser.full_name}
+                          width={96}
+                          height={96}
                           className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-purple-500/30"
+                          loading="lazy"
                         />
                         <h2 className="text-2xl font-bold text-white mb-2">{selectedUser.full_name}</h2>
                         <p className="text-white/60 mb-4">{selectedUser.description || 'No bio available'}</p>
@@ -972,10 +977,13 @@ export default function RatingsPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       className="text-center py-8"
                     >
-                      <img
+                      <Image
                         src={getAvatar(selectedUser)}
                         alt={selectedUser.full_name}
+                        width={96}
+                        height={96}
                         className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-cyan-500/30"
+                        loading="lazy"
                       />
                       <h2 className="text-2xl font-bold text-white mb-2">{selectedUser.full_name}</h2>
                       <p className="text-white/60 mb-6">{selectedUser.description || 'No bio available'}</p>
@@ -1012,7 +1020,7 @@ export default function RatingsPage() {
                     className="flex items-center gap-3 p-4 border-b border-white/10 cursor-pointer hover:bg-white/5"
                     onClick={() => setChatOpen(false)}
                   >
-                    <img src={getAvatar(selectedUser)} alt="" className="w-10 h-10 rounded-full ring-2 ring-purple-500/30" />
+                    <Image src={getAvatar(selectedUser)} alt="" width={40} height={40} className="w-10 h-10 rounded-full ring-2 ring-purple-500/30" loading="lazy" />
                     <h2 className="font-semibold text-white">{selectedUser.full_name}</h2>
                   </div>
 
@@ -1309,10 +1317,13 @@ export default function RatingsPage() {
 
               {/* Chat Header */}
               <div className="flex items-center gap-3 p-6 border-b border-white/10">
-                <img
+                <Image
                   src={getAvatar(selectedUser)}
                   alt={selectedUser.full_name}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
+                  loading="lazy"
                 />
                 <div>
                   <h2 className="font-semibold text-white text-lg">{selectedUser.full_name}</h2>

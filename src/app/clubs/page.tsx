@@ -4,6 +4,7 @@ import "./page.css";
 // Performance optimization: Added useMemo and useCallback for expensive computations
 import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import AdBanner from "@/components/ads";
@@ -80,10 +81,13 @@ const ClubCard = memo(function ClubCard({
           {/* Club Avatar */}
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
             {club.logo_url ? (
-              <img
+              <Image
                 src={club.logo_url}
                 alt={club.name}
+                width={64}
+                height={64}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
               getCategoryIcon(club.category)
@@ -185,18 +189,21 @@ export default function ClubsPage() {
     const user = userRes.data?.user;
     if (!user) return;
 
-    const { data: joined } = await supabase
-      .from("club_members")
-      .select("club_id")
-      .eq("user_id", user.id);
-    setJoinedClubIds((joined || []).map((j: any) => j.club_id));
+    // Performance optimization: Run joined and requested queries in parallel
+    const [joinedResult, requestedResult] = await Promise.all([
+      supabase
+        .from("club_members")
+        .select("club_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("club_requests")
+        .select("club_id")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+    ]);
 
-    const { data: requested } = await supabase
-      .from("club_requests")
-      .select("club_id")
-      .eq("user_id", user.id)
-      .eq("status", "pending");
-    setRequestedClubIds((requested || []).map((r: any) => r.club_id));
+    setJoinedClubIds((joinedResult.data || []).map((j: any) => j.club_id));
+    setRequestedClubIds((requestedResult.data || []).map((r: any) => r.club_id));
   };
 
   useEffect(() => {
@@ -692,10 +699,13 @@ export default function ClubsPage() {
                 <div className="flex items-start gap-6 mb-6">
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl flex-shrink-0 overflow-hidden">
                     {selectedClub.logo_url ? (
-                      <img
+                      <Image
                         src={selectedClub.logo_url}
                         alt={selectedClub.name}
+                        width={80}
+                        height={80}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       selectedClub.category === "Sports" ? "⚽" :

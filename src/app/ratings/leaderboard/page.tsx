@@ -2,6 +2,7 @@
 // OPTIMIZATION: Added useMemo and useCallback for performance
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Search, Filter, X } from "lucide-react";
@@ -359,10 +360,13 @@ export default function LeaderboardPage() {
               </button>
 
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 border-b border-white/10 pb-4">
-                <img
+                <Image
                   src={getAvatar(selectedUser)}
                   alt={selectedUser.full_name}
+                  width={96}
+                  height={96}
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover ring-4 ring-purple-500/30"
+                  loading="lazy"
                 />
                 <div className="flex-1 text-center sm:text-left">
                   <h2 className="text-xl sm:text-2xl font-bold text-white">

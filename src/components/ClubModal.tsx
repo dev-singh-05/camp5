@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 
 export type Club = {
@@ -123,10 +124,17 @@ export default function ClubModal({
         <div className="flex justify-between items-start gap-4">
           {/* Left: logo */}
           <div className="flex-shrink-0">
-            <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center text-3xl text-gray-600">
+            <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center text-3xl text-gray-600 overflow-hidden">
               {/* show logo if present later, placeholder now */}
               {club.logo_url ? (
-                <img src={club.logo_url} alt={`${club.name} logo`} className="w-full h-full object-cover rounded-full" />
+                <Image
+                  src={club.logo_url}
+                  alt={`${club.name} logo`}
+                  width={112}
+                  height={112}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               ) : (
                 "👤"
               )}

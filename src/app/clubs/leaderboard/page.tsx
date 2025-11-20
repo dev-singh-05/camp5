@@ -3,6 +3,7 @@
 // Performance optimization: Added useMemo and useRef for expensive computations and debouncing
 import { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { Trophy, Medal, Award, TrendingUp, Search, Filter, X, Lock, ChevronRight, Crown, Zap } from "lucide-react";
@@ -109,10 +110,13 @@ const TopClubCard = memo(function TopClubCard({ club, rank, isMobile }: { club: 
           {/* Club Avatar */}
           <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${getRankGradient(rank)} flex items-center justify-center text-xl md:text-2xl flex-shrink-0 overflow-hidden`}>
             {club.logo_url ? (
-              <img
+              <Image
                 src={club.logo_url}
                 alt={club.name}
+                width={56}
+                height={56}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
               getCategoryIcon(club.category)
@@ -197,10 +201,13 @@ const ClubCard = memo(function ClubCard({
           {/* Club Avatar */}
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
             {club.logo_url ? (
-              <img
+              <Image
                 src={club.logo_url}
                 alt={club.name}
+                width={48}
+                height={48}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
               getCategoryIcon(club.category)
@@ -299,10 +306,13 @@ function ClubModal({
           <div className="flex items-start gap-6 mb-6">
             <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-${rankBadge.color}-500 to-${rankBadge.color}-600 flex items-center justify-center text-4xl flex-shrink-0 relative overflow-hidden`}>
               {club.logo_url ? (
-                <img
+                <Image
                   src={club.logo_url}
                   alt={club.name}
+                  width={80}
+                  height={80}
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
               ) : (
                 getCategoryIcon(club.category)
@@ -550,18 +560,21 @@ export default function LeaderboardPage() {
     const user = userRes.data?.user;
     if (!user) return;
 
-    const { data: joined } = await supabase
-      .from("club_members")
-      .select("club_id")
-      .eq("user_id", user.id);
-    setJoinedClubIds((joined || []).map((j: any) => j.club_id));
+    // Performance optimization: Run joined and requested queries in parallel
+    const [joinedResult, requestedResult] = await Promise.all([
+      supabase
+        .from("club_members")
+        .select("club_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("club_requests")
+        .select("club_id")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+    ]);
 
-    const { data: requested } = await supabase
-      .from("club_requests")
-      .select("club_id")
-      .eq("user_id", user.id)
-      .eq("status", "pending");
-    setRequestedClubIds((requested || []).map((r: any) => r.club_id));
+    setJoinedClubIds((joinedResult.data || []).map((j: any) => j.club_id));
+    setRequestedClubIds((requestedResult.data || []).map((r: any) => r.club_id));
   };
 
   useEffect(() => {

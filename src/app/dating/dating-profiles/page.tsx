@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
@@ -395,10 +396,13 @@ export default function DatingProfileDashboard() {
                     whileHover={{ scale: 1.05 }}
                     className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl shadow-pink-500/20"
                   >
-                    <img
+                    <Image
                       src={profile?.profile_photo || "https://via.placeholder.com/150x150.png?text=No+Photo"}
                       alt="Profile"
+                      width={128}
+                      height={128}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   </m.div>
                   <label
@@ -434,10 +438,13 @@ export default function DatingProfileDashboard() {
                       <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-xl blur opacity-0 group-hover/gallery:opacity-100 transition-opacity" />
                       <div className="relative aspect-square rounded-xl overflow-hidden border border-white/10 bg-white/5">
                         {photo ? (
-                          <img
+                          <Image
                             src={photo}
                             alt={`Gallery ${index + 1}`}
+                            width={256}
+                            height={256}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
