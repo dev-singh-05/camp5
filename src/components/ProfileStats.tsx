@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Star, Link as LinkIcon, Clock, MessageSquare, Sparkles } from "lucide-react";
+import { Lock, Star, Link as LinkIcon, Clock, Sparkles } from "lucide-react";
 // OPTIMIZATION: Import mobile detection hook
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -28,7 +28,6 @@ function ProfileStats({
   const isMobile = useIsMobile();
 
   const [stats, setStats] = useState<any>(null);
-  const [recentReviews, setRecentReviews] = useState<any[]>([]);
   const [hasRated, setHasRated] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
@@ -55,7 +54,7 @@ function ProfileStats({
     checkRating();
   }, [currentUserId, user.id]);
 
-  // Fetch stats and reviews
+  // Fetch stats
   useEffect(() => {
     async function fetchData() {
       const { data, error } = await supabase
@@ -67,15 +66,6 @@ function ProfileStats({
         .single();
 
       if (!error && data) setStats(data);
-
-      const { data: reviews } = await supabase
-        .from("ratings")
-        .select("comment, created_at")
-        .eq("to_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      setRecentReviews(reviews || []);
     }
     fetchData();
   }, [user.id]);
@@ -281,50 +271,6 @@ function ProfileStats({
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* Recent Reviews */}
-      <div className="relative">
-        <h3 className="font-semibold text-white mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
-          <MessageSquare className="w-4 h-4 text-purple-400" />
-          Recent Reviews
-        </h3>
-        
-        <div className={`space-y-2 ${showLock ? 'filter blur-sm' : ''}`}>
-          {recentReviews.length > 0 ? (
-            recentReviews.map((r, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                whileHover={{ scale: 1.02, x: 4 }}
-                className="bg-white/5 backdrop-blur-xl p-3 rounded-lg text-sm border border-white/10 hover:border-white/20 transition-all"
-              >
-                <p className="text-white/80 leading-relaxed">{r.comment}</p>
-                <p className="text-white/40 text-xs mt-2 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {new Date(r.created_at).toLocaleDateString()}
-                </p>
-              </motion.div>
-            ))
-          ) : (
-            <p className="text-white/40 text-sm text-center py-4">No reviews yet</p>
-          )}
-        </div>
-
-        {showLock && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-lg"
-          >
-            <p className="text-white/60 text-xs flex items-center gap-2 bg-black/60 px-3 py-2 rounded-full">
-              <Lock className="w-3 h-3" />
-              Locked
-            </p>
-          </motion.div>
-        )}
       </div>
     </div>
   );

@@ -31,7 +31,9 @@
       "Bash(timeout /t 5)",
       "Bash(npm uninstall:*)",
       "Bash(npm cache clean:*)",
-      "Bash(del package-lock.json)"
+      "Bash(del package-lock.json)",
+      "Bash(git rm:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

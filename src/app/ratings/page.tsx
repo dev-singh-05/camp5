@@ -32,6 +32,10 @@ type Profile = {
   avg_communication?: number | null;
   avg_overall_xp?: number | null;
   total_ratings?: number | null;
+  branch?: string | null;
+  gender?: string | null;
+  hometown?: string | null;
+  year?: string | null;
 };
 
 type Request = {
@@ -57,7 +61,7 @@ type Rating = {
   created_at: string;
 };
 
-const TOKENS_TO_VIEW_STATS = 10;
+const TOKENS_TO_VIEW_STATS = 250;
 
 export default function RatingsPage() {
   // OPTIMIZATION: Mobile detection hook - disables expensive animations on mobile
@@ -73,8 +77,14 @@ export default function RatingsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
-  const [recentReviews, setRecentReviews] = useState<Rating[]>([]);
   const [searchExpanded, setSearchExpanded] = useState(false);
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [filterHometown, setFilterHometown] = useState("");
+  const [filterYear, setFilterYear] = useState("");
 
   // Token system states
   const [tokenBalance, setTokenBalance] = useState(0);
@@ -88,7 +98,6 @@ export default function RatingsPage() {
   const [isGlobalRatingModal, setIsGlobalRatingModal] = useState(false);
 
   // Rating states - OPTIMIZATION: Could combine these into single state object in future refactor
-  const [comment, setComment] = useState("");
   const [confidence, setConfidence] = useState(0);
   const [humbleness, setHumbleness] = useState(0);
   const [friendliness, setFriendliness] = useState(0);
@@ -189,7 +198,7 @@ export default function RatingsPage() {
     async function fetchProfiles() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, username, description, profile_photo, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings");
+        .select("id, full_name, username, description, profile_photo, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings, branch, gender, hometown, year");
       if (error) return console.error("Profiles fetch error:", error);
       const withRank = (data || []).map((p: any, i: number) => ({
         ...p,
@@ -233,8 +242,12 @@ export default function RatingsPage() {
   }, [requests, currentUserId]);
 
   const canViewStats = useCallback((userId: string): boolean => {
-    return unlockedStats.has(userId) || hasRatedUser.has(userId);
-  }, [unlockedStats, hasRatedUser]);
+    return unlockedStats.has(userId);
+  }, [unlockedStats]);
+
+  const hasRated = useCallback((userId: string): boolean => {
+    return hasRatedUser.has(userId);
+  }, [hasRatedUser]);
 
   const handleConnectToggle = async (toUserId: string) => {
     if (!currentUserId) {
@@ -264,17 +277,15 @@ export default function RatingsPage() {
     }
   };
 
-  async function fetchRecentReviews(userId: string) {
-    const { data, error } = await supabase
-      .from("ratings")
-      .select("*, from_user_id")
-      .eq("to_user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(3);
-    if (!error && data) setRecentReviews(data);
-  }
-
   const openChat = async (user: Profile) => {
+    // Check if user has rated this person before opening chat
+    if (!hasRated(user.id)) {
+      setSelectedUser(user);
+      setIsProfileRatingModal(true);
+      toast.error("You need to rate this person before you can chat 💬");
+      return;
+    }
+
     setSelectedUser(user);
     setChatOpen(true);
     if (!currentUserId) return;
@@ -329,6 +340,15 @@ export default function RatingsPage() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUserId || !selectedUser) return;
+
+    // Check if user has rated this person
+    if (!hasRated(selectedUser.id)) {
+      // Close chat and show rating modal
+      setChatOpen(false);
+      setIsProfileRatingModal(true);
+      toast.error("You need to rate this person before you can chat 💬");
+      return;
+    }
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: Message = {
@@ -406,8 +426,8 @@ export default function RatingsPage() {
   };
 
   const handleSubmitRating = async (toUserId: string) => {
-    if (!currentUserId || !comment.trim()) {
-      toast.error("Please add a comment ❌");
+    if (!currentUserId) {
+      toast.error("Login required ❌");
       return;
     }
 
@@ -417,7 +437,7 @@ export default function RatingsPage() {
         .insert([{
           from_user_id: currentUserId,
           to_user_id: toUserId,
-          comment: comment.trim(),
+          comment: "",
           confidence,
           humbleness,
           friendliness,
@@ -434,16 +454,14 @@ export default function RatingsPage() {
       toast.success("Rating submitted ✅");
       setIsProfileRatingModal(false);
       setShowTokenUnlockModal(false);
-      setComment("");
       setConfidence(0);
       setHumbleness(0);
       setFriendliness(0);
       setIntelligence(0);
       setCommunication(0);
       setOverallXP(0);
-      
+
       setHasRatedUser(prev => new Set(prev).add(toUserId));
-      await fetchRecentReviews(toUserId);
     } catch (err) {
       console.error("Unexpected error:", err);
       toast.error("Unexpected error occurred ❌");
@@ -521,17 +539,35 @@ export default function RatingsPage() {
   // Using debouncedSearch prevents filtering from running on every keystroke
   const filteredProfiles = useMemo(() => {
     return profiles.filter(
-      (p) =>
-        p.id !== currentUserId &&
-        (p.full_name || p.username || "").toLowerCase().includes(debouncedSearch.toLowerCase())
+      (p) => {
+        // Exclude current user
+        if (p.id === currentUserId) return false;
+
+        // Search filter
+        const searchMatch = (p.full_name || p.username || "").toLowerCase().includes(debouncedSearch.toLowerCase());
+        if (!searchMatch) return false;
+
+        // Branch filter
+        if (filterBranch && p.branch !== filterBranch) return false;
+
+        // Gender filter
+        if (filterGender && p.gender !== filterGender) return false;
+
+        // Hometown filter
+        if (filterHometown && !(p.hometown || "").toLowerCase().includes(filterHometown.toLowerCase())) return false;
+
+        // Year filter
+        if (filterYear && p.year !== filterYear) return false;
+
+        return true;
+      }
     );
-  }, [profiles, currentUserId, debouncedSearch]);
+  }, [profiles, currentUserId, debouncedSearch, filterBranch, filterGender, filterHometown, filterYear]);
 
   const handleViewStats = (user: Profile) => {
     setSelectedUser(user);
     setChatOpen(false);
-    fetchRecentReviews(user.id);
-    
+
     const status = getRequestStatus(user.id);
     if (status === "friends" && !canViewStats(user.id)) {
       setShowTokenUnlockModal(true);
@@ -662,14 +698,21 @@ export default function RatingsPage() {
               )}
             </AnimatePresence>
 
-            {/* Filter Button - Hidden on mobile */}
+            {/* Filter Button */}
             {!searchExpanded && (
               <motion.button
+                onClick={() => setShowFilters(true)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="hidden sm:flex px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all"
+                className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl text-white font-medium hover:border-purple-500/50 shadow-lg transition-all flex items-center gap-2"
               >
-                Filter
+                <span className="hidden sm:inline">Filter</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {(filterBranch || filterGender || filterHometown || filterYear) && (
+                  <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                )}
               </motion.button>
             )}
 
@@ -820,26 +863,6 @@ export default function RatingsPage() {
                         onRate={() => {}}
                         onOpenRating={() => setIsProfileRatingModal(true)}
                       />
-                      
-                      {/* Reviews */}
-                      <div className="mb-4 mt-4">
-                        <h3 className="font-semibold text-white mb-2 border-b border-white/10 pb-1">Recent Reviews</h3>
-                        {recentReviews.length > 0 ? (
-                          recentReviews.map((r) => (
-                            <motion.div
-                              key={r.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="bg-white/5 backdrop-blur-xl p-2 rounded-lg text-sm mb-2 border border-white/10 hover:border-white/20 transition-all"
-                            >
-                              <p className="text-white/80">{r.comment}</p>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <p className="text-white/40 text-sm">No reviews yet</p>
-                        )}
-                      </div>
-
                       {/* Action Buttons */}
                       <div className="flex flex-col sm:flex-row gap-3">
                         <motion.button
@@ -863,32 +886,85 @@ export default function RatingsPage() {
                       </div>
                     </>
                   ) : getRequestStatus(selectedUser.id) === "friends" ? (
-                    // Stats locked - show unlock options
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-center py-8"
-                    >
-                      <img
-                        src={getAvatar(selectedUser)}
-                        alt={selectedUser.full_name}
-                        className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-purple-500/30"
-                      />
-                      <h2 className="text-2xl font-bold text-white mb-2">{selectedUser.full_name}</h2>
-                      <p className="text-white/60 mb-6">{selectedUser.description || 'No bio available'}</p>
+                    // Stats locked - show basic info and unlock option
+                    <div className="p-4">
+                      <div className="text-center mb-6">
+                        <img
+                          src={getAvatar(selectedUser)}
+                          alt={selectedUser.full_name}
+                          className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-purple-500/30"
+                        />
+                        <h2 className="text-2xl font-bold text-white mb-2">{selectedUser.full_name}</h2>
+                        <p className="text-white/60 mb-4">{selectedUser.description || 'No bio available'}</p>
 
-                      <div className="text-6xl mb-4">🔒</div>
-                      <p className="text-white/60 mb-6">Stats are locked. Unlock to view their ratings!</p>
+                        {/* Show Overall XP, Average XP, and Ratings Count */}
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                          <div className="flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30">
+                            <span className="text-yellow-400/70 text-xs font-medium">Overall XP</span>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 text-yellow-400" />
+                              <span className="text-yellow-400 font-bold">
+                                {selectedUser.avg_overall_xp?.toFixed(1) || 0}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
+                            <span className="text-purple-400/70 text-xs font-medium">Avg XP</span>
+                            <div className="flex items-center gap-1">
+                              <Sparkles className="w-4 h-4 text-purple-400" />
+                              <span className="text-purple-400 font-bold">
+                                {selectedUser.total_ratings && selectedUser.total_ratings > 0
+                                  ? (selectedUser.avg_overall_xp! / selectedUser.total_ratings).toFixed(1)
+                                  : 0}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="col-span-2 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl border border-cyan-500/30">
+                            <MessageSquare className="w-4 h-4 text-cyan-400" />
+                            <span className="text-cyan-400 font-bold">
+                              {selectedUser.total_ratings || 0} Ratings
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowTokenUnlockModal(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                      >
-                        🔓 Unlock Stats
-                      </motion.button>
-                    </motion.div>
+                      {/* Locked detailed stats message */}
+                      <div className="text-center mb-6 p-6 bg-white/5 rounded-2xl border border-white/10">
+                        <div className="text-6xl mb-4">🔒</div>
+                        <p className="text-white/60 mb-6">Detailed attributes are locked. Unlock to view their detailed ratings!</p>
+
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setShowTokenUnlockModal(true)}
+                          className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                        >
+                          🔓 Unlock Detailed Stats
+                        </motion.button>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setIsProfileRatingModal(true)}
+                          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all text-sm sm:text-base"
+                        >
+                          <Star className="w-4 h-4 inline mr-2" />
+                          Add Rating
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => openChat(selectedUser)}
+                          className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-cyan-500/50 transition-all text-sm sm:text-base"
+                        >
+                          <MessageSquare className="w-4 h-4 inline mr-2" />
+                          Message
+                        </motion.button>
+                      </div>
+                    </div>
                   ) : (
                     // Not connected
                     <motion.div
@@ -1053,30 +1129,44 @@ export default function RatingsPage() {
                     {selectedUser.description || 'No bio available'}
                   </p>
 
-                  {/* XP and Ratings Summary */}
-                  {getRequestStatus(selectedUser.id) === "friends" && canViewStats(selectedUser.id) ? (
+                  {/* XP and Ratings Summary - Always show if connected */}
+                  {getRequestStatus(selectedUser.id) === "friends" ? (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="flex items-center gap-4"
+                      className="grid grid-cols-2 gap-2 w-full max-w-sm"
                     >
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30">
-                        <Star className="w-4 h-4 text-yellow-400" />
-                        <span className="text-yellow-400 font-bold">
-                          {(selectedUser as any).avg_overall_xp?.toFixed(1) || 0} XP
-                        </span>
+                      <div className="flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30">
+                        <span className="text-yellow-400/70 text-xs font-medium">Overall XP</span>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 text-yellow-400" />
+                          <span className="text-yellow-400 font-bold text-sm">
+                            {selectedUser.avg_overall_xp?.toFixed(1) || 0}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl border border-cyan-500/30">
+                      <div className="flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
+                        <span className="text-purple-400/70 text-xs font-medium">Avg XP</span>
+                        <div className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-purple-400" />
+                          <span className="text-purple-400 font-bold text-sm">
+                            {selectedUser.total_ratings && selectedUser.total_ratings > 0
+                              ? (selectedUser.avg_overall_xp! / selectedUser.total_ratings).toFixed(1)
+                              : 0}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="col-span-2 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl border border-cyan-500/30">
                         <MessageSquare className="w-4 h-4 text-cyan-400" />
-                        <span className="text-cyan-400 font-bold">
-                          {(selectedUser as any).total_ratings || 0} Ratings
+                        <span className="text-cyan-400 font-bold text-sm">
+                          {selectedUser.total_ratings || 0} Ratings
                         </span>
                       </div>
                     </motion.div>
                   ) : (
                     <div className="flex items-center gap-2 text-white/40">
                       <Lock className="w-4 h-4" />
-                      <span className="text-sm">Stats Locked</span>
+                      <span className="text-sm">Not Connected</span>
                     </div>
                   )}
                 </motion.div>
@@ -1129,10 +1219,19 @@ export default function RatingsPage() {
                     <div className="text-4xl mb-3">🔒</div>
                     <p className="text-white/60 text-sm mb-4">
                       {getRequestStatus(selectedUser.id) === "friends"
-                        ? "Rate them to unlock detailed attributes"
-                        : "Connect first to unlock stats"}
+                        ? `Detailed attributes are locked. Spend ${TOKENS_TO_VIEW_STATS} tokens to unlock!`
+                        : "Connect first to view stats"}
                     </p>
-                    {getRequestStatus(selectedUser.id) !== "friends" && (
+                    {getRequestStatus(selectedUser.id) === "friends" ? (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowTokenUnlockModal(true)}
+                        className="px-6 py-2 rounded-xl font-semibold shadow-lg transition bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-purple-500/50"
+                      >
+                        🔓 Unlock Detailed Stats
+                      </motion.button>
+                    ) : (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -1146,33 +1245,6 @@ export default function RatingsPage() {
                         {getRequestStatus(selectedUser.id) === "requested" ? "Request Sent ⏳" : "+ Connect"}
                       </motion.button>
                     )}
-                  </div>
-                )}
-
-                {/* Recent Reviews */}
-                {getRequestStatus(selectedUser.id) === "friends" && canViewStats(selectedUser.id) && (
-                  <div className="mb-6">
-                    <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-cyan-400" />
-                      Recent Reviews
-                    </h3>
-                    <div className="space-y-2">
-                      {recentReviews.length > 0 ? (
-                        recentReviews.slice(0, 3).map((r, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            className="bg-white/5 backdrop-blur-xl p-3 rounded-xl text-sm border border-white/10"
-                          >
-                            <p className="text-white/80">{r.comment}</p>
-                          </motion.div>
-                        ))
-                      ) : (
-                        <p className="text-white/40 text-sm text-center py-2">No reviews yet</p>
-                      )}
-                    </div>
                   </div>
                 )}
 
@@ -1320,7 +1392,7 @@ export default function RatingsPage() {
             >
               <h2 className="text-2xl font-bold text-center mb-4 text-white">Unlock Stats</h2>
               <p className="text-center text-white/60 mb-6">
-                Choose how to unlock <strong className="text-white">{selectedUser.full_name}'s</strong> profile stats
+                Spend <strong className="text-white">{TOKENS_TO_VIEW_STATS} tokens</strong> to unlock <strong className="text-white">{selectedUser.full_name}'s</strong> detailed profile stats
               </p>
 
               <div className="space-y-3">
@@ -1330,23 +1402,8 @@ export default function RatingsPage() {
                   onClick={handleUnlockWithTokens}
                   className="w-full p-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-between"
                 >
-                  <span>Use {TOKENS_TO_VIEW_STATS} Tokens</span>
+                  <span>Unlock for {TOKENS_TO_VIEW_STATS} Tokens</span>
                   <Coins className="w-5 h-5" />
-                </motion.button>
-
-                <div className="text-center text-white/40 text-sm">OR</div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setShowTokenUnlockModal(false);
-                    setIsProfileRatingModal(true);
-                  }}
-                  className="w-full p-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-between"
-                >
-                  <span>Rate Them (Free)</span>
-                  <Star className="w-5 h-5" />
                 </motion.button>
               </div>
 
@@ -1414,7 +1471,7 @@ export default function RatingsPage() {
               </div>
             ))}
 
-            <div className="mb-4">
+            <div className="mb-6">
               <label className="flex justify-between text-sm text-gray-700">
                 <span>Overall XP</span>
                 <span>{overallXP}/100</span>
@@ -1430,12 +1487,6 @@ export default function RatingsPage() {
               />
             </div>
 
-            <textarea
-              placeholder="Write your review..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="w-full border rounded-lg p-2 text-sm mb-4 bg-gray-50 focus:ring focus:ring-indigo-200"
-            />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsProfileRatingModal(false)}
@@ -1447,7 +1498,7 @@ export default function RatingsPage() {
                 onClick={() => handleSubmitRating(selectedUser.id)}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
               >
-                Submit & Unlock
+                Submit Rating
               </button>
             </div>
           </div>
@@ -1561,6 +1612,126 @@ export default function RatingsPage() {
           </div>
         </div>
       )}
+
+      {/* Filter Modal */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-md w-full"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Filters</h2>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowFilters(false)}
+                  className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </motion.button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Branch Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Branch</label>
+                  <select
+                    value={filterBranch}
+                    onChange={(e) => setFilterBranch(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Branches</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Electrical">Electrical</option>
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Gender</label>
+                  <select
+                    value={filterGender}
+                    onChange={(e) => setFilterGender(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Genders</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Hometown Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Hometown</label>
+                  <input
+                    type="text"
+                    value={filterHometown}
+                    onChange={(e) => setFilterHometown(e.target.value)}
+                    placeholder="Search by hometown..."
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Year Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Year</label>
+                  <select
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Years</option>
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setFilterBranch("");
+                    setFilterGender("");
+                    setFilterHometown("");
+                    setFilterYear("");
+                  }}
+                  className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all"
+                >
+                  Clear Filters
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowFilters(false)}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                >
+                  Apply Filters
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Floating + Button */}
       <a

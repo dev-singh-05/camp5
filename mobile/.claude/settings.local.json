@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start -- --clear)",
+      "Bash(npx supabase:*)",
+      "Bash(del:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npx tsc:*)",
+      "Bash(taskkill:*)",
+      "Bash(cat:*)",
+      "Bash(npx expo-doctor@latest)",
+      "Bash(npx expo install:*)",
+      "Bash(nul)",
+      "Bash(dir /s /b appdating 2)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx expo-doctor)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

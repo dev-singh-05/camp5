@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { getRandomMatchIcebreakerQuestion } from "@/utils/icebreaker";
 // PERFORMANCE: Import useIsMobile to disable animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -217,7 +217,7 @@ export default function RequestsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
-        <motion.div
+        <m.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
@@ -251,7 +251,7 @@ export default function RequestsPage() {
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
@@ -259,16 +259,16 @@ export default function RequestsPage() {
             >
               <ChevronLeft className="w-4 h-4" />
               Back
-            </motion.button>
+            </m.button>
 
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-2xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent flex items-center gap-2"
             >
               <Mail className="w-6 h-6 text-pink-400" />
               Match Requests
-            </motion.h1>
+            </m.h1>
 
             <div className="w-20" /> {/* Spacer */}
           </div>
@@ -278,7 +278,7 @@ export default function RequestsPage() {
       {/* Main Content */}
       <main className="relative z-10 max-w-4xl mx-auto px-6 py-8">
         {requests.length === 0 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
@@ -288,20 +288,20 @@ export default function RequestsPage() {
               <Mail className="w-16 h-16 text-white/20 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No Pending Requests</h3>
               <p className="text-white/60">You don't have any match requests right now.</p>
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => router.back()}
                 className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
               >
                 Go Back
-              </motion.button>
+              </m.button>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
           <div className="space-y-6">
             {requests.map((req, index) => (
-              <motion.div
+              <m.div
                 key={req.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -421,7 +421,7 @@ export default function RequestsPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      <motion.button
+                      <m.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleDecline(req.id)}
@@ -430,8 +430,8 @@ export default function RequestsPage() {
                       >
                         <X className="w-4 h-4" />
                         {responding === req.id ? "Declining..." : "Decline"}
-                      </motion.button>
-                      <motion.button
+                      </m.button>
+                      <m.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleAccept(req.id, req.requester_id, req.match_type, req.category)}
@@ -440,11 +440,11 @@ export default function RequestsPage() {
                       >
                         <Heart className="w-4 h-4" />
                         {responding === req.id ? "Accepting..." : "Let's Match"}
-                      </motion.button>
+                      </m.button>
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             ))}
           </div>
         )}

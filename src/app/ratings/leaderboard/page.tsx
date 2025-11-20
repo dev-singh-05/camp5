@@ -21,7 +21,10 @@ type Profile = {
   avg_communication: number | null;
   avg_overall_xp: number | null;
   total_ratings: number | null;
-  rank: number; // ✅ Added global rank
+  rank: number;
+  gender?: string | null;
+  hometown?: string | null;
+  year?: string | null;
 };
 
 export default function LeaderboardPage() {
@@ -35,27 +38,74 @@ export default function LeaderboardPage() {
   // OPTIMIZATION: Debounce search to reduce re-renders
   const debouncedSearch = useDebounce(search, 300);
 
-  // ✅ Fetch leaderboard data
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [filterHometown, setFilterHometown] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+
+  // ✅ Fetch leaderboard data - calculate cumulative XP
   useEffect(() => {
     async function fetchLeaderboard() {
+      // First, get all ratings and calculate cumulative XP per user
+      const { data: ratingsData, error: ratingsError } = await supabase
+        .from("ratings")
+        .select("to_user_id, overall_xp");
+
+      if (ratingsError) {
+        console.error("Ratings fetch error:", ratingsError);
+        return;
+      }
+
+      // Calculate cumulative XP for each user
+      const xpMap: Record<string, { totalXP: number; count: number }> = {};
+      (ratingsData || []).forEach((rating: any) => {
+        const userId = rating.to_user_id;
+        const xp = rating.overall_xp || 0;
+        if (!xpMap[userId]) {
+          xpMap[userId] = { totalXP: 0, count: 0 };
+        }
+        xpMap[userId].totalXP += xp;
+        xpMap[userId].count++;
+      });
+
+      // Get user profiles for those with at least 3 ratings
+      const userIdsWithEnoughRatings = Object.keys(xpMap).filter(id => xpMap[id].count >= 3);
+
+      if (userIdsWithEnoughRatings.length === 0) {
+        setProfiles([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, profile_photo, branch, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, avg_overall_xp, total_ratings"
+          "id, full_name, profile_photo, branch, gender, hometown, year, avg_confidence, avg_humbleness, avg_friendliness, avg_intelligence, avg_communication, total_ratings"
         )
-        .gte("total_ratings", 3)
-        .order("avg_overall_xp", { ascending: false });
+        .in("id", userIdsWithEnoughRatings);
 
-      if (error) console.error("Leaderboard fetch error:", error);
-      else {
-        // ✅ Store global rank with each profile
-        const profilesWithRank = (data || []).map((profile, index) => ({
-          ...profile,
-          rank: index + 1, // ✅ Assign global rank based on position
-        }));
-        setProfiles(profilesWithRank);
-        setFilteredProfiles(profilesWithRank);
+      if (error) {
+        console.error("Profiles fetch error:", error);
+        return;
       }
+
+      // Attach cumulative XP and sort
+      const profilesWithXP = (data || []).map((profile: any) => ({
+        ...profile,
+        avg_overall_xp: xpMap[profile.id]?.totalXP || 0, // Use cumulative XP
+      }));
+
+      // Sort by cumulative XP descending
+      profilesWithXP.sort((a, b) => (b.avg_overall_xp || 0) - (a.avg_overall_xp || 0));
+
+      // Assign ranks
+      const profilesWithRank = profilesWithXP.map((profile, index) => ({
+        ...profile,
+        rank: index + 1,
+      }));
+
+      setProfiles(profilesWithRank);
     }
 
     fetchLeaderboard();
@@ -64,10 +114,26 @@ export default function LeaderboardPage() {
   // OPTIMIZATION: Use useMemo instead of useEffect for filtering
   // WHY: Reduces unnecessary state updates and re-renders. Uses debounced search to avoid filtering on every keystroke
   const filteredProfiles = useMemo(() => {
-    return profiles.filter((p) =>
-      (p.full_name || "").toLowerCase().includes(debouncedSearch.toLowerCase())
-    );
-  }, [profiles, debouncedSearch]);
+    return profiles.filter((p) => {
+      // Search filter
+      const searchMatch = (p.full_name || "").toLowerCase().includes(debouncedSearch.toLowerCase());
+      if (!searchMatch) return false;
+
+      // Branch filter
+      if (filterBranch && p.branch !== filterBranch) return false;
+
+      // Gender filter
+      if (filterGender && p.gender !== filterGender) return false;
+
+      // Hometown filter
+      if (filterHometown && !(p.hometown || "").toLowerCase().includes(filterHometown.toLowerCase())) return false;
+
+      // Year filter
+      if (filterYear && p.year !== filterYear) return false;
+
+      return true;
+    });
+  }, [profiles, debouncedSearch, filterBranch, filterGender, filterHometown, filterYear]);
 
   // OPTIMIZATION: Wrap in useCallback to prevent recreating on every render
   const getAvatar = useCallback((user: Profile) =>
@@ -125,11 +191,15 @@ export default function LeaderboardPage() {
 
             {/* Filter Button */}
             <motion.button
+              onClick={() => setShowFilters(true)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-4 py-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white font-medium rounded-xl hover:border-purple-500/50 shadow-lg transition-all"
+              className="px-4 py-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-500/30 text-white font-medium rounded-xl hover:border-purple-500/50 shadow-lg transition-all flex items-center gap-2"
             >
               <Filter className="w-4 h-4" />
+              {(filterBranch || filterGender || filterHometown || filterYear) && (
+                <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+              )}
             </motion.button>
           </div>
         </motion.div>
@@ -352,6 +422,126 @@ export default function LeaderboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Filter Modal */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-md w-full"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Filters</h2>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowFilters(false)}
+                  className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </motion.button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Branch Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Branch</label>
+                  <select
+                    value={filterBranch}
+                    onChange={(e) => setFilterBranch(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Branches</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Electrical">Electrical</option>
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Gender</label>
+                  <select
+                    value={filterGender}
+                    onChange={(e) => setFilterGender(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Genders</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Hometown Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Hometown</label>
+                  <input
+                    type="text"
+                    value={filterHometown}
+                    onChange={(e) => setFilterHometown(e.target.value)}
+                    placeholder="Search by hometown..."
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Year Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Year</label>
+                  <select
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">All Years</option>
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setFilterBranch("");
+                    setFilterGender("");
+                    setFilterHometown("");
+                    setFilterYear("");
+                  }}
+                  className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all"
+                >
+                  Clear Filters
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowFilters(false)}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                >
+                  Apply Filters
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>

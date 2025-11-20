@@ -19,7 +19,7 @@ import {
   type SurpriseQuestion,
 } from "@/utils/surpriseQuestion";
 import { MapPin, Briefcase, GraduationCap, Heart, Ruler, Wine, Cigarette, Baby, BookOpen, Sparkles, Coins, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 // PERFORMANCE: Import useIsMobile hook to disable animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
 

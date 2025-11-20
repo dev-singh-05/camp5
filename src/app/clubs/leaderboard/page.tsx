@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { Trophy, Medal, Award, TrendingUp, Search, Filter, X, Lock, ChevronRight, Crown, Zap } from "lucide-react";
 // Performance optimization: Mobile detection to disable heavy animations
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -88,7 +88,7 @@ const getBorderXPClass = (rank: number) => {
 const TopClubCard = memo(function TopClubCard({ club, rank, isMobile }: { club: Club; rank: number; isMobile: boolean }) {
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: rank * 0.1 }}
@@ -146,7 +146,7 @@ const TopClubCard = memo(function TopClubCard({ club, rank, isMobile }: { club: 
           </div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 
@@ -177,7 +177,7 @@ const ClubCard = memo(function ClubCard({
 }) {
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       // Performance optimization: Disable hover on mobile
@@ -240,7 +240,7 @@ const ClubCard = memo(function ClubCard({
           <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0" />
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 
@@ -279,7 +279,7 @@ function ClubModal({
   const rankBadge = getRankBadge(club.rank);
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -287,7 +287,7 @@ function ClubModal({
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
       onClick={onClose}
     >
-      <motion.div
+      <m.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -369,8 +369,8 @@ function ClubModal({
             )}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -389,14 +389,14 @@ function JoinModal({
   const [input, setInput] = useState("");
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
     >
-      <motion.div
+      <m.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -445,8 +445,8 @@ function JoinModal({
             </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -459,14 +459,14 @@ function RequestModal({
   onRequest: () => void;
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
     >
-      <motion.div
+      <m.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -498,8 +498,8 @@ function RequestModal({
             </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -707,6 +707,8 @@ export default function LeaderboardPage() {
   const restOfClubs = filteredClubs.slice(3);
 
   return (
+    // OPTIMIZATION: LazyMotion wrapper enables code-splitting for framer-motion animations
+    <LazyMotion features={domAnimation} strict>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
       {/* Desktop: Simplified static background - removed heavy infinite animations for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -718,16 +720,16 @@ export default function LeaderboardPage() {
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center justify-between md:justify-start gap-3 md:gap-4">
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
               className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
             >
               ←
-            </motion.button>
+            </m.button>
 
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-2 md:gap-3"
@@ -738,7 +740,7 @@ export default function LeaderboardPage() {
               <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-white via-yellow-200 to-orange-200 bg-clip-text text-transparent">
                 Club Leaderboard
               </h1>
-            </motion.div>
+            </m.div>
           </div>
         </div>
       </header>
@@ -746,7 +748,7 @@ export default function LeaderboardPage() {
       {/* Main Content */}
       <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8">
         {/* Search & Filter - Mobile First */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 md:mb-8"
@@ -800,11 +802,11 @@ export default function LeaderboardPage() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Top 3 Champions - Horizontal Cards */}
         {topThree.length > 0 && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-8 md:mb-12"
@@ -827,12 +829,12 @@ export default function LeaderboardPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
 
         {/* Rest of Clubs */}
         {restOfClubs.length > 0 && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -862,11 +864,11 @@ export default function LeaderboardPage() {
                 />
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
 
         {filteredClubs.length === 0 && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="relative group"
@@ -877,7 +879,7 @@ export default function LeaderboardPage() {
               <h3 className="text-xl font-semibold text-white mb-2">No clubs found</h3>
               <p className="text-white/60">Try adjusting your search or filters</p>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </main>
 
@@ -915,5 +917,6 @@ export default function LeaderboardPage() {
         )}
       </AnimatePresence>
     </div>
+    </LazyMotion>
   );
 }

@@ -1234,10 +1234,45 @@ const uniqueAssigned =
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-x-hidden">
       <Toaster />
-      {/* Desktop: Simplified static background - removed heavy infinite animations for better performance */}
-      <div className="absolute top-10 left-10 w-48 h-48 md:w-96 md:h-96 bg-purple-500/20 rounded-full blur-3xl opacity-50" />
-      <div className="absolute bottom-10 right-10 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl opacity-50" />
-      <div className="absolute top-1/2 left-1/2 w-48 h-48 md:w-96 md:h-96 bg-cyan-500/10 rounded-full blur-3xl opacity-40" />
+      {/* Performance optimization: Disable infinite background animations on mobile */}
+      {/* These subtle animations kill mobile performance (20-30fps loss) */}
+      <motion.div
+        className="absolute top-10 left-10 w-48 h-48 md:w-96 md:h-96 bg-purple-500/20 rounded-full blur-3xl"
+        animate={!isMobile ? {
+          scale: [1, 1.2, 1],
+          rotate: [0, 90, 0],
+        } : undefined}
+        transition={!isMobile ? {
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear",
+        } : undefined}
+      />
+      <motion.div
+        className="absolute bottom-10 right-10 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl"
+        animate={!isMobile ? {
+          scale: [1.2, 1, 1.2],
+          rotate: [0, -90, 0],
+        } : undefined}
+        transition={!isMobile ? {
+          duration: 25,
+          repeat: Infinity,
+          ease: "linear",
+        } : undefined}
+      />
+      <motion.div
+        className="absolute top-1/2 left-1/2 w-48 h-48 md:w-96 md:h-96 bg-cyan-500/10 rounded-full blur-3xl"
+        animate={!isMobile ? {
+          scale: [1, 1.3, 1],
+          x: [-50, 50, -50],
+          y: [-50, 50, -50],
+        } : undefined}
+        transition={!isMobile ? {
+          duration: 30,
+          repeat: Infinity,
+          ease: "linear",
+        } : undefined}
+      />
       {/* Mobile Header - Fixed at top (Outside normal flow) */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex-shrink-0 p-3 border-b border-white/10 space-y-3 bg-black/40 backdrop-blur-xl">
         {/* Top Row: Back, Club Name, Invite, Profile */}

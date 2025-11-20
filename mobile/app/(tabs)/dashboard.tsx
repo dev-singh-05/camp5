@@ -18,6 +18,7 @@ import { CampusNews } from "../../components/CampusNews";
 import { Updates } from "../../components/Updates";
 import { TokenBalanceModal } from "../../components/TokenBalanceModal";
 import { TokenPurchaseModal } from "../../components/TokenPurchaseModal";
+import { ConnectionRequests } from "../../components/ConnectionRequests";
 import type { NewsItem } from "../../types/dashboard";
 import Toast from "react-native-toast-message";
 
@@ -171,6 +172,9 @@ export default function Dashboard() {
 
         {/* Ads Component */}
         <Ads placement="dashboard" />
+
+        {/* Connection Requests */}
+        {user && <ConnectionRequests userId={user.id} />}
 
         {/* Campus News Component */}
         <CampusNews articles={campusNews} onArticleRead={markNewsAsRead} />
