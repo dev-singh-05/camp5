@@ -5,25 +5,52 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { Coins } from "lucide-react-native";
 import { supabase } from "../../utils/supabaseClient";
+import { useDashboardData } from "../../hooks/useDashboardData";
+import { Ads } from "../../components/Ads";
+import { CampusNews } from "../../components/CampusNews";
+import { Updates } from "../../components/Updates";
+import { TokenBalanceModal } from "../../components/TokenBalanceModal";
+import { TokenPurchaseModal } from "../../components/TokenPurchaseModal";
+import { ConnectionRequests } from "../../components/ConnectionRequests";
+import type { NewsItem } from "../../types/dashboard";
 import Toast from "react-native-toast-message";
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tokenBalanceModalVisible, setTokenBalanceModalVisible] = useState(false);
+  const [tokenPurchaseModalVisible, setTokenPurchaseModalVisible] = useState(false);
+
+  // Use the dashboard data hook
+  const {
+    news,
+    campusNews,
+    profileData,
+    tokenBalance,
+    loading,
+    markAsRead,
+    dismissItem,
+    clearAllUpdates,
+    markNewsAsRead,
+    refreshNews,
+    refreshCampusNews,
+    refreshProfile,
+    refreshTokenBalance,
+  } = useDashboardData(user?.id);
 
   useEffect(() => {
-    loadUserData();
+    loadUser();
   }, []);
 
-  async function loadUserData() {
+  async function loadUser() {
     try {
       const {
         data: { user },
@@ -35,30 +62,19 @@ export default function Dashboard() {
       }
 
       setUser(user);
-
-      // Fetch profile
-      const { data: profileData, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-      } else {
-        setProfile(profileData);
-      }
-
-      setLoading(false);
     } catch (error) {
-      console.error("Error loading user data:", error);
-      setLoading(false);
+      console.error("Error loading user:", error);
     }
   }
 
   async function onRefresh() {
     setRefreshing(true);
-    await loadUserData();
+    await Promise.all([
+      refreshNews(),
+      refreshCampusNews(),
+      refreshProfile(),
+      refreshTokenBalance(),
+    ]);
     setRefreshing(false);
   }
 
@@ -72,11 +88,44 @@ export default function Dashboard() {
     router.replace("/");
   }
 
+  /**
+   * Handle news item navigation
+   */
+  function handleNewsNavigation(item: NewsItem) {
+    markAsRead(item.id);
+
+    switch (item.type) {
+      case "rating":
+        router.push("/(tabs)/ratings");
+        break;
+      case "user_message":
+        router.push("/(tabs)/ratings");
+        break;
+      case "dating_chat":
+        if (item.meta?.matchId) {
+          router.push(`/dating/chat/${item.meta.matchId}` as any);
+        } else {
+          router.push("/(tabs)/dating");
+        }
+        break;
+      case "club_event":
+      case "club_message":
+        if (item.meta?.clubId) {
+          router.push(`/(tabs)/clubs`);
+        }
+        break;
+      case "campus_news":
+        // Navigate to news detail if needed
+        break;
+    }
+  }
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <LinearGradient colors={["#0f1729", "#1e1b4b", "#0f1729"]} style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#a855f7" />
         <Text style={styles.loadingText}>Loading...</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -84,102 +133,80 @@ export default function Dashboard() {
     <LinearGradient colors={["#0f1729", "#1e1b4b", "#0f1729"]} style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#a855f7"
+          />
+        }
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.name}>{profile?.full_name || "User"}</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              onPress={() => router.push("/(tabs)/profile")}
+            >
+              <Text style={styles.avatarText}>
+                {profileData?.full_name?.[0]?.toUpperCase() || "?"}
+              </Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.greeting}>Welcome to Campus5</Text>
+              <Text style={styles.name}>{profileData?.full_name || "User"}</Text>
+            </View>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Profile Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your Profile</Text>
-          <View style={styles.profileInfo}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Enrollment:</Text>
-              <Text style={styles.infoValue}>{profile?.enrollment_number || "N/A"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{profile?.college_email || "N/A"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Year:</Text>
-              <Text style={styles.infoValue}>{profile?.year || "Not set"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Branch:</Text>
-              <Text style={styles.infoValue}>{profile?.branch || "Not set"}</Text>
-            </View>
+          <View style={styles.headerRight}>
+            {/* Token Balance */}
+            <TouchableOpacity
+              style={styles.tokenButton}
+              onPress={() => setTokenBalanceModalVisible(true)}
+            >
+              <Coins color="#fbbf24" size={20} />
+              <Text style={styles.tokenText}>{tokenBalance}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push("/(tabs)/dating")}
-          >
-            <Text style={styles.actionIcon}>💖</Text>
-            <Text style={styles.actionTitle}>Dating</Text>
-            <Text style={styles.actionSubtitle}>Find matches</Text>
-          </TouchableOpacity>
+        {/* Ads Component */}
+        <Ads placement="dashboard" />
 
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("/(tabs)/clubs")}>
-            <Text style={styles.actionIcon}>👥</Text>
-            <Text style={styles.actionTitle}>Clubs</Text>
-            <Text style={styles.actionSubtitle}>Join communities</Text>
-          </TouchableOpacity>
+        {/* Connection Requests */}
+        {user && <ConnectionRequests userId={user.id} />}
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push("/(tabs)/ratings")}
-          >
-            <Text style={styles.actionIcon}>⭐</Text>
-            <Text style={styles.actionTitle}>Ratings</Text>
-            <Text style={styles.actionSubtitle}>Rate peers</Text>
-          </TouchableOpacity>
+        {/* Campus News Component */}
+        <CampusNews articles={campusNews} onArticleRead={markNewsAsRead} />
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push("/(tabs)/profile")}
-          >
-            <Text style={styles.actionIcon}>👤</Text>
-            <Text style={styles.actionTitle}>Profile</Text>
-            <Text style={styles.actionSubtitle}>View details</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Matches</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Clubs</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Ratings</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>XP</Text>
-            </View>
-          </View>
-        </View>
+        {/* Updates/Notifications Component */}
+        <Updates
+          news={news}
+          onDismiss={dismissItem}
+          onClearAll={clearAllUpdates}
+          onNavigate={handleNewsNavigation}
+        />
       </ScrollView>
+
+      {/* Token Balance Modal */}
+      {user && (
+        <TokenBalanceModal
+          visible={tokenBalanceModalVisible}
+          userId={user.id}
+          onClose={() => setTokenBalanceModalVisible(false)}
+          onAddTokens={() => setTokenPurchaseModalVisible(true)}
+        />
+      )}
+
+      {/* Token Purchase Modal */}
+      {user && (
+        <TokenPurchaseModal
+          visible={tokenPurchaseModalVisible}
+          userId={user.id}
+          onClose={() => setTokenPurchaseModalVisible(false)}
+        />
+      )}
+
       <Toast />
     </LinearGradient>
   );
@@ -191,124 +218,74 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#0f1729",
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
     color: "white",
-    fontSize: 18,
+    fontSize: 16,
+    marginTop: 12,
   },
   scrollContent: {
-    padding: 16,
-    paddingTop: 60,
+    padding: 12,
+    paddingTop: 50,
+    paddingBottom: 20,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  greeting: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.6)",
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  name: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "white",
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#a855f7",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(168, 85, 247, 0.3)",
   },
-  logoutButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: "white",
-    fontWeight: "600",
-  },
-  card: {
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    padding: 20,
-    marginBottom: 20,
-  },
-  cardTitle: {
+  avatarText: {
     fontSize: 20,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 16,
   },
-  profileInfo: {
-    gap: 12,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  infoLabel: {
+  greeting: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.6)",
+    marginBottom: 4,
   },
-  infoValue: {
-    fontSize: 14,
-    color: "white",
-    fontWeight: "500",
-  },
-  sectionTitle: {
-    fontSize: 22,
+  name: {
+    fontSize: 20,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 16,
   },
-  actionsGrid: {
+  headerRight: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: 12,
-    marginBottom: 24,
   },
-  actionCard: {
-    flex: 1,
-    minWidth: "45%",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    borderRadius: 16,
+  tokenButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    padding: 20,
-    alignItems: "center",
+    borderColor: "rgba(251, 191, 36, 0.3)",
   },
-  actionIcon: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  actionTitle: {
+  tokenText: {
+    color: "#fbbf24",
     fontSize: 16,
-    fontWeight: "bold",
-    color: "white",
-    marginBottom: 4,
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.6)",
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#a855f7",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.6)",
+    fontWeight: "600",
   },
 });

@@ -83,8 +83,8 @@ export default function Dashboard() {
   const realtimeChannelRef = useRef<any>(null);
 
   // OPTIMIZATION: Debounce refs for real-time updates to prevent excessive re-renders
-  const newsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const campusNewsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const newsUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const campusNewsUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Token balance state
   const [tokenBalance, setTokenBalance] = useState<number>(0);
@@ -891,18 +891,9 @@ export default function Dashboard() {
               onClick={() => router.push("/clubs")}
               className="cursor-pointer group relative"
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(168, 85, 247, 0.3)",
-                    "0 0 40px rgba(168, 85, 247, 0.5)",
-                    "0 0 20px rgba(168, 85, 247, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg"
-              />
-              <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:border-purple-500/50 transition-all">
+              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
+              <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/30 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Users className="w-7 h-7 text-white" />
@@ -925,18 +916,9 @@ export default function Dashboard() {
               onClick={() => router.push("/dating")}
               className="cursor-pointer group relative"
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(236, 72, 153, 0.3)",
-                    "0 0 40px rgba(236, 72, 153, 0.5)",
-                    "0 0 20px rgba(236, 72, 153, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg"
-              />
-              <div className="relative bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl rounded-2xl border border-pink-500/30 p-6 hover:border-pink-500/50 transition-all">
+              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
+              <div className="relative bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl rounded-2xl border border-pink-500/30 p-6 hover:border-pink-500/50 hover:shadow-lg hover:shadow-pink-500/30 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Heart className="w-7 h-7 text-white" />
@@ -959,18 +941,9 @@ export default function Dashboard() {
               onClick={() => router.push("/ratings")}
               className="cursor-pointer group relative"
             >
-              <m.div
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(34, 211, 238, 0.3)",
-                    "0 0 40px rgba(34, 211, 238, 0.5)",
-                    "0 0 20px rgba(34, 211, 238, 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-                className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg"
-              />
-              <div className="relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-xl rounded-2xl border border-cyan-500/30 p-6 hover:border-cyan-500/50 transition-all">
+              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
+              <div className="relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-xl rounded-2xl border border-cyan-500/30 p-6 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/30 transition-all">
                 <div className="flex flex-col items-center text-center space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Star className="w-7 h-7 text-white" />
@@ -986,20 +959,21 @@ export default function Dashboard() {
 
           {/* Center: Featured/Ads Section */}
           <div className="col-span-6">
+            {/* OPTIMIZED: Simplified container - removed pulsing animation, using static gradient with hover effect */}
             <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="relative group"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-cyan-500/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-3xl blur-xl group-hover:from-purple-500/20 group-hover:to-cyan-500/20 transition-all" />
+              <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:border-white/20 transition-all">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                   <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     📢 Featured
                   </h3>
                   <span className="text-xs text-white/50 px-3 py-1 bg-white/5 rounded-full">Sponsored</span>
                 </div>
-                
+
                 <div>
                   <AdBanner placement="dashboard" />
                 </div>
@@ -1009,13 +983,13 @@ export default function Dashboard() {
 
           {/* Right Sidebar: Updates & News */}
           <div className="col-span-3 space-y-4">
-            {/* Updates Card with Dropdown */}
+            {/* Updates Card with Dropdown - OPTIMIZED */}
             <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="relative group"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 rounded-2xl blur-lg group-hover:from-cyan-500/10 group-hover:to-blue-500/10 transition-all" />
               <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-cyan-500/30 transition-all">
                 <button
                   onClick={() => setUpdatesExpanded(!updatesExpanded)}
@@ -1030,21 +1004,23 @@ export default function Dashboard() {
                       <span className="text-xs text-white/40">{news.length} items</span>
                     </div>
                   </div>
+                  {/* OPTIMIZED: Simplified rotation animation */}
                   <m.div
                     animate={{ rotate: updatesExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.15 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
                   </m.div>
                 </button>
 
+                {/* OPTIMIZED: Simplified AnimatePresence - reduced duration and removed complex animations */}
                 <AnimatePresence>
                   {updatesExpanded && (
                     <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.2 }}
                     >
                       {news.length > 0 && (
                         <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
@@ -1053,7 +1029,7 @@ export default function Dashboard() {
                               e.stopPropagation();
                               clearAllNews();
                             }}
-                            className="text-xs text-white/40 hover:text-white/60"
+                            className="text-xs text-white/40 hover:text-white/60 transition-colors"
                           >
                             Clear all
                           </button>
@@ -1065,17 +1041,17 @@ export default function Dashboard() {
                           <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
                         ) : (
                           news.slice(0, 3).map((item, index) => (
+                            /* OPTIMIZED: Removed stagger delay and whileHover animation, using CSS instead */
                             <m.div
                               key={item.id}
-                              initial={{ opacity: 0, x: 20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                              whileHover={{ x: 4, scale: 1.02 }}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.2 }}
                               className="group/item cursor-pointer"
                             >
-                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2 border border-white/5 hover:border-cyan-500/30 transition-all">
+                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2 border border-white/5 hover:border-cyan-500/30 hover:translate-x-1 transition-all duration-200">
                                 <div className="flex items-start gap-2">
-                                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
                                     {getNewsIcon(item.type)}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -1102,7 +1078,7 @@ export default function Dashboard() {
                                           e.stopPropagation();
                                           removeNewsItem(item.id);
                                         }}
-                                        className="text-white/40 hover:text-white/80 flex-shrink-0"
+                                        className="text-white/40 hover:text-white/80 flex-shrink-0 transition-colors"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -1123,14 +1099,14 @@ export default function Dashboard() {
             
             
 
-            {/* News Card with Dropdown */}
+            {/* News Card with Dropdown - OPTIMIZED */}
             <m.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
               className="relative group"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 rounded-2xl blur-lg group-hover:from-purple-500/10 group-hover:to-pink-500/10 transition-all" />
               <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-purple-500/30 transition-all">
                 <button
                   onClick={() => setNewsExpanded(!newsExpanded)}
@@ -1147,24 +1123,26 @@ export default function Dashboard() {
                       </span>
                     </div>
                   </div>
+                  {/* OPTIMIZED: Simplified rotation animation */}
                   <m.div
                     animate={{ rotate: newsExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.15 }}
                   >
                     <ChevronDown className="w-5 h-5 text-white/60" />
                   </m.div>
                 </button>
 
+                {/* OPTIMIZED: Simplified AnimatePresence - reduced duration */}
                 <AnimatePresence>
                   {newsExpanded && (
                     <m.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.2 }}
                     >
                       <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
-                        <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300">
+                        <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
                           View all
                         </Link>
                       </div>
@@ -1185,21 +1163,21 @@ export default function Dashboard() {
 
                           return displayNews.map((article, slotIndex) => (
                             <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
+                              {/* OPTIMIZED: Simplified slide transition - reduced duration and complexity */}
                               <AnimatePresence mode="wait">
                                 <m.div
                                   key={article.id}
-                                  initial={{ x: slideDirection === 'left' ? 100 : -100, opacity: 0 }}
+                                  initial={{ x: slideDirection === 'left' ? 50 : -50, opacity: 0 }}
                                   animate={{ x: 0, opacity: 1 }}
-                                  exit={{ x: slideDirection === 'left' ? -100 : 100, opacity: 0 }}
-                                  transition={{ duration: 0.5, ease: "easeInOut" }}
-                                  whileHover={{ x: 4, scale: 1.02 }}
+                                  exit={{ x: slideDirection === 'left' ? -50 : 50, opacity: 0 }}
+                                  transition={{ duration: 0.3 }}
                                   onClick={() => openNewsModal(article)}
                                   className="group/item cursor-pointer"
                                 >
-                                  <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2.5 border border-white/5 hover:border-purple-500/30 transition-all">
+                                  <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2.5 border border-white/5 hover:border-purple-500/30 hover:translate-x-1 transition-all duration-200">
                                     <div className="flex items-start gap-2">
                                       {article.image_url ? (
-                                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 group-hover/item:scale-110 transition-transform">
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                                           <img
                                             src={article.image_url}
                                             alt={article.title}
@@ -1207,7 +1185,7 @@ export default function Dashboard() {
                                           />
                                         </div>
                                       ) : (
-                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl group-hover/item:scale-110 transition-transform`}>
+                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl`}>
                                           {getCategoryIcon(article.category)}
                                         </div>
                                       )}

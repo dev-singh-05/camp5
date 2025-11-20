@@ -29,7 +29,11 @@
       "Bash(npx tailwindcss init)",
       "Bash(npm start)",
       "Bash(timeout /t 5)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(del package-lock.json)",
+      "Bash(git rm:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 // PERFORMANCE: Import useIsMobile to disable animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
@@ -320,7 +320,7 @@ export default function DatingProfileDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
-        <motion.div
+        <m.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
@@ -334,28 +334,13 @@ export default function DatingProfileDashboard() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile */}
+      {/* PERFORMANCE: Use CSS animations instead of JS for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-            />
+            {/* PERFORMANCE: Replaced Framer Motion with pure CSS animations */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl animate-pulse-slow opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl animate-pulse-slower opacity-[0.05]" />
           </>
         ) : (
           <>
@@ -369,23 +354,23 @@ export default function DatingProfileDashboard() {
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
               className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
             >
               ←
-            </motion.button>
+            </m.button>
 
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-2xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent flex items-center gap-2"
             >
               <User className="w-6 h-6 text-pink-400" />
               My Dating Profile
-            </motion.h1>
+            </m.h1>
 
             <div className="w-10" /> {/* Spacer for centering */}
           </div>
@@ -395,7 +380,7 @@ export default function DatingProfileDashboard() {
       {/* Main Content */}
       <main className="relative z-10 max-w-4xl mx-auto px-6 py-8">
         {/* Profile Photo Section */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -406,7 +391,7 @@ export default function DatingProfileDashboard() {
               {/* Main Profile Photo */}
               <div className="flex flex-col items-center mb-8">
                 <div className="relative group/photo">
-                  <motion.div
+                  <m.div
                     whileHover={{ scale: 1.05 }}
                     className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl shadow-pink-500/20"
                   >
@@ -415,7 +400,7 @@ export default function DatingProfileDashboard() {
                       alt="Profile"
                       className="w-full h-full object-cover"
                     />
-                  </motion.div>
+                  </m.div>
                   <label
                     htmlFor="photoUpload"
                     className="absolute bottom-0 right-0 bg-gradient-to-br from-pink-500 to-rose-500 text-white p-3 rounded-full cursor-pointer hover:shadow-lg hover:shadow-pink-500/50 transition-all border border-white/10"
@@ -441,7 +426,7 @@ export default function DatingProfileDashboard() {
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {profile?.gallery_photos?.map((photo, index) => (
-                    <motion.div
+                    <m.div
                       key={index}
                       whileHover={{ scale: 1.05 }}
                       className="relative group/gallery"
@@ -473,16 +458,16 @@ export default function DatingProfileDashboard() {
                           className="hidden"
                         />
                       </div>
-                    </motion.div>
+                    </m.div>
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Profile Completion */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -495,7 +480,7 @@ export default function DatingProfileDashboard() {
                 <span className="text-sm font-bold text-pink-400">{completion}%</span>
               </div>
               <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden border border-white/10">
-                <motion.div
+                <m.div
                   initial={{ width: 0 }}
                   animate={{ width: `${completion}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
@@ -510,10 +495,10 @@ export default function DatingProfileDashboard() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* About You Section */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -530,17 +515,16 @@ export default function DatingProfileDashboard() {
               <div className="p-6">
                 <div className="space-y-2">
                   {aboutYou.map((item, index) => (
-                    <motion.div
+                    <m.div
                       key={item.key}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ x: 4, scale: 1.01 }}
+                      transition={{ delay: index * 0.03, duration: 0.2 }}
                       onClick={() => setActiveField(item.key)}
                       className="relative group/item cursor-pointer"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -556,16 +540,16 @@ export default function DatingProfileDashboard() {
                           <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
                         </div>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* More About You Section */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -582,17 +566,16 @@ export default function DatingProfileDashboard() {
               <div className="p-6">
                 <div className="space-y-2">
                   {moreAbout.map((item, index) => (
-                    <motion.div
+                    <m.div
                       key={item.key}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ x: 4, scale: 1.01 }}
+                      transition={{ delay: index * 0.03, duration: 0.2 }}
                       onClick={() => setActiveField(item.key)}
                       className="relative group/item cursor-pointer"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                      <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -608,16 +591,16 @@ export default function DatingProfileDashboard() {
                           <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
                         </div>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Dating Preferences Section */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -634,13 +617,12 @@ export default function DatingProfileDashboard() {
               <div className="p-6">
                 <div className="space-y-2">
                   {/* Dating Bio */}
-                  <motion.div
-                    whileHover={{ x: 4, scale: 1.01 }}
+                  <m.div
                     onClick={() => setShowDescriptionModal(true)}
                     className="relative group/item cursor-pointer"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -653,19 +635,18 @@ export default function DatingProfileDashboard() {
                             </p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all flex-shrink-0" />
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 transition-all duration-200 flex-shrink-0" />
                       </div>
                     </div>
-                  </motion.div>
+                  </m.div>
 
                   {/* Interests */}
-                  <motion.div
-                    whileHover={{ x: 4, scale: 1.01 }}
+                  <m.div
                     onClick={() => setShowInterestsModal(true)}
                     className="relative group/item cursor-pointer"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl blur opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                    <div className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 hover:border-pink-500/50 p-4 transition-all duration-200 group-hover/item:translate-x-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
@@ -680,25 +661,25 @@ export default function DatingProfileDashboard() {
                             </p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 group-hover/item:translate-x-1 transition-all" />
+                        <ChevronRight className="w-5 h-5 text-white/40 group-hover/item:text-white/80 transition-all duration-200" />
                       </div>
                     </div>
-                  </motion.div>
+                  </m.div>
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </main>
 
       {/* Fixed Bottom Button */}
       {essentialsFilled && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-6"
         >
-          <motion.button
+          <m.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={async () => {
@@ -718,14 +699,14 @@ export default function DatingProfileDashboard() {
           >
             <Heart className="w-5 h-5" />
             Continue to Dating
-          </motion.button>
-        </motion.div>
+          </m.button>
+        </m.div>
       )}
 
       {/* Field Edit Modal */}
       <AnimatePresence>
         {activeField && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -735,7 +716,7 @@ export default function DatingProfileDashboard() {
               setManualValue("");
             }}
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -760,7 +741,7 @@ export default function DatingProfileDashboard() {
               <div className="p-6 space-y-3">
                 {OPTIONS[activeField as keyof typeof OPTIONS] ? (
                   OPTIONS[activeField as keyof typeof OPTIONS].map((opt) => (
-                    <motion.button
+                    <m.button
                       key={opt}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -769,7 +750,7 @@ export default function DatingProfileDashboard() {
                       className="w-full py-3 rounded-xl bg-white/5 hover:bg-pink-500/20 border border-white/10 hover:border-pink-500/50 text-white font-medium transition-all disabled:opacity-50"
                     >
                       {opt}
-                    </motion.button>
+                    </m.button>
                   ))
                 ) : (
                   <>
@@ -780,7 +761,7 @@ export default function DatingProfileDashboard() {
                       onChange={(e) => setManualValue(e.target.value)}
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-white placeholder-white/40 transition-all"
                     />
-                    <motion.button
+                    <m.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       disabled={!manualValue || saving}
@@ -788,19 +769,19 @@ export default function DatingProfileDashboard() {
                       className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:shadow-lg hover:shadow-pink-500/50 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {saving ? "Saving..." : "Save"}
-                    </motion.button>
+                    </m.button>
                   </>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Interests Modal */}
       <AnimatePresence>
         {showInterestsModal && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -810,7 +791,7 @@ export default function DatingProfileDashboard() {
               setShowInterestsModal(false);
             }}
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -841,7 +822,7 @@ export default function DatingProfileDashboard() {
                   {INTEREST_OPTIONS.map((interest) => {
                     const isSelected = selectedInterests.includes(interest);
                     return (
-                      <motion.button
+                      <m.button
                         key={interest}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -863,7 +844,7 @@ export default function DatingProfileDashboard() {
                         }`}
                       >
                         {interest}
-                      </motion.button>
+                      </m.button>
                     );
                   })}
                 </div>
@@ -887,15 +868,15 @@ export default function DatingProfileDashboard() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Dating Description Modal */}
       <AnimatePresence>
         {showDescriptionModal && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -905,7 +886,7 @@ export default function DatingProfileDashboard() {
               setShowDescriptionModal(false);
             }}
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -964,10 +945,28 @@ export default function DatingProfileDashboard() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
+
+      {/* PERFORMANCE: Custom CSS animations for better performance than JS */}
+      <style jsx global>{`
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-slower {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 20s ease-in-out infinite;
+        }
+        .animate-pulse-slower {
+          animation: pulse-slower 25s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

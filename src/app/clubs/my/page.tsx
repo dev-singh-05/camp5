@@ -1,12 +1,12 @@
 "use client";
 
-// Performance optimization: Added useMemo for expensive computations
-import { useEffect, useState, useMemo } from "react";
+// OPTIMIZATION: Use LazyMotion instead of full framer-motion import to reduce bundle size by ~30KB
+import { useEffect, useState, useMemo, memo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { Users, Plus, X, Lock, CheckCircle, Clock, ChevronRight, Star, TrendingUp } from "lucide-react";
-// Performance optimization: Mobile detection to disable heavy animations
+// OPTIMIZATION: Detect mobile devices to disable heavy animations and improve performance
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 // Club type
@@ -39,8 +39,8 @@ const getCategoryIcon = (cat: string | null) => {
   }
 };
 
-// 🔹 Reusable ClubCard with glassmorphic design
-function ClubCard({
+// 🔹 Reusable ClubCard with glassmorphic design - Memoized to prevent unnecessary re-renders
+const ClubCard = memo(function ClubCard({
   club,
   rank,
   status,
@@ -55,7 +55,7 @@ function ClubCard({
 }) {
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       // Performance optimization: Disable hover animations on mobile (touch devices don't have hover state)
@@ -64,32 +64,16 @@ function ClubCard({
       onClick={onClick}
       className="cursor-pointer group relative"
     >
-      {/* Performance optimization: Disable infinite glow animation on mobile - saves significant CPU/GPU cycles */}
-      <motion.div
-        animate={!isMobile ? {
-          boxShadow: status === "joined"
-            ? [
-                "0 0 20px rgba(34, 197, 94, 0.2)",
-                "0 0 30px rgba(34, 197, 94, 0.3)",
-                "0 0 20px rgba(34, 197, 94, 0.2)",
-              ]
-            : [
-                "0 0 20px rgba(168, 85, 247, 0.2)",
-                "0 0 30px rgba(168, 85, 247, 0.3)",
-                "0 0 20px rgba(168, 85, 247, 0.2)",
-              ],
-        } : undefined}
-        transition={!isMobile ? { duration: 2, repeat: Infinity } : undefined}
-        className={`absolute inset-0 ${
-          status === "joined"
-            ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
-            : "bg-gradient-to-br from-purple-500/20 to-pink-500/20"
-        } rounded-2xl blur-lg`}
-      />
-      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border p-6 transition-all overflow-hidden ${
-        status === "joined" 
-          ? "border-green-500/30 hover:border-green-500/50" 
-          : "border-white/10 hover:border-purple-500/50"
+      {/* Desktop: Simplified glow effect using CSS only - replaced infinite animation with hover state */}
+      <div className={`absolute inset-0 ${
+        status === "joined"
+          ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+          : "bg-gradient-to-br from-purple-500/20 to-pink-500/20"
+      } rounded-2xl blur-md opacity-50 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div className={`relative bg-black/40 backdrop-blur-xl rounded-2xl border p-6 transition-all duration-300 overflow-hidden ${
+        status === "joined"
+          ? "border-green-500/30 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20"
+          : "border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20"
       }`}>
         {/* Status Badge */}
         <div className="absolute top-4 right-4">
@@ -164,9 +148,9 @@ function ClubCard({
           </div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
-}
+});
 
 // 🔹 Club Modal
 function ClubModal({
@@ -194,17 +178,19 @@ function ClubModal({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+      <m.div
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-white/10"
       >
@@ -283,8 +269,8 @@ function ClubModal({
             )}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -438,28 +424,13 @@ export default function MyClubs() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-      {/* Performance optimization: Disable infinite background animations on mobile */}
-      {/* These animations are subtle on desktop but kill mobile performance (20-30fps loss) */}
+    // OPTIMIZATION: LazyMotion wrapper enables code-splitting for framer-motion animations
+    <LazyMotion features={domAnimation} strict>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
+      {/* Desktop: Simplified static background - removed heavy infinite animations for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 20, repeat: Infinity } : undefined}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={!isMobile ? {
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-            opacity: [0.03, 0.06, 0.03],
-          } : { opacity: 0.03 }}
-          transition={!isMobile ? { duration: 25, repeat: Infinity } : undefined}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-        />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl opacity-50" />
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl opacity-50" />
       </div>
 
       {/* Header - Mobile First */}
@@ -467,15 +438,15 @@ export default function MyClubs() {
         <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-4">
           {/* Mobile: Title + Create Button */}
           <div className="flex items-center justify-between">
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-lg md:text-2xl font-bold text-white md:bg-gradient-to-r md:from-white md:via-purple-200 md:to-cyan-200 md:bg-clip-text md:text-transparent"
             >
               My Clubs
-            </motion.h1>
+            </m.h1>
 
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowModal(true)}
@@ -484,19 +455,19 @@ export default function MyClubs() {
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Create Club</span>
               <span className="sm:hidden">Create</span>
-            </motion.button>
+            </m.button>
           </div>
 
           {/* Desktop: Back Button + Title + Create Button */}
           <div className="hidden md:flex items-center gap-4 mt-4">
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
               className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
             >
               ←
-            </motion.button>
+            </m.button>
           </div>
         </div>
       </header>
@@ -505,7 +476,7 @@ export default function MyClubs() {
       <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
@@ -522,9 +493,9 @@ export default function MyClubs() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -542,11 +513,11 @@ export default function MyClubs() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
 
         {/* Joined Clubs Section */}
-        <motion.section
+        <m.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -591,10 +562,10 @@ export default function MyClubs() {
               ))}
             </div>
           )}
-        </motion.section>
+        </m.section>
 
         {/* Pending Requests Section */}
-        <motion.section
+        <m.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -632,18 +603,18 @@ export default function MyClubs() {
               ))}
             </div>
           )}
-        </motion.section>
+        </m.section>
       </main>
 
       {/* Floating Create Button - Hidden on mobile */}
-      <motion.button
+      <m.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowModal(true)}
         className="hidden md:flex fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-2xl shadow-purple-500/50 items-center justify-center z-50 hover:shadow-purple-500/70 transition-all"
       >
         <Plus className="w-8 h-8 text-white" />
-      </motion.button>
+      </m.button>
 
       {/* Club Modal */}
       <AnimatePresence>
@@ -666,17 +637,19 @@ export default function MyClubs() {
       {/* Create Club Modal */}
       <AnimatePresence>
         {showModal && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
             onClick={() => setShowModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+            <m.div
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 max-h-[90vh] overflow-y-auto"
             >
@@ -758,10 +731,11 @@ export default function MyClubs() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
+    </LazyMotion>
   );
 }

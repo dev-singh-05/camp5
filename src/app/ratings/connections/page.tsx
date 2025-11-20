@@ -47,9 +47,8 @@ export default function ConnectionsPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState<Profile | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [comment, setComment] = useState("");
   const [ratingValues, setRatingValues] = useState<{ [key: string]: any }>({});
-  const [commentValues, setCommentValues] = useState<{ [key: string]: string }>({});
+  const [hasRatedUser, setHasRatedUser] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -81,6 +80,25 @@ export default function ConnectionsPage() {
     }
     getUser();
   }, []);
+
+  // Fetch users that current user has rated
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    async function fetchRatedUsers() {
+      const { data, error } = await supabase
+        .from("ratings")
+        .select("to_user_id")
+        .eq("from_user_id", currentUserId);
+
+      if (!error && data) {
+        const ratedIds = new Set(data.map((r: any) => r.to_user_id));
+        setHasRatedUser(ratedIds);
+      }
+    }
+
+    fetchRatedUsers();
+  }, [currentUserId]);
 
   // Fetch accepted connections with real leaderboard ranks
   useEffect(() => {
@@ -149,6 +167,14 @@ export default function ConnectionsPage() {
 
   // Open chat
   const openChat = async (user: Profile) => {
+    // Check if user has rated this person before opening chat
+    if (!hasRatedUser.has(user.id)) {
+      setSelectedUser(user);
+      setIsModalOpen(user);
+      toast.error("You need to rate this person before you can chat 💬");
+      return;
+    }
+
     setSelectedUser(user);
     setChatOpen(true);
 
@@ -190,6 +216,14 @@ export default function ConnectionsPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUserId || !selectedUser) return;
 
+    // Check if user has rated this person
+    if (!hasRatedUser.has(selectedUser.id)) {
+      setChatOpen(false);
+      setIsModalOpen(selectedUser);
+      toast.error("You need to rate this person before you can chat 💬");
+      return;
+    }
+
     const tempId = Date.now().toString();
     const tempMsg: Message = {
       id: tempId,
@@ -222,7 +256,6 @@ export default function ConnectionsPage() {
   const handleSubmitDetailedRating = async (toUserId: string) => {
     if (!currentUserId) return;
     const ratings = ratingValues[toUserId] || {};
-    const comment = commentValues[toUserId] || "";
 
     const overallXP =
       ((ratings.confidence || 0) +
@@ -236,7 +269,7 @@ export default function ConnectionsPage() {
       {
         from_user_id: currentUserId,
         to_user_id: toUserId,
-        comment,
+        comment: "",
         confidence: ratings.confidence || 0,
         humbleness: ratings.humbleness || 0,
         friendliness: ratings.friendliness || 0,
@@ -251,8 +284,8 @@ export default function ConnectionsPage() {
       toast.error("Failed to submit ❌");
     } else {
       toast.success("Rating submitted ✅");
+      setHasRatedUser(prev => new Set(prev).add(toUserId));
       setRatingValues((prev) => ({ ...prev, [toUserId]: {} }));
-      setCommentValues((prev) => ({ ...prev, [toUserId]: "" }));
       setIsModalOpen(null);
     }
   };
@@ -844,18 +877,6 @@ export default function ConnectionsPage() {
                 </span>
               </div>
             ))}
-
-            <textarea
-              placeholder="Leave a comment..."
-              value={commentValues[isModalOpen.id] || ""}
-              onChange={(e) =>
-                setCommentValues((prev: any) => ({
-                  ...prev,
-                  [isModalOpen.id]: e.target.value,
-                }))
-              }
-              className="w-full border rounded-lg p-2 text-sm mb-3"
-            />
 
             <button
               onClick={() => handleSubmitDetailedRating(isModalOpen.id)}

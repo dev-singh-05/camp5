@@ -19,7 +19,7 @@ import {
   type SurpriseQuestion,
 } from "@/utils/surpriseQuestion";
 import { MapPin, Briefcase, GraduationCap, Heart, Ruler, Wine, Cigarette, Baby, BookOpen, Sparkles, Coins, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 // PERFORMANCE: Import useIsMobile hook to disable animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -1434,18 +1434,17 @@ function handleAddTokens() {
         {/* Header - Desktop View */}
         <header className="hidden md:flex px-4 py-3 bg-white/95 backdrop-blur-sm border-b items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05, x: -2 }}
-              whileTap={{ scale: 0.95 }}
+            {/* PERFORMANCE: Simplified hover effects using CSS only */}
+            <button
               onClick={() => router.back()}
               aria-label="Go back"
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all"
+              className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105 active:scale-95"
               title="Back"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </motion.button>
+            </button>
 
             <div className="flex items-center gap-3">
               <Avatar
@@ -1499,7 +1498,7 @@ function handleAddTokens() {
             </button>
 
             {/* Reveal Button */}
-            {shouldShowRevealButton() && (
+            {shouldShowRevealButton && (
               <button onClick={handleReveal} className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600">
                 Reveal Identity
               </button>
@@ -1518,18 +1517,18 @@ function handleAddTokens() {
           <div className="px-3 py-2 border-b border-gray-100">
             <div className="flex items-center justify-between gap-2">
               {/* Close Button */}
-              <motion.button
-                whileTap={{ scale: 0.95 }}
+              {/* PERFORMANCE: Use CSS transitions instead of JS animations */}
+              <button
                 onClick={() => router.back()}
                 aria-label="Close chat"
-                className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all text-gray-700 text-xs font-medium flex items-center gap-1"
+                className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all duration-200 text-gray-700 text-xs font-medium flex items-center gap-1 active:scale-95"
                 title="Close"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Close
-              </motion.button>
+              </button>
 
               {/* Token Balance */}
               <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-100 to-yellow-100 px-2 py-1.5 rounded-full border border-amber-300">
@@ -1570,7 +1569,7 @@ function handleAddTokens() {
           {/* Second Row - Reveal Identity & Surprise Question */}
           <div className="px-3 py-2 flex items-center justify-center gap-2">
             {/* Reveal Identity Button */}
-            {shouldShowRevealButton() && (
+            {shouldShowRevealButton && (
               <button
                 onClick={handleReveal}
                 className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-medium hover:from-red-600 hover:to-pink-600 shadow-md flex items-center justify-center gap-1"
@@ -1622,7 +1621,7 @@ function handleAddTokens() {
         )}
 
         {/* Reveal banner */}
-        {shouldShowRevealButton() && revealStatus && (
+        {shouldShowRevealButton && revealStatus && (
           <div className="px-4 py-2 bg-yellow-100 text-yellow-900 text-sm text-center">
             {revealStatus.user1_reveal && revealStatus.user2_reveal ? "Both identities revealed!" : "Waiting for both users to reveal..."}
           </div>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { getRandomMatchIcebreakerQuestion } from "@/utils/icebreaker";
 // PERFORMANCE: Import useIsMobile to disable animations on mobile
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -217,7 +217,7 @@ export default function RequestsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
-        <motion.div
+        <m.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
@@ -231,28 +231,13 @@ export default function RequestsPage() {
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
-      {/* PERFORMANCE: Disable infinite animations on mobile */}
+      {/* PERFORMANCE: Use CSS animations instead of JS for better performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {!isMobile ? (
           <>
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl"
-            />
+            {/* PERFORMANCE: Replaced Framer Motion with pure CSS animations */}
+            <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-pink-500/10 to-transparent rounded-full blur-3xl animate-pulse-slow opacity-[0.05]" />
+            <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-rose-500/10 to-transparent rounded-full blur-3xl animate-pulse-slower opacity-[0.05]" />
           </>
         ) : (
           <>
@@ -266,7 +251,7 @@ export default function RequestsPage() {
       <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
@@ -274,16 +259,16 @@ export default function RequestsPage() {
             >
               <ChevronLeft className="w-4 h-4" />
               Back
-            </motion.button>
+            </m.button>
 
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-2xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent flex items-center gap-2"
             >
               <Mail className="w-6 h-6 text-pink-400" />
               Match Requests
-            </motion.h1>
+            </m.h1>
 
             <div className="w-20" /> {/* Spacer */}
           </div>
@@ -293,7 +278,7 @@ export default function RequestsPage() {
       {/* Main Content */}
       <main className="relative z-10 max-w-4xl mx-auto px-6 py-8">
         {requests.length === 0 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative group"
@@ -303,42 +288,29 @@ export default function RequestsPage() {
               <Mail className="w-16 h-16 text-white/20 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No Pending Requests</h3>
               <p className="text-white/60">You don't have any match requests right now.</p>
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => router.back()}
                 className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
               >
                 Go Back
-              </motion.button>
+              </m.button>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
           <div className="space-y-6">
             {requests.map((req, index) => (
-              <motion.div
+              <m.div
                 key={req.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.08, duration: 0.3 }}
                 className="relative group"
               >
-                {/* PERFORMANCE: Disable pulsing box-shadow on mobile */}
-                {!isMobile ? (
-                  <motion.div
-                    animate={{
-                      boxShadow: [
-                        "0 0 20px rgba(236, 72, 153, 0.2)",
-                        "0 0 30px rgba(236, 72, 153, 0.3)",
-                        "0 0 20px rgba(236, 72, 153, 0.2)",
-                      ],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl" />
-                )}
+                {/* PERFORMANCE: Replaced pulsing box-shadow with static glow */}
+                {/* WHY: Box-shadow animations cause expensive repaints */}
+                <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-2xl blur-xl transition-opacity duration-300 group-hover:opacity-80" />
                 <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
                   {/* Category Badge - Top Right */}
                   <div className="absolute top-4 right-4 z-10">
@@ -449,7 +421,7 @@ export default function RequestsPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      <motion.button
+                      <m.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleDecline(req.id)}
@@ -458,8 +430,8 @@ export default function RequestsPage() {
                       >
                         <X className="w-4 h-4" />
                         {responding === req.id ? "Declining..." : "Decline"}
-                      </motion.button>
-                      <motion.button
+                      </m.button>
+                      <m.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleAccept(req.id, req.requester_id, req.match_type, req.category)}
@@ -468,16 +440,34 @@ export default function RequestsPage() {
                       >
                         <Heart className="w-4 h-4" />
                         {responding === req.id ? "Accepting..." : "Let's Match"}
-                      </motion.button>
+                      </m.button>
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             ))}
           </div>
         )}
       </main>
+
+      {/* PERFORMANCE: Custom CSS animations for better performance than JS */}
+      <style jsx global>{`
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        @keyframes pulse-slower {
+          0%, 100% { opacity: 0.05; }
+          50% { opacity: 0.08; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 20s ease-in-out infinite;
+        }
+        .animate-pulse-slower {
+          animation: pulse-slower 25s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
-  
+
 }
