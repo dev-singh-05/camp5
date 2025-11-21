@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,12 +17,25 @@ export default function AdminDashboard() {
         setLoading(true);
 
         // Check authentication
-        const { data: auth } = await supabase.auth.getUser();
-        if (!auth?.user) {
-          alert("Please log in to access the admin panel.");
-          router.push("/login");
-          return;
-        }
+       // Check both authentication AND admin role
+const { data: auth } = await supabase.auth.getUser();
+if (!auth?.user) {
+  router.push("/login");
+  return;
+}
+
+// Verify admin role from database
+const { data: profile } = await supabase
+  .from("profiles")
+  .select("role")
+  .eq("id", auth.user.id)
+  .single();
+
+if (profile?.role !== "admin") {
+  toast.error("Unauthorized access");
+  router.push("/dashboard");
+  return;
+}
         setUser(auth.user);
       } catch (err) {
         console.error("Init error:", err);
@@ -138,7 +152,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-gray-500">{user?.email}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                {user?.email?.[0]?.toUpperCase()}
+                {user?.email?.[0]?.toUpperCase() || 'A'}
               </div>
             </div>
           </div>

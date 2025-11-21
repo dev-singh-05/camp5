@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../utils/supabaseClient";
 import Toast from "react-native-toast-message";
+import { API_ENDPOINTS } from "../../utils/config";
 
 export default function Signup() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
+    // Validate all fields filled
     if (!fullName.trim() || !enrollment.trim() || !email.trim() || !password.trim()) {
       Toast.show({
         type: "error",
@@ -34,7 +36,7 @@ export default function Signup() {
       return;
     }
 
-    // 1. Password match check
+    // Validate passwords match
     if (password !== confirmPassword) {
       Toast.show({
         type: "error",
@@ -44,12 +46,12 @@ export default function Signup() {
       return;
     }
 
-    // 2. College email validation (MediCaps University)
+    // Validate email domain
     if (!email.endsWith("@medicaps.ac.in")) {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: "Please use your Medicaps University email (@medicaps.ac.in)",
+        text2: "Please use your @medicaps.ac.in email",
       });
       return;
     }
@@ -57,42 +59,28 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 3. Sign up in Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+      // Call the signup API
+      const response = await fetch(API_ENDPOINTS.SIGNUP, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName: fullName.trim(),
+          enrollment: enrollment.trim(),
+        }),
       });
 
-      if (error) {
+      const data = await response.json();
+
+      if (!response.ok) {
         Toast.show({
           type: "error",
-          text1: "Error",
-          text2: error.message,
+          text1: "Signup Failed",
+          text2: data.error || "Please try again",
         });
         setLoading(false);
         return;
-      }
-
-      // 4. Update profile row created by trigger
-      if (data.user) {
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({
-            full_name: fullName,
-            enrollment_number: enrollment,
-            college_email: email,
-          })
-          .eq("id", data.user.id);
-
-        if (updateError) {
-          Toast.show({
-            type: "error",
-            text1: "Error",
-            text2: "Profile update failed: " + updateError.message,
-          });
-          setLoading(false);
-          return;
-        }
       }
 
       Toast.show({

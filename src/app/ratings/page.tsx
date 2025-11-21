@@ -830,7 +830,7 @@ export default function RatingsPage() {
                 <div className="flex items-center gap-3">
                   <Image
                     src={getAvatar(profile)}
-                    alt={profile.full_name}
+                    alt={profile.full_name || "User"}
                     width={48}
                     height={48}
                     className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
@@ -893,7 +893,7 @@ export default function RatingsPage() {
                       <div className="text-center mb-6">
                         <Image
                           src={getAvatar(selectedUser)}
-                          alt={selectedUser.full_name}
+                          alt={selectedUser.full_name || "User"}
                           width={96}
                           height={96}
                           className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-purple-500/30"
@@ -979,7 +979,7 @@ export default function RatingsPage() {
                     >
                       <Image
                         src={getAvatar(selectedUser)}
-                        alt={selectedUser.full_name}
+                        alt={selectedUser.full_name || "User"}
                         width={96}
                         height={96}
                         className="w-24 h-24 rounded-full mx-auto mb-4 ring-4 ring-cyan-500/30"
@@ -1020,7 +1020,7 @@ export default function RatingsPage() {
                     className="flex items-center gap-3 p-4 border-b border-white/10 cursor-pointer hover:bg-white/5"
                     onClick={() => setChatOpen(false)}
                   >
-                    <Image src={getAvatar(selectedUser)} alt="" width={40} height={40} className="w-10 h-10 rounded-full ring-2 ring-purple-500/30" loading="lazy" />
+                    <Image src={getAvatar(selectedUser)} alt={selectedUser.full_name || "User"} width={40} height={40} className="w-10 h-10 rounded-full ring-2 ring-purple-500/30" loading="lazy" />
                     <h2 className="font-semibold text-white">{selectedUser.full_name}</h2>
                   </div>
 
@@ -1319,7 +1319,7 @@ export default function RatingsPage() {
               <div className="flex items-center gap-3 p-6 border-b border-white/10">
                 <Image
                   src={getAvatar(selectedUser)}
-                  alt={selectedUser.full_name}
+                  alt={selectedUser.full_name || "User"}
                   width={48}
                   height={48}
                   className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"

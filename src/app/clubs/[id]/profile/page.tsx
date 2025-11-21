@@ -130,10 +130,7 @@ export default function ClubProfilePage() {
           }
 
           // Only refresh after 1 second of no updates
-          statsDebounceRef.current = setTimeout(() => {
-            console.log('🔄 Refreshing stats after debounce');
-            fetchStats();
-          }, 1000);
+         
         }
       )
       .subscribe();
@@ -158,10 +155,7 @@ export default function ClubProfilePage() {
           }
 
           // Only refresh after 500ms of no new messages
-          messagesDebounceRef.current = setTimeout(() => {
-            console.log('🔄 Refreshing messages after debounce');
-            fetchMessages();
-          }, 500);
+      
         }
       )
       .subscribe();

@@ -423,12 +423,8 @@ useEffect(() => {
           clearTimeout(invitationsDebounceRef.current);
         }
 
-        // Only refresh after 1 second of no updates
-        invitationsDebounceRef.current = setTimeout(async () => {
-          console.log('🔄 Refreshing invitations after debounce');
-          await fetchEventInvitations();
-          await fetchEvents();
-        }, 1000);
+        
+     
       }
     )
     .subscribe();
@@ -466,10 +462,7 @@ useEffect(() => {
         }
 
         // Only refresh after 1 second of no updates
-        eventStatusDebounceRef.current = setTimeout(async () => {
-          console.log('🔄 Refreshing events after debounce');
-          await fetchEvents();
-        }, 1000);
+     
       }
     )
     .subscribe();
@@ -506,10 +499,7 @@ useEffect(() => {
         }
 
         // Only refresh after 1 second of no updates
-        interEventDebounceRef.current = setTimeout(async () => {
-          console.log('🔄 Refreshing inter-club events after debounce');
-          await fetchEvents();
-        }, 1000);
+      
       }
     )
     .subscribe();
@@ -548,10 +538,7 @@ useEffect(() => {
           }
 
           // Only update after 300ms of no new messages (faster for better UX)
-          messagesDebounceRef.current = setTimeout(() => {
-            console.log('🔄 Adding message after debounce');
-            setMessages((prev) => [...prev, payload.new]);
-          }, 300);
+     
         }
       )
       .subscribe();

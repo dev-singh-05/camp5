@@ -25,63 +25,55 @@ export default function Signup() {
     e.preventDefault();
     setLoading(true);
 
-    // 1. Password match check
+    // Validate passwords match
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       setLoading(false);
       return;
     }
 
-    // 2. College email validation
-    const selectedUni = localStorage.getItem("selectedUniversity");
-    if (selectedUni === "medicaps" && !email.endsWith("@medicaps.ac.in")) {
-      toast.error("Please use your Medicaps University email ID (@medicaps.ac.in)");
+    // Validate email domain
+    if (!email.endsWith("@medicaps.ac.in")) {
+      toast.error("Please use your @medicaps.ac.in email");
       setLoading(false);
       return;
     }
 
-    // 3. Enrollment number check
-    if (!enrollment.trim()) {
-      toast.error("Enrollment number is required");
+    // Validate all fields
+    if (!fullName.trim() || !enrollment.trim()) {
+      toast.error("Please fill all fields");
       setLoading(false);
       return;
     }
 
-    // 4. Sign up in Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    // Call signup API
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName: fullName.trim(),
+          enrollment: enrollment.trim(),
+        }),
+      });
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+      const data = await response.json();
 
-    // 5. Update profile row created by trigger
-    if (data.user) {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName,
-          enrollment_number: enrollment,
-          college_email: email,
-        })
-        .eq("id", data.user.id);
-
-      if (updateError) {
-        toast.error("Profile update failed: " + updateError.message);
+      if (!response.ok) {
+        toast.error(data.error || "Signup failed");
         setLoading(false);
         return;
       }
+
+      toast.success("Account created! Redirecting to login...");
+      setTimeout(() => router.push("/login"), 1500);
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("Network error. Please try again.");
+      setLoading(false);
     }
-
-    toast.success("Signup successful! Please check your email to verify.");
-    setLoading(false);
-
-    // Optionally redirect to login after a delay
-    setTimeout(() => router.push("/login"), 2000);
   }
 
   return (

@@ -33,7 +33,9 @@
       "Bash(npm cache clean:*)",
       "Bash(del package-lock.json)",
       "Bash(git rm:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(supabase --version:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
