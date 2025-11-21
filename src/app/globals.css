@@ -3,15 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --background: transparent;
+  --background: #F9F9F9;
   --foreground: #171717;
+  --card-bg: #FFFFFF;
+  --text-primary: #171717;
+  --text-secondary: #555555;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: transparent;
-    --foreground: #ededed;
-  }
+[data-theme='dark'] {
+  --background: #121212;
+  --foreground: #EDEDED;
+  --card-bg: #1E1E1E; /* Slightly lighter than bg for depth, but cards will pop with colors */
+  --text-primary: #EDEDED;
+  --text-secondary: #AAAAAA;
 }
 
 html,

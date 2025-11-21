@@ -24,7 +24,6 @@ type ProfileEditModalProps = {
 type ProfileData = {
   full_name: string;
   location: string;
-  hometown: string;
   year: string;
   branch: string;
   gender: string;
@@ -36,7 +35,6 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
   const [profileData, setProfileData] = useState<ProfileData>({
     full_name: '',
     location: '',
-    hometown: '',
     year: '',
     branch: '',
     gender: '',
@@ -53,7 +51,7 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, location, hometown, year, branch, gender')
+        .select('full_name, location, year, branch, gender')
         .eq('id', userId)
         .single();
 
@@ -63,7 +61,6 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
         setProfileData({
           full_name: data.full_name || '',
           location: data.location || '',
-          hometown: data.hometown || '',
           year: data.year || '',
           branch: data.branch || '',
           gender: data.gender || '',
@@ -126,7 +123,6 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
         .update({
           full_name: profileData.full_name.trim(),
           location: profileData.location.trim(),
-          hometown: profileData.hometown.trim(),
           year: profileData.year,
           branch: profileData.branch,
           gender: profileData.gender,
@@ -296,18 +292,6 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
                       value={profileData.location}
                       onChangeText={(text) => setProfileData({ ...profileData, location: text })}
                       placeholder="Current city"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-
-                  {/* Hometown */}
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Hometown</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={profileData.hometown}
-                      onChangeText={(text) => setProfileData({ ...profileData, hometown: text })}
-                      placeholder="Your hometown"
                       placeholderTextColor="rgba(255,255,255,0.3)"
                     />
                   </View>

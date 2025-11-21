@@ -17,12 +17,15 @@ import {
   MessageSquare,
   AlertCircle,
   Lock,
-  ArrowLeft
+  ArrowLeft,
+  LogOut
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import { useIsMobile } from "@/hooks/useIsMobile"; // Performance: Detect mobile for conditional animations
+import { useIsMobile } from "@/hooks/useIsMobile";
+import BentoCard from "@/components/ui/BentoCard";
+import HappyButton from "@/components/ui/HappyButton";
 
 type Profile = {
   id: string;
@@ -77,7 +80,7 @@ type Rating = {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const isMobile = useIsMobile(); // Performance: Detect mobile for conditional rendering
+  const isMobile = useIsMobile();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +108,6 @@ export default function ProfilePage() {
 
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set());
 
-  // Performance: Memoize avatar URL calculation to avoid recalculating on every render
   const avatarUrl = useMemo(() => {
     if (!profile) return "";
     if (profile.profile_photo) return profile.profile_photo;
@@ -131,9 +133,9 @@ export default function ProfilePage() {
         .maybeSingle();
 
       if (!profileData) {
-        const fallbackName = session.user.user_metadata?.full_name || 
-                            session.user.user_metadata?.name || 
-                            (session.user.email ? session.user.email.split("@")[0] : "Student");
+        const fallbackName = session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          (session.user.email ? session.user.email.split("@")[0] : "Student");
 
         const { data: insertedProfile } = await supabase
           .from("profiles")
@@ -147,7 +149,7 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile(profileData);
         setDescription(profileData.description || "");
-        
+
         const locked = new Set<string>();
         if (profileData.gender_locked) locked.add("gender");
         if (profileData.height_locked) locked.add("height");
@@ -251,7 +253,6 @@ export default function ProfilePage() {
     fetchData();
   }, [router]);
 
-  // Performance: useCallback to prevent function recreation on every render
   const handleSaveDescription = useCallback(async () => {
     if (!profile) return;
 
@@ -268,7 +269,6 @@ export default function ProfilePage() {
     }
   }, [profile, description]);
 
-  // Performance: useCallback to prevent function recreation
   const handleUploadPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
     const file = e.target.files?.[0];
@@ -300,7 +300,6 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  // Performance: useCallback to prevent function recreation
   const handleRequestAction = useCallback(async (id: string, status: "accepted" | "declined") => {
     const { error } = await supabase.from("profile_requests").update({ status }).eq("id", id);
     if (!error) {
@@ -309,7 +308,6 @@ export default function ProfilePage() {
     } else toast.error("Failed to update request ❌");
   }, []);
 
-  // Performance: useCallback to prevent function recreation
   const handleEditField = useCallback((field: string, currentValue: any) => {
     if (editedFields.has(field)) {
       toast.error("This field has already been edited and cannot be changed again");
@@ -319,13 +317,11 @@ export default function ProfilePage() {
     setTempValue(currentValue || "");
   }, [editedFields]);
 
-  // Performance: useCallback to prevent function recreation
   const handleConfirmEdit = useCallback((field: string) => {
     setFieldToUpdate(field);
     setShowConfirmModal(true);
   }, []);
 
-  // Performance: useCallback to prevent function recreation
   const handleFinalUpdate = useCallback(async () => {
     if (!profile || !fieldToUpdate) return;
 
@@ -360,638 +356,457 @@ export default function ProfilePage() {
     { key: "year", label: "Year", type: "text" },
     { key: "age", label: "Age", type: "number" },
     { key: "height", label: "Height", type: "text" },
-    { key: "location", label: "Location", type: "text" },
-    { key: "hometown", label: "Hometown", type: "text" },
-    { key: "work", label: "Work", type: "text" },
-    { key: "education", label: "Education", type: "text" },
-    { key: "exercise", label: "Exercise", type: "text" },
-    { key: "drinking", label: "Drinking", type: "text" },
-    { key: "smoking", label: "Smoking", type: "text" },
-    { key: "bio", label: "Bio", type: "textarea" },
-  ];
+    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[100px]" />
+      </div >
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
+    <div className="relative z-10 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <HappyButton
+          variant="ghost"
+          onClick={() => router.push("/dashboard")}
+          icon={ArrowLeft}
         >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
-          />
-          <p className="text-white/70 text-lg font-medium">Loading profile...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
-        <p className="text-red-500">❌ Could not load or create profile</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white py-8 px-4">
-      <Toaster position="top-right" />
-
-      {/* OPTIMIZED: Simplified animated backgrounds - removed continuous scale/rotate animations */}
-      {!isMobile && (
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/5 to-transparent rounded-full blur-3xl" />
-          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/5 to-transparent rounded-full blur-3xl" />
-        </div>
-      )}
-
-      {/* Back Button */}
-      <div className="relative z-10 max-w-6xl mx-auto mb-6">
-        <motion.button
-          whileHover={{ scale: 1.05, x: -5 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => window.history.back()}
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl backdrop-blur-xl transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back</span>
-        </motion.button>
+          Back to Dashboard
+        </HappyButton>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          My Profile
+        </h1>
       </div>
 
-      {/* Main Profile Container */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 max-w-6xl mx-auto"
-      >
-        <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-          {/* Profile Header */}
-          <div className="p-8 border-b border-white/10">
-            <div className="flex flex-col lg:flex-row items-start gap-8">
-              {/* Avatar Section */}
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-cyan-500/30 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
-                <div className="relative">
-                  <img
-                    src={avatarUrl}
-                    alt="Profile Avatar"
-                    className="w-32 h-32 rounded-2xl object-cover border-2 border-white/20 shadow-lg"
-                  />
-                  <label className="absolute bottom-2 right-2 w-10 h-10 bg-purple-500 hover:bg-purple-600 rounded-lg flex items-center justify-center cursor-pointer transition-all shadow-lg group">
-                    <Camera className="w-5 h-5 text-white" />
-                    <input type="file" accept="image/*" onChange={handleUploadPhoto} className="hidden" disabled={uploading} />
-                  </label>
-                </div>
-              </div>
-
-              {/* Profile Info */}
-              <div className="flex-1">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
-                        {profile.full_name}
-                      </h1>
-                      {globalRank && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-full"
-                        >
-                          <Award className="w-4 h-4 text-yellow-400" />
-                          <span className="text-sm font-bold text-yellow-400">#{globalRank}</span>
-                        </motion.div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-1 text-sm text-white/60">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        <span>{profile.enrollment_number}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        <span>{profile.college_email}</span>
-                      </div>
-                      {profile.branch && (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-purple-500/20 border border-purple-500/30 rounded text-purple-300 text-xs font-medium">
-                            {profile.branch}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Stats & Actions */}
-                  <div className="flex flex-col gap-3">
-                    <div className="flex gap-3">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowRatingsModal(true)}
-                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
-                      >
-                        <Star className="w-4 h-4" />
-                        My Ratings
-                      </motion.button>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl">
-                      <Users className="w-4 h-4 text-cyan-400" />
-                      <span className="text-sm">
-                        <span className="font-bold text-cyan-400">{totalConnections}</span>
-                        <span className="text-white/60 ml-1">Connections</span>
-                      </span>
-                    </div>
-
-                    {profile.avg_overall_xp && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
-                        <Star className="w-4 h-4 text-yellow-400" />
-                        <span className="text-sm">
-                          <span className="font-bold text-yellow-400">{profile.avg_overall_xp}</span>
-                          <span className="text-white/60 ml-1">Avg Rating</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Description Section */}
-          <div className="p-8 border-b border-white/10">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
-              <label className="block mb-3 text-lg font-semibold flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-purple-400" />
-                {profile.description ? "Edit Description" : "Add Description"}
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-all"
-                rows={4}
-                placeholder="Tell us about yourself..."
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Profile Card & Stats */}
+        <div className="space-y-6">
+          <BentoCard variant="purple" className="text-center">
+            <div className="relative inline-block mb-4 group">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition-opacity" />
+              <img
+                src={avatarUrl}
+                alt="Profile Avatar"
+                className="relative w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl"
               />
-              <div className="flex justify-end mt-3">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleSaveDescription}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                >
-                  Save Changes
-                </motion.button>
-              </div>
+              <label className="absolute bottom-0 right-0 w-10 h-10 bg-purple-500 hover:bg-purple-600 text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-transform hover:scale-110">
+                <Camera className="w-5 h-5" />
+                <input type="file" accept="image/*" onChange={handleUploadPhoto} className="hidden" disabled={uploading} />
+              </label>
             </div>
-          </div>
 
-          {/* All Details Section */}
-          <div className="border-b border-white/10">
-            <button
-              onClick={() => setShowAllDetails(!showAllDetails)}
-              className="w-full flex items-center justify-between px-8 py-5 hover:bg-white/5 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 border border-purple-500/30 flex items-center justify-center">
-                  <User className="w-5 h-5 text-purple-400" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-bold">All Details</h3>
-                  <p className="text-sm text-white/60">One-time edit for each field</p>
-                </div>
-              </div>
-              <motion.div
-                animate={{ rotate: showAllDetails ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ChevronDown className="w-5 h-5 text-white/60" />
-              </motion.div>
-            </button>
+            <h2 className="text-2xl font-bold mb-1">{profile.full_name}</h2>
+            <p className="text-muted-foreground text-sm mb-4">{profile.college_email}</p>
 
-            <AnimatePresence>
-              {showAllDetails && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
-                >
-                  <div className="p-8 pt-0 space-y-4 max-h-[600px] overflow-y-auto">
-                    {profileFields.map((field) => {
-                      const currentValue = profile[field.key as keyof Profile];
-                      const isEdited = editedFields.has(field.key);
-                      const isEditing = editingField === field.key;
-
-                      return (
-                        <div key={field.key} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-                          <div className="flex justify-between items-start mb-3">
-                            <label className="font-semibold text-white">{field.label}</label>
-                            {isEdited && (
-                              <span className="flex items-center gap-1 text-xs bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded-full">
-                                <Lock className="w-3 h-3" />
-                                Locked
-                              </span>
-                            )}
-                          </div>
-
-                          {isEditing ? (
-                            <div className="space-y-3">
-                              {field.type === "textarea" ? (
-                                <textarea
-                                  value={tempValue}
-                                  onChange={(e) => setTempValue(e.target.value)}
-                                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  rows={3}
-                                />
-                              ) : field.type === "select" ? (
-                                <select
-                                  value={tempValue}
-                                  onChange={(e) => setTempValue(e.target.value)}
-                                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                >
-                                  <option value="">Select...</option>
-                                  {field.options?.map((opt) => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type={field.type}
-                                  value={tempValue}
-                                  onChange={(e) => setTempValue(e.target.value)}
-                                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                />
-                              )}
-                              <div className="flex gap-2">
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleConfirmEdit(field.key)}
-                                  className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition-all"
-                                >
-                                  <Check className="w-4 h-4" />
-                                  Confirm
-                                </motion.button>
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => setEditingField(null)}
-                                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
-                                >
-                                  <X className="w-4 h-4" />
-                                  Cancel
-                                </motion.button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex justify-between items-center">
-                              <p className="text-white/80">
-                                {currentValue !== null && currentValue !== undefined && currentValue !== ""
-                                  ? String(currentValue)
-                                  : <span className="text-white/40 italic">Not set</span>
-                                }
-                              </p>
-                              {!isEdited && (
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleEditField(field.key, currentValue)}
-                                  className="flex items-center gap-2 px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm transition-all"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                  Edit
-                                </motion.button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {profile.branch && (
+                <span className="px-3 py-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full text-xs font-medium border border-purple-500/20">
+                  {profile.branch}
+                </span>
               )}
-            </AnimatePresence>
-          </div>
-
-          {/* Requests Sections */}
-          <div className="p-8 space-y-4">
-            {/* Requests Sent */}
-            <div className="border border-white/10 rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm">
-              <button
-                onClick={() => setShowSent(!showSent)}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
-                    <Send className="w-5 h-5 text-cyan-400" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-bold">Requests Sent</h3>
-                    <p className="text-sm text-white/60">{requestsSent.length} pending</p>
-                  </div>
-                </div>
-                <motion.div
-                  animate={{ rotate: showSent ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ChevronDown className="w-5 h-5 text-white/60" />
-                </motion.div>
-              </button>
-
-              <AnimatePresence>
-                {showSent && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden border-t border-white/10"
-                  >
-                    <div className="p-6">
-                      {requestsSent.length > 0 ? (
-                        <div className="space-y-3">
-                          {requestsSent.map((r) => (
-                            <div key={r.id} className="flex justify-between items-center p-4 bg-white/5 border border-white/10 rounded-xl">
-                              <span className="font-medium">To: {r.to_user?.full_name || "Unknown"}</span>
-                              <span className="text-xs px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 rounded-full">
-                                {r.status}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-white/60 text-center py-4">No requests sent</p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {globalRank && (
+                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-full text-xs font-medium border border-yellow-500/20 flex items-center gap-1">
+                  <Award className="w-3 h-3" />
+                  Rank #{globalRank}
+                </span>
+              )}
             </div>
 
-            {/* Requests Received */}
-            <div className="border border-white/10 rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-background/50 rounded-xl border border-border">
+                <div className="text-2xl font-bold text-cyan-500">{totalConnections}</div>
+                <div className="text-xs text-muted-foreground">Connections</div>
+              </div>
+              <div className="p-3 bg-background/50 rounded-xl border border-border">
+                <div className="text-2xl font-bold text-yellow-500">{profile.avg_overall_xp || "-"}</div>
+                <div className="text-xs text-muted-foreground">Avg Rating</div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <HappyButton
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowRatingsModal(true)}
+                icon={Star}
+              >
+                View My Ratings
+              </HappyButton>
+            </div>
+          </BentoCard>
+
+          {/* Requests Summary */}
+          <BentoCard variant="blue" title="Requests">
+            <div className="space-y-3">
               <button
                 onClick={() => setShowReceived(!showReceived)}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-all"
+                className="w-full flex items-center justify-between p-3 bg-background/50 hover:bg-background/80 rounded-xl border border-border transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-purple-400" />
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+                    <MessageSquare className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <h3 className="font-bold">Requests Received</h3>
-                    <p className="text-sm text-white/60">{requestsReceived.length} pending</p>
+                    <div className="text-sm font-semibold">Received</div>
+                    <div className="text-xs text-muted-foreground">{requestsReceived.length} pending</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRequestAction(r.id, "accepted")}
+                      className="flex-1 py-1 bg-green-500/10 text-green-600 hover:bg-green-500/20 rounded text-xs font-medium transition-colors"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleRequestAction(r.id, "declined")}
+                      className="flex-1 py-1 bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded text-xs font-medium transition-colors"
+                    >
+                      Decline
+                    </button>
                   </div>
                 </div>
-                <motion.div
-                  animate={{ rotate: showReceived ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ChevronDown className="w-5 h-5 text-white/60" />
-                </motion.div>
-              </button>
-
-              <AnimatePresence>
-                {showReceived && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden border-t border-white/10"
-                  >
-                    <div className="p-6">
-                      {requestsReceived.length > 0 ? (
-                        <div className="space-y-3">
-                          {requestsReceived.map((r) => (
-                            <div key={r.id} className="flex justify-between items-center p-4 bg-white/5 border border-white/10 rounded-xl">
-                              <span className="font-medium">From: {r.from_user?.full_name || "Unknown"}</span>
-                              <div className="flex gap-2">
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleRequestAction(r.id, "accepted")}
-                                  className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition-all"
-                                >
-                                  Accept
-                                </motion.button>
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleRequestAction(r.id, "declined")}
-                                  className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-all"
-                                >
-                                  Decline
-                                </motion.button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-white/60 text-center py-4">No requests received</p>
+                ))
+                ) : (
+                <p className="text-xs text-center text-muted-foreground py-2">No pending requests</p>
                       )}
-                    </div>
-                  </motion.div>
+            </div>
+          </motion.div>
                 )}
-              </AnimatePresence>
+        </AnimatePresence>
+
+        <button
+          onClick={() => setShowSent(!showSent)}
+          className="w-full flex items-center justify-between p-3 bg-background/50 hover:bg-background/80 rounded-xl border border-border transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
+              <Send className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Sent</div>
+              <div className="text-xs text-muted-foreground">{requestsSent.length} pending</div>
             </div>
           </div>
-        </div>
-      </motion.div>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showSent ? "rotate-180" : ""}`} />
+        </button>
 
-      {/* Confirmation Modal */}
-      <AnimatePresence>
-        {showConfirmModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
-            onClick={() => setShowConfirmModal(false)}
-          >
+        <AnimatePresence>
+          {showSent && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-white/10"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-                  <AlertCircle className="w-6 h-6 text-red-400" />
-                </div>
-                <h3 className="text-xl font-bold text-white">Confirm One-Time Edit</h3>
-              </div>
-              
-              <p className="text-white/80 mb-6">
-                Are you sure you want to update this field? <strong className="text-red-400">You can only edit this field once.</strong> After confirming, you won't be able to change it again.
-              </p>
-              
-              <div className="flex gap-3 justify-end">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowConfirmModal(false)}
-                  className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleFinalUpdate}
-                  className="px-6 py-2 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/50 transition-all"
-                >
-                  Confirm & Lock
-                </motion.button>
+              <div className="space-y-2 pt-2">
+                {requestsSent.length > 0 ? (
+                  requestsSent.map((r) => (
+                    <div key={r.id} className="flex justify-between items-center p-3 bg-background rounded-lg border border-border text-sm">
+                      <span className="font-medium truncate mr-2">{r.to_user?.full_name}</span>
+                      <span className="text-xs px-2 py-0.5 bg-yellow-500/10 text-yellow-600 rounded-full border border-yellow-500/20">
+                        {r.status}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-center text-muted-foreground py-2">No sent requests</p>
+                )}
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
+    </BentoCard>
+        </div >
 
-      {/* Ratings Modal */}
-      <AnimatePresence>
-        {showRatingsModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
-            onClick={() => setShowRatingsModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl border border-white/10 overflow-hidden"
+    {/* Right Column: Details & Bio */ }
+    < div className = "lg:col-span-2 space-y-6" >
+      {/* Bio Section */ }
+      < BentoCard variant = "default" title = "About Me" icon = { User } >
+        <div className="bg-muted/30 rounded-xl p-4 border border-border">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full bg-transparent border-none focus:ring-0 p-0 text-foreground placeholder:text-muted-foreground resize-none"
+            rows={4}
+            placeholder="Tell us about yourself... (e.g. interests, hobbies, what you're looking for)"
+          />
+          <div className="flex justify-end mt-2 pt-2 border-t border-border">
+            <HappyButton
+              size="sm"
+              variant="periwinkle"
+              onClick={handleSaveDescription}
+              icon={Check}
             >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Star className="w-6 h-6 text-yellow-400" />
-                  My Ratings
-                </h2>
-                <button
-                  onClick={() => setShowRatingsModal(false)}
-                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              Save Bio
+            </HappyButton>
+          </div>
+        </div>
+          </BentoCard >
+
+    {/* Profile Details */ }
+    < BentoCard variant = "default" title = "Profile Details" icon = { Edit2 } >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {profileFields.map((field) => {
+          const currentValue = profile[field.key as keyof Profile];
+          const isEdited = editedFields.has(field.key);
+          const isEditing = editingField === field.key;
+
+          return (
+            <div key={field.key} className="p-4 bg-muted/20 rounded-xl border border-border hover:border-purple-500/30 transition-colors">
+              <div className="flex justify-between items-start mb-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {field.label}
+                </label>
+                {isEdited && (
+                  <span className="flex items-center gap-1 text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded-full border border-red-500/20">
+                    <Lock className="w-2.5 h-2.5" />
+                    Locked
+                  </span>
+                )}
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-2 p-6 border-b border-white/10">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab("received")}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                    activeTab === "received"
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
-                      : "bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Ratings Received ({ratingsReceived.length})
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab("given")}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                    activeTab === "given"
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
-                      : "bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Ratings Given ({ratingsGiven.length})
-                </motion.button>
-              </div>
-
-              {/* Ratings List */}
-              <div className="p-6 max-h-[500px] overflow-y-auto">
-                <div className="space-y-3">
-                  {activeTab === "received" ? (
-                    ratingsReceived.length > 0 ? (
-                      ratingsReceived.map((r, index) => (
-                        <motion.div
-                          key={r.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: isMobile ? 0 : index * 0.05 }} // Performance: Remove stagger delay on mobile
-                          className="p-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                              <Star className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-white mb-2">{r.comment}</p>
-                              <span className="text-xs text-white/40">
-                                {new Date(r.created_at).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                          <Star className="w-8 h-8 text-white/40" />
-                        </div>
-                        <p className="text-white/60">No ratings received yet</p>
-                      </div>
-                    )
-                  ) : ratingsGiven.length > 0 ? (
-                    ratingsGiven.map((r, index) => (
-                      <motion.div
-                        key={r.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: isMobile ? 0 : index * 0.05 }} // Performance: Remove stagger delay on mobile
-                        className="p-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"
-                      >
-                        <div className="flex items-start gap-3">
-                          <img
-                            src={
-                              r.to_user?.profile_photo ||
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                r.to_user?.full_name || "User"
-                              )}&background=random&size=64`
-                            }
-                            alt="avatar"
-                            className="w-10 h-10 rounded-full border-2 border-white/20"
-                          />
-                          <div className="flex-1">
-                            <p className="font-semibold text-white mb-1">{r.to_user?.full_name}</p>
-                            <p className="text-white/80 text-sm mb-2">{r.comment}</p>
-                            <span className="text-xs text-white/40">
-                              {new Date(r.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
+              {isEditing ? (
+                <div className="space-y-2">
+                  {field.type === "select" ? (
+                    <select
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      className="w-full bg-background border border-input rounded-lg p-2 text-sm focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Select...</option>
+                      {field.options?.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                        <Star className="w-8 h-8 text-white/40" />
-                      </div>
-                      <p className="text-white/60">No ratings given yet</p>
-                    </div>
+                    <input
+                      type={field.type}
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      className="w-full bg-background border border-input rounded-lg p-2 text-sm focus:ring-2 focus:ring-purple-500"
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleConfirmEdit(field.key)}
+                      className="flex-1 py-1.5 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setEditingField(null)}
+                      className="flex-1 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium hover:bg-muted/80 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center min-h-[28px]">
+                  <p className="text-foreground font-medium truncate mr-2">
+                    {currentValue !== null && currentValue !== undefined && currentValue !== ""
+                      ? String(currentValue)
+                      : <span className="text-muted-foreground/50 italic">Not set</span>
+                    }
+                  </p>
+                  {!isEdited && (
+                    <button
+                      onClick={() => handleEditField(field.key, currentValue)}
+                      className="p-1.5 text-purple-500 hover:bg-purple-500/10 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+          </BentoCard >
+        </div >
+      </div >
+    </div >
+
+    {/* Confirmation Modal */ }
+    <AnimatePresence>
+  {
+    showConfirmModal && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+        onClick={() => setShowConfirmModal(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 border border-border"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground">Confirm One-Time Edit</h3>
+          </div>
+
+          <p className="text-muted-foreground mb-6">
+            Are you sure you want to update this field? <strong className="text-red-500">You can only edit this field once.</strong> After confirming, you won't be able to change it again.
+          </p>
+
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowConfirmModal(false)}
+              className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-xl transition-all font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleFinalUpdate}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold shadow-lg shadow-red-500/20 transition-all"
+            >
+              Confirm & Lock
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    )
+  }
+  </AnimatePresence >
+
+    {/* Ratings Modal */ }
+    <AnimatePresence>
+  {
+    showRatingsModal && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4"
+        onClick={() => setShowRatingsModal(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-card rounded-2xl shadow-2xl w-full max-w-2xl border border-border overflow-hidden flex flex-col max-h-[80vh]"
+        >
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Star className="w-6 h-6 text-yellow-500" />
+              My Ratings
+            </h2>
+            <button
+              onClick={() => setShowRatingsModal(false)}
+              className="w-8 h-8 rounded-lg hover:bg-muted/50 flex items-center justify-center transition-all"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2 p-4 border-b border-border bg-card">
+            <button
+              onClick={() => setActiveTab("received")}
+              className={`flex-1 px-4 py-2 rounded-xl font-semibold transition-all text-sm ${activeTab === "received"
+                ? "bg-purple-500 text-white shadow-md"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+            >
+              Received ({ratingsReceived.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("given")}
+              className={`flex-1 px-4 py-2 rounded-xl font-semibold transition-all text-sm ${activeTab === "given"
+                ? "bg-purple-500 text-white shadow-md"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+            >
+              Given ({ratingsGiven.length})
+            </button>
+          </div>
+
+          {/* Ratings List */}
+          <div className="p-6 overflow-y-auto flex-1 bg-muted/5">
+            <div className="space-y-3">
+              {activeTab === "received" ? (
+                ratingsReceived.length > 0 ? (
+                  ratingsReceived.map((r, index) => (
+                    <motion.div
+                      key={r.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="p-4 bg-card border border-border rounded-xl shadow-sm"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 text-purple-500">
+                          <Star className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-foreground mb-2 text-sm">{r.comment}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                      <Star className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-muted-foreground">No ratings received yet</p>
+                  </div>
+                )
+              ) : ratingsGiven.length > 0 ? (
+                ratingsGiven.map((r, index) => (
+                  <motion.div
+                    key={r.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-4 bg-card border border-border rounded-xl shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={
+                          r.to_user?.profile_photo ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            r.to_user?.full_name || "User"
+                          )}&background=random&size=64`
+                        }
+                        alt="avatar"
+                        className="w-10 h-10 rounded-full border border-border object-cover"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-foreground text-sm mb-1">{r.to_user?.full_name}</p>
+                        <p className="text-muted-foreground text-sm mb-2">{r.comment}</p>
+                        <span className="text-xs text-muted-foreground/70">
+                          {new Date(r.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                    <Star className="w-8 h-8 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-muted-foreground">No ratings given yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    )
+  }
+  </AnimatePresence >
+    </div >
   );
 }

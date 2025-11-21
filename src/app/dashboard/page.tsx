@@ -10,6 +10,9 @@ import AdBanner from "@/components/ads";
 import TokenBalanceModal from "@/components/tokens/TokenBalanceModal";
 import TokenPurchaseModal from "@/components/tokens/TokenPurchaseModal";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import BentoCard from "@/components/ui/BentoCard";
+import HappyButton from "@/components/ui/HappyButton";
+import { useTheme } from "@/context/ThemeContext";
 import {
   Users,
   Heart,
@@ -27,7 +30,8 @@ import {
   Coins,
   HelpCircle,
   Info,
-  Send
+  Send,
+  LogOut
 } from "lucide-react";
 
 type NewsType = "rating" | "user_message" | "dating_chat" | "club_event" | "club_message" | "campus_news";
@@ -59,6 +63,7 @@ export default function Dashboard() {
   const router = useRouter();
   // OPTIMIZATION: Detect mobile devices to disable heavy animations
   const isMobile = useIsMobile();
+  const { theme, toggleTheme } = useTheme();
 
   const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +71,7 @@ export default function Dashboard() {
   const [campusNews, setCampusNews] = useState<CampusNewsArticle[]>([]);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState<CampusNewsArticle | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Dropdown states
   const [updatesExpanded, setUpdatesExpanded] = useState(false);
   const [newsExpanded, setNewsExpanded] = useState(true);
@@ -75,7 +80,7 @@ export default function Dashboard() {
   const [currentPinnedIndex, setCurrentPinnedIndex] = useState(0);
   const [currentNewIndex, setCurrentNewIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left');
-  
+
   const removedItemsRef = useRef<Set<string>>(new Set());
   const readItemsRef = useRef<Set<string>>(new Set());
   const readNewsRef = useRef<Set<string>>(new Set());
@@ -94,7 +99,6 @@ export default function Dashboard() {
   const [onboardingData, setOnboardingData] = useState({
     full_name: "",
     location: "",
-    hometown: "",
     year: "",
     branch: "",
     gender: ""
@@ -289,15 +293,14 @@ export default function Dashboard() {
 
   async function handleOnboardingSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!userIdRef.current) return;
-    
+
     const { error } = await supabase
       .from("profiles")
       .update({
         full_name: onboardingData.full_name,
         location: onboardingData.location,
-        hometown: onboardingData.hometown,
         year: onboardingData.year,
         branch: onboardingData.branch,
         gender: onboardingData.gender,
@@ -505,7 +508,7 @@ export default function Dashboard() {
           try {
             const { data } = await supabase.from("profiles").select("full_name").eq("id", m.from_user_id).maybeSingle();
             name = data?.full_name || name;
-          } catch (e) {}
+          } catch (e) { }
           const item: NewsItem = {
             id: `um-${m.id}`,
             type: "user_message",
@@ -579,7 +582,7 @@ export default function Dashboard() {
 
   function cleanupRealtime() {
     if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current).catch(() => {});
+      supabase.removeChannel(realtimeChannelRef.current).catch(() => { });
       realtimeChannelRef.current = null;
     }
   }
@@ -781,7 +784,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <LazyMotion features={domAnimation}>
-        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+        <div className="flex h-screen items-center justify-center bg-background">
           <m.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -792,7 +795,7 @@ export default function Dashboard() {
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
             />
-            <p className="text-white/70 text-lg font-medium">Loading Campus5...</p>
+            <p className="text-foreground/70 text-lg font-medium">Loading Campus5...</p>
           </m.div>
         </div>
       </LazyMotion>
@@ -801,1312 +804,784 @@ export default function Dashboard() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white overflow-x-hidden">
-        {/* OPTIMIZATION: Animated background only on desktop - too heavy for mobile */}
-        {!isMobile && (
-          <div className="fixed inset-0 overflow-hidden pointer-events-none">
-            <m.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 20, repeat: Infinity }}
-              className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl"
-            />
-            <m.div
-              animate={{
-                scale: [1.2, 1, 1.2],
-                rotate: [90, 0, 90],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{ duration: 25, repeat: Infinity }}
-              className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-3xl"
-            />
-          </div>
-        )}
-
-      {/* Header */}
-      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-3 md:py-4">
-          <div className="flex items-center justify-between">
-            <m.h1
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="text-base md:text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent"
-            >
-              Welcome to Campus5
-            </m.h1>
-
-            <div className="flex items-center gap-2 md:gap-4">
-              {/* Token Balance */}
-              <m.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowTokenBalance(true)}
-                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
+      <div className="min-h-screen bg-background text-foreground overflow-x-hidden transition-colors duration-300">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute bottom-[10%] left-[20%] w-[40%] h-[40%] rounded-full bg-pink-500/10 blur-3xl" />
+        </div>
+        <header className="relative z-10 border-b border-border/50 backdrop-blur-xl bg-background/80 sticky top-0">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-6 py-3 md:py-4">
+            <div className="flex items-center justify-between">
+              <m.h1
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent"
               >
-                <Coins className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
-                <span className="text-xs md:text-sm font-semibold text-yellow-400">{tokenBalance}</span>
-                <span className="hidden md:inline text-xs text-yellow-400/70">Tokens</span>
-              </m.button>
+                Campus5
+              </m.h1>
 
-              {/* Profile */}
-              <m.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => router.push("/profile")}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-              >
-                {profileName?.charAt(0) || "U"}
-              </m.button>
+              <div className="flex items-center gap-2 md:gap-3">
+                <HappyButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="rounded-full"
+                >
+                  {theme === 'dark' ? '🌙' : '☀️'}
+                </HappyButton>
 
-              {/* Menu */}
-              <m.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSidebarOpen(true)}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
-              >
-                <Menu className="w-4 h-4 md:w-5 md:h-5" />
-              </m.button>
+                <HappyButton
+                  variant="yellow"
+                  size="sm"
+                  onClick={() => setShowTokenBalance(true)}
+                  icon={Coins}
+                  className="hidden md:flex"
+                >
+                  {tokenBalance}
+                </HappyButton>
+                <HappyButton
+                  variant="yellow"
+                  size="icon"
+                  onClick={() => setShowTokenBalance(true)}
+                  className="md:hidden"
+                >
+                  <Coins className="w-4 h-4" />
+                </HappyButton>
+
+                <div
+                  onClick={() => router.push("/profile")}
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold cursor-pointer hover:shadow-lg transition-all"
+                >
+                  {profileName?.charAt(0) || "U"}
+                </div>
+
+                <HappyButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <Menu className="w-5 h-5" />
+                </HappyButton>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+        <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-6 pb-24 md:pb-6">
 
-      {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 py-3 pb-20 md:pb-3">
-        {/* Desktop Layout */}
-        <div className="hidden md:grid grid-cols-12 gap-6 min-h-[calc(100vh-120px)]">
-          {/* Left Sidebar: Navigation Cards */}
-          <div className="col-span-3 space-y-4">
-            {/* Clubs */}
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push("/clubs")}
-              className="cursor-pointer group relative"
-            >
-              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
-              <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-6 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/30 transition-all">
-                <div className="flex flex-col items-center text-center space-y-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Users className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">Clubs</h3>
-                    <p className="text-xs text-white/60">Community</p>
-                  </div>
+          {/* Desktop Grid */}
+          <div className="hidden md:grid grid-cols-12 gap-6">
+            {/* Left Column - Navigation */}
+            <div className="col-span-3 space-y-6">
+              <BentoCard
+                title="Clubs"
+                subtitle="Join the community"
+                icon={Users}
+                variant="purple"
+                onClick={() => router.push("/clubs")}
+                delay={0.1}
+              >
+                <div className="mt-2 text-sm opacity-80">
+                  Discover events and join student clubs.
                 </div>
-              </div>
-            </m.div>
+              </BentoCard>
 
-            {/* Dating */}
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push("/dating")}
-              className="cursor-pointer group relative"
-            >
-              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
-              <div className="relative bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl rounded-2xl border border-pink-500/30 p-6 hover:border-pink-500/50 hover:shadow-lg hover:shadow-pink-500/30 transition-all">
-                <div className="flex flex-col items-center text-center space-y-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Heart className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">Dating</h3>
-                    <p className="text-xs text-white/60">Connect</p>
-                  </div>
+              <BentoCard
+                title="Dating"
+                subtitle="Find your match"
+                icon={Heart}
+                variant="pink"
+                onClick={() => router.push("/dating")}
+                delay={0.2}
+              >
+                <div className="mt-2 text-sm opacity-80">
+                  Connect with other students nearby.
                 </div>
-              </div>
-            </m.div>
+              </BentoCard>
 
-            {/* Rating */}
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push("/ratings")}
-              className="cursor-pointer group relative"
-            >
-              {/* OPTIMIZED: Removed continuous boxShadow animation, using CSS hover effect instead */}
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-2xl blur-lg group-hover:blur-xl transition-all" />
-              <div className="relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-xl rounded-2xl border border-cyan-500/30 p-6 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/30 transition-all">
-                <div className="flex flex-col items-center text-center space-y-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Star className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">Rating</h3>
-                    <p className="text-xs text-white/60">Review</p>
-                  </div>
+              <BentoCard
+                title="Ratings"
+                subtitle="Rate everything"
+                icon={Star}
+                variant="cyan"
+                onClick={() => router.push("/ratings")}
+                delay={0.3}
+              >
+                <div className="mt-2 text-sm opacity-80">
+                  Share your opinion on campus life.
                 </div>
-              </div>
-            </m.div>
-          </div>
+              </BentoCard>
+            </div>
 
-          {/* Center: Featured/Ads Section */}
-          <div className="col-span-6">
-            {/* OPTIMIZED: Simplified container - removed pulsing animation, using static gradient with hover effect */}
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="relative group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-3xl blur-xl group-hover:from-purple-500/20 group-hover:to-cyan-500/20 transition-all" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:border-white/20 transition-all">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    📢 Featured
-                  </h3>
-                  <span className="text-xs text-white/50 px-3 py-1 bg-white/5 rounded-full">Sponsored</span>
-                </div>
-
-                <div>
-                  <AdBanner placement="dashboard" />
-                </div>
-              </div>
-            </m.div>
-          </div>
-
-          {/* Right Sidebar: Updates & News */}
-          <div className="col-span-3 space-y-4">
-            {/* Updates Card with Dropdown - OPTIMIZED */}
-            <m.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="relative group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 rounded-2xl blur-lg group-hover:from-cyan-500/10 group-hover:to-blue-500/10 transition-all" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-cyan-500/30 transition-all">
-                <button
-                  onClick={() => setUpdatesExpanded(!updatesExpanded)}
-                  className="flex items-center justify-between w-full mb-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-base font-bold text-white">Updates</h3>
-                      <span className="text-xs text-white/40">{news.length} items</span>
-                    </div>
-                  </div>
-                  {/* OPTIMIZED: Simplified rotation animation */}
-                  <m.div
-                    animate={{ rotate: updatesExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <ChevronDown className="w-5 h-5 text-white/60" />
-                  </m.div>
-                </button>
-
-                {/* OPTIMIZED: Simplified AnimatePresence - reduced duration and removed complex animations */}
-                <AnimatePresence>
-                  {updatesExpanded && (
-                    <m.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {news.length > 0 && (
-                        <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearAllNews();
-                            }}
-                            className="text-xs text-white/40 hover:text-white/60 transition-colors"
-                          >
-                            Clear all
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {news.length === 0 ? (
-                          <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
-                        ) : (
-                          news.slice(0, 3).map((item, index) => (
-                            /* OPTIMIZED: Removed stagger delay and whileHover animation, using CSS instead */
-                            <m.div
-                              key={item.id}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.2 }}
-                              className="group/item cursor-pointer"
-                            >
-                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2 border border-white/5 hover:border-cyan-500/30 hover:translate-x-1 transition-all duration-200">
-                                <div className="flex items-start gap-2">
-                                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                    {getNewsIcon(item.type)}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <button
-                                        onClick={() => handleNewsClick(item)}
-                                        className="flex-1 text-left"
-                                      >
-                                        <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1 group-hover/item:text-cyan-400 transition-colors">
-                                          {item.title}
-                                        </h4>
-                                        {item.body && (
-                                          <p className="text-xs text-white/60 line-clamp-1">{item.body}</p>
-                                        )}
-                                        <time className="text-xs text-white/40 mt-0.5 block">
-                                          {new Date(item.created_at).toLocaleDateString("en-US", {
-                                            month: "short",
-                                            day: "numeric",
-                                          })}
-                                        </time>
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          removeNewsItem(item.id);
-                                        }}
-                                        className="text-white/40 hover:text-white/80 flex-shrink-0 transition-colors"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </m.div>
-                          ))
-                        )}
-                      </div>
-                    </m.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </m.div>
-
-            
-            
-
-            {/* News Card with Dropdown - OPTIMIZED */}
-            <m.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="relative group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 rounded-2xl blur-lg group-hover:from-purple-500/10 group-hover:to-pink-500/10 transition-all" />
-              <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-5 hover:border-purple-500/30 transition-all">
-                <button
-                  onClick={() => setNewsExpanded(!newsExpanded)}
-                  className="flex items-center justify-between w-full mb-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                      <Newspaper className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-base font-bold text-white">News</h3>
-                      <span className="text-xs text-white/40">
-                        {unreadCampusNews.length} new
-                      </span>
-                    </div>
-                  </div>
-                  {/* OPTIMIZED: Simplified rotation animation */}
-                  <m.div
-                    animate={{ rotate: newsExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <ChevronDown className="w-5 h-5 text-white/60" />
-                  </m.div>
-                </button>
-
-                {/* OPTIMIZED: Simplified AnimatePresence - reduced duration */}
-                <AnimatePresence>
-                  {newsExpanded && (
-                    <m.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="flex items-center justify-end mb-3 pt-2 border-t border-white/5">
-                        <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
-                          View all
-                        </Link>
-                      </div>
-
-                      <div className="space-y-2">
-                        {(() => {
-                          // OPTIMIZATION: Use memoized unread news instead of filtering on every render
-
-                          // Get current items to display
-                          const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
-                          const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
-
-                          const displayNews = [currentPinned, currentNew].filter(Boolean) as CampusNewsArticle[];
-
-                          if (displayNews.length === 0) {
-                            return <p className="text-white/40 text-sm text-center py-6">No new news</p>;
-                          }
-
-                          return displayNews.map((article, slotIndex) => (
-                            <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
-                              {/* OPTIMIZED: Simplified slide transition - reduced duration and complexity */}
-                              <AnimatePresence mode="wait">
-                                <m.div
-                                  key={article.id}
-                                  initial={{ x: slideDirection === 'left' ? 50 : -50, opacity: 0 }}
-                                  animate={{ x: 0, opacity: 1 }}
-                                  exit={{ x: slideDirection === 'left' ? -50 : 50, opacity: 0 }}
-                                  transition={{ duration: 0.3 }}
-                                  onClick={() => openNewsModal(article)}
-                                  className="group/item cursor-pointer"
-                                >
-                                  <div className="bg-white/5 hover:bg-white/10 rounded-xl p-2.5 border border-white/5 hover:border-purple-500/30 hover:translate-x-1 transition-all duration-200">
-                                    <div className="flex items-start gap-2">
-                                      {article.image_url ? (
-                                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                                          <img
-                                            src={article.image_url}
-                                            alt={article.title}
-                                            className="w-full h-full object-cover"
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl`}>
-                                          {getCategoryIcon(article.category)}
-                                        </div>
-                                      )}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 mb-0.5">
-                                          <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
-                                            {article.category}
-                                          </span>
-                                          {article.pinned && (
-                                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                                              📌
-                                            </span>
-                                          )}
-                                        </div>
-                                        <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1 group-hover/item:text-purple-400 transition-colors">
-                                          {article.title}
-                                        </h4>
-                                        {article.excerpt && (
-                                          <p className="text-xs text-white/60 line-clamp-1">{article.excerpt}</p>
-                                        )}
-                                        <div className="flex items-center gap-2 mt-1 text-xs text-white/40">
-                                          <span className="flex items-center gap-1">
-                                            👁️ {article.views}
-                                          </span>
-                                          <span>•</span>
-                                          <time>
-                                            {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
-                                              month: "short",
-                                              day: "numeric",
-                                            })}
-                                          </time>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </m.div>
-                              </AnimatePresence>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </m.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </m.div>
-          </div>
-        </div>
-
-        {/* Mobile Layout */}
-        <div className="md:hidden space-y-4">
-          {/* Ads Section */}
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  📢 Ads
-                </h3>
-              </div>
-              <div>
+            {/* Center Column - Featured */}
+            <div className="col-span-6 space-y-6">
+              <BentoCard
+                title="Featured"
+                variant="default"
+                className="min-h-[200px]"
+              >
                 <AdBanner placement="dashboard" />
+              </BentoCard>
+
+              <div className="p-6 rounded-bento bg-card border border-border shadow-sm">
+                <h2 className="text-xl font-bold mb-2">Hello, {profileName || 'Student'}! 👋</h2>
+                <p className="text-muted-foreground">Welcome back to your campus dashboard. Check out what's new today.</p>
               </div>
             </div>
-          </m.div>
 
-          {/* Updates Card */}
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <button
-                onClick={() => setUpdatesExpanded(!updatesExpanded)}
-                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
+            {/* Right Column - Updates */}
+            <div className="col-span-3 space-y-6">
+              <BentoCard
+                title="Updates"
+                icon={TrendingUp}
+                variant="blue"
+                className="max-h-[400px] overflow-hidden flex flex-col"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-sm font-bold text-white">Updates</h3>
-                    <span className="text-xs text-white/40">{news.length} items</span>
-                  </div>
-                </div>
-                <m.div
-                  animate={{ rotate: updatesExpanded ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="text-white/60"
-                >
-                  {updatesExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
-                </m.div>
-              </button>
-
-              <AnimatePresence>
-                {updatesExpanded && (
-                  <m.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="px-4 py-3"
-                  >
-                    {news.length > 0 && (
-                      <div className="flex items-center justify-end mb-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearAllNews();
-                          }}
-                          className="text-xs text-white/40 hover:text-white/60"
-                        >
-                          Clear all
-                        </button>
+                <div className="overflow-y-auto pr-2 mt-2 space-y-3 scrollbar-hide">
+                  {news.length === 0 ? (
+                    <p className="text-sm opacity-60">No recent updates</p>
+                  ) : (
+                    news.slice(0, 5).map(item => (
+                      <div key={item.id} className="p-3 rounded-xl bg-background/50 border border-border/50 text-sm cursor-pointer hover:bg-background/80 transition-colors" onClick={() => handleNewsClick(item)}>
+                        <div className="font-semibold">{item.title}</div>
+                        <div className="text-xs opacity-70 mt-1">{new Date(item.created_at).toLocaleDateString()}</div>
                       </div>
-                    )}
-
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                      {news.length === 0 ? (
-                        <p className="text-white/40 text-sm text-center py-6">No recent updates</p>
-                      ) : (
-                        news.slice(0, 5).map((item, index) => (
-                          <m.div
-                            key={item.id}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="group/item cursor-pointer"
-                          >
-                            <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-cyan-500/30 transition-all">
-                              <div className="flex items-start gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                  {getNewsIcon(item.type)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <button
-                                      onClick={() => handleNewsClick(item)}
-                                      className="flex-1 text-left"
-                                    >
-                                      <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-1">
-                                        {item.title}
-                                      </h4>
-                                      {item.body && (
-                                        <p className="text-xs text-white/60 line-clamp-2">{item.body}</p>
-                                      )}
-                                      <time className="text-xs text-white/40 mt-0.5 block">
-                                        {new Date(item.created_at).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </time>
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeNewsItem(item.id);
-                                      }}
-                                      className="text-white/40 hover:text-white/80 flex-shrink-0"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </m.div>
-                        ))
-                      )}
-                    </div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </m.div>
-
-          {/* News Card */}
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="relative group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
-            <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <button
-                onClick={() => setNewsExpanded(!newsExpanded)}
-                className="flex items-center justify-between w-full px-4 py-3 border-b border-white/5"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <Newspaper className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-sm font-bold text-white">News</h3>
-                    <span className="text-xs text-white/40">
-                      {unreadCampusNews.length} new
-                    </span>
-                  </div>
-                </div>
-                <m.div
-                  animate={{ rotate: newsExpanded ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="text-white/60"
-                >
-                  {newsExpanded ? "✓" : <ChevronDown className="w-5 h-5" />}
-                </m.div>
-              </button>
-
-              <AnimatePresence>
-                {newsExpanded && (
-                  <m.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="px-4 py-3"
-                  >
-                    <div className="flex items-center justify-end mb-3">
-                      <Link href="/news" className="text-sm text-purple-400 hover:text-purple-300">
-                        View all
-                      </Link>
-                    </div>
-
-                    <div className="space-y-2">
-                      {(() => {
-                        // OPTIMIZATION: Use memoized unread news instead of filtering on every render
-                        const currentPinned = pinnedNews.length > 0 ? pinnedNews[currentPinnedIndex % pinnedNews.length] : null;
-                        const currentNew = newNews.length > 0 ? newNews[currentNewIndex % newNews.length] : null;
-
-                        const displayNews = [currentPinned, currentNew].filter(Boolean) as CampusNewsArticle[];
-
-                        if (displayNews.length === 0) {
-                          return <p className="text-white/40 text-sm text-center py-6">No new news</p>;
-                        }
-
-                        return displayNews.map((article, slotIndex) => (
-                          <div key={`slot-${slotIndex}`} className="relative overflow-hidden">
-                            <m.div
-                              key={article.id}
-                              onClick={() => openNewsModal(article)}
-                              className="group/item cursor-pointer"
-                            >
-                              <div className="bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/5 hover:border-purple-500/30 transition-all">
-                                <div className="flex items-start gap-2">
-                                  {article.image_url ? (
-                                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                                      <img
-                                        src={article.image_url}
-                                        alt={article.title}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getCategoryColor(article.category)} flex items-center justify-center flex-shrink-0 text-xl`}>
-                                      {getCategoryIcon(article.category)}
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${getCategoryColor(article.category)} font-medium`}>
-                                        {article.category}
-                                      </span>
-                                      {article.pinned && (
-                                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                                          📌
-                                        </span>
-                                      )}
-                                    </div>
-                                    <h4 className="font-semibold text-sm text-white mb-0.5 line-clamp-2">
-                                      {article.title}
-                                    </h4>
-                                    {article.excerpt && (
-                                      <p className="text-xs text-white/60 line-clamp-2">{article.excerpt}</p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-1 text-xs text-white/40">
-                                      <span className="flex items-center gap-1">
-                                        👁️ {article.views}
-                                      </span>
-                                      <span>•</span>
-                                      <time>
-                                        {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </time>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </m.div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </m.div>
-        </div>
-      </main>
-
-      {/* Bottom Navigation (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-xl border-t border-white/10">
-        <div className="grid grid-cols-3 gap-1 px-4 py-3">
-          <m.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => router.push("/clubs")}
-            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
-              <Users className="w-5 h-5 text-purple-400" />
-            </div>
-            <span className="text-xs font-medium text-white/80">Clubs</span>
-          </m.button>
-
-          <m.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => router.push("/ratings")}
-            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
-              <Star className="w-5 h-5 text-cyan-400" />
-            </div>
-            <span className="text-xs font-medium text-white/80">Ratings</span>
-          </m.button>
-
-          <m.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => router.push("/dating")}
-            className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl hover:bg-white/5 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/30 flex items-center justify-center">
-              <Heart className="w-5 h-5 text-pink-400" />
-            </div>
-            <span className="text-xs font-medium text-white/80">Dating</span>
-          </m.button>
-        </div>
-      </nav>
-
-      {/* All Modals */}
-      
-      {/* Onboarding Modal */}
-      <AnimatePresence>
-        {showOnboardingModal && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-          >
-            <m.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-white/10 max-h-[90vh] overflow-y-auto"
-            >
-              <h2 className="text-2xl font-bold text-white mb-2">Welcome to Campus5! 🎉</h2>
-              <p className="text-sm text-white/60 mb-6">Complete your profile to get started</p>
-
-              <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Full Name *</label>
-                  <input
-                    required
-                    value={onboardingData.full_name}
-                    onChange={(e) => setOnboardingData({...onboardingData, full_name: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="John Doe"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Gender *</label>
-                  <select
-                    required
-                    value={onboardingData.gender}
-                    onChange={(e) => setOnboardingData({...onboardingData, gender: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Current Year *</label>
-                  <select
-                    required
-                    value={onboardingData.year}
-                    onChange={(e) => setOnboardingData({...onboardingData, year: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                  >
-                    <option value="">Select year</option>
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Branch/Course *</label>
-                  <select
-                    required
-                    value={onboardingData.branch}
-                    onChange={(e) => setOnboardingData({...onboardingData, branch: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                  >
-                    <option value="">Select branch</option>
-                    <option value="CSE">CSE</option>
-                    <option value="ECE">ECE</option>
-                    <option value="IT">IT</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Civil">Civil</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Location</label>
-                  <input
-                    value={onboardingData.location}
-                    onChange={(e) => setOnboardingData({...onboardingData, location: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="Current city"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Hometown</label>
-                  <input
-                    value={onboardingData.hometown}
-                    onChange={(e) => setOnboardingData({...onboardingData, hometown: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="Your hometown"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                >
-                  Complete Profile
-                </button>
-              </form>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      {/* Token Balance Modal */}
-      {showTokenBalance && userIdRef.current && (
-        <TokenBalanceModal
-          userId={userIdRef.current}
-          onClose={() => setShowTokenBalance(false)}
-          onAddTokens={() => setShowTokenPurchase(true)}
-        />
-      )}
-
-      {/* Token Purchase Modal */}
-      {showTokenPurchase && userIdRef.current && (
-        <TokenPurchaseModal
-          userId={userIdRef.current}
-          onClose={() => setShowTokenPurchase(false)}
-        />
-      )}
-
-      {/* News Detail Modal */}
-      <AnimatePresence>
-        {selectedNewsArticle && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeNewsModal}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          >
-            <m.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-white/10"
-            >
-              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between z-10">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(selectedNewsArticle.category)} font-medium`}>
-                    {getCategoryIcon(selectedNewsArticle.category)} {selectedNewsArticle.category}
-                  </span>
-                  {selectedNewsArticle.pinned && (
-                    <span className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                      📌 Pinned
-                    </span>
+                    ))
                   )}
                 </div>
-                <button
-                  onClick={closeNewsModal}
-                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              </BentoCard>
 
-              <div className="p-8">
-                <h1 className="text-3xl font-bold text-white mb-4">
-                  {selectedNewsArticle.title}
-                </h1>
-
-                <div className="flex items-center gap-4 text-sm text-white/60 mb-6">
-                  <span className="flex items-center gap-1">
-                    📅 {new Date(selectedNewsArticle.published_at || selectedNewsArticle.created_at).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    👁️ {selectedNewsArticle.views} views
-                  </span>
+              <BentoCard
+                title="Campus News"
+                icon={Newspaper}
+                variant="orange"
+              >
+                <div className="mt-2">
+                  <div className="text-sm font-medium mb-2">{unreadCampusNews.length} new articles</div>
+                  <HappyButton size="sm" variant="outline" onClick={() => router.push("/news")} className="w-full">Read News</HappyButton>
                 </div>
+              </BentoCard>
+            </div>
+          </div>
 
-                {selectedNewsArticle.image_url && (
-                  <img
-                    src={selectedNewsArticle.image_url}
-                    alt={selectedNewsArticle.title}
-                    className="w-full h-96 object-cover rounded-xl mb-6"
-                  />
-                )}
+          {/* Mobile Layout */}
+          <div className="md:hidden space-y-4">
+            <BentoCard
+              title="Clubs"
+              icon={Users}
+              variant="purple"
+              onClick={() => router.push("/clubs")}
+            />
+            <BentoCard
+              title="Dating"
+              icon={Heart}
+              variant="pink"
+              onClick={() => router.push("/dating")}
+            />
+            <BentoCard
+              title="Ratings"
+              icon={Star}
+              variant="cyan"
+              onClick={() => router.push("/ratings")}
+            />
 
-                <div className="prose prose-invert max-w-none">
-                  <div className="text-white/80 whitespace-pre-wrap leading-relaxed">
-                    {selectedNewsArticle.content}
-                  </div>
-                </div>
-              </div>
+            <BentoCard title="Featured">
+              <AdBanner placement="dashboard" />
+            </BentoCard>
 
-              <div className="border-t border-white/10 p-6 flex items-center justify-between bg-slate-900/50">
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}/news/${selectedNewsArticle.id}`;
-                    navigator.clipboard.writeText(url);
-                  }}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 transition-all"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Copy Link
-                </button>
-                <button
-                  onClick={closeNewsModal}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                >
-                  Close
-                </button>
-              </div>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
+            <BentoCard title="Updates" icon={TrendingUp} variant="blue">
+              <div className="text-sm opacity-80">{news.length} updates available</div>
+            </BentoCard>
+          </div>
 
-      {/* Sidebar Menu */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <>
+        </main>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border pb-safe">
+          <div className="grid grid-cols-4 gap-1 px-2 py-3">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 p-2 text-primary">
+              <div className="p-1 rounded-full bg-primary/10"><Menu className="w-5 h-5" /></div>
+              <span className="text-[10px] font-medium">Home</span>
+            </Link>
+            <Link href="/clubs" className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-primary">
+              <Users className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Clubs</span>
+            </Link>
+            <Link href="/dating" className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-primary">
+              <Heart className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Dating</span>
+            </Link>
+            <Link href="/ratings" className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-primary">
+              <Star className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Ratings</span>
+            </Link>
+          </div>
+        </nav>
+        {/* All Modals */}
+
+        {/* Onboarding Modal */}
+        <AnimatePresence>
+          {showOnboardingModal && (
             <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-            />
-            <m.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 20 }}
-              className="fixed top-0 right-0 z-50 h-full w-[360px] bg-slate-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl overflow-y-auto"
+              className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
             >
-              <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <m.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-card text-card-foreground rounded-bento shadow-2xl w-full max-w-md p-6 border border-border max-h-[90vh] overflow-y-auto"
+              >
+                <h2 className="text-2xl font-bold mb-2">Welcome to Campus5! 🎉</h2>
+                <p className="text-sm text-muted-foreground mb-6">Complete your profile to get started</p>
+
+                <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Full Name *</label>
+                    <input
+                      required
+                      value={onboardingData.full_name}
+                      onChange={(e) => setOnboardingData({ ...onboardingData, full_name: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Gender *</label>
+                    <select
+                      required
+                      value={onboardingData.gender}
+                      onChange={(e) => setOnboardingData({ ...onboardingData, gender: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Current Year *</label>
+                    <select
+                      required
+                      value={onboardingData.year}
+                      onChange={(e) => setOnboardingData({ ...onboardingData, year: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                    >
+                      <option value="">Select year</option>
+                      <option value="1st Year">1st Year</option>
+                      <option value="2nd Year">2nd Year</option>
+                      <option value="3rd Year">3rd Year</option>
+                      <option value="4th Year">4th Year</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Branch/Course *</label>
+                    <select
+                      required
+                      value={onboardingData.branch}
+                      onChange={(e) => setOnboardingData({ ...onboardingData, branch: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                    >
+                      <option value="">Select branch</option>
+                      <option value="CSE">CSE</option>
+                      <option value="ECE">ECE</option>
+                      <option value="IT">IT</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Civil">Civil</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Location</label>
+                    <input
+                      value={onboardingData.location}
+                      onChange={(e) => setOnboardingData({ ...onboardingData, location: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="Current city"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                  >
+                    Complete Profile
+                  </button>
+                </form>
+              </m.div>
+            </m.div>
+          )}
+        </AnimatePresence>
+
+        {/* Token Balance Modal */}
+        {showTokenBalance && userIdRef.current && (
+          <TokenBalanceModal
+            userId={userIdRef.current}
+            onClose={() => setShowTokenBalance(false)}
+            onAddTokens={() => setShowTokenPurchase(true)}
+          />
+        )}
+
+        {/* Token Purchase Modal */}
+        {showTokenPurchase && userIdRef.current && (
+          <TokenPurchaseModal
+            userId={userIdRef.current}
+            onClose={() => setShowTokenPurchase(false)}
+          />
+        )}
+
+        {/* News Detail Modal */}
+        <AnimatePresence>
+          {selectedNewsArticle && (
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeNewsModal}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            >
+              <m.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-card text-card-foreground rounded-bento shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-border"
+              >
+                <div className="sticky top-0 bg-card/95 backdrop-blur-xl border-b border-border p-6 flex items-center justify-between z-10">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg">
-                      {profileName?.charAt(0) || "U"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{profileName}</p>
-                      <p className="text-xs text-white/60">Student Member</p>
-                    </div>
+                    <span className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(selectedNewsArticle.category)} font-medium`}>
+                      {getCategoryIcon(selectedNewsArticle.category)} {selectedNewsArticle.category}
+                    </span>
+                    {selectedNewsArticle.pinned && (
+                      <span className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                        📌 Pinned
+                      </span>
+                    )}
                   </div>
                   <button
-                    onClick={() => setSidebarOpen(false)}
-                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                    onClick={closeNewsModal}
+                    className="w-10 h-10 rounded-xl bg-muted/50 hover:bg-muted border border-border flex items-center justify-center transition-all"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                  <button
-                    onClick={() => {
-                      setSidebarOpen(false);
-                      router.push("/profile");
-                    }}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/30 transition-all text-left"
-                  >
-                    <Award className="w-5 h-5 text-purple-400" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">View Profile</div>
-                      <div className="text-xs text-white/60">Manage your account</div>
-                    </div>
-                  </button>
+                <div className="p-8">
+                  <h1 className="text-3xl font-bold mb-4">
+                    {selectedNewsArticle.title}
+                  </h1>
 
-                  <button
-                    onClick={() => {
-                      setSidebarOpen(false);
-                      router.push("/membership");
-                    }}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-500/30 transition-all text-left"
-                  >
-                    <Bell className="w-5 h-5 text-cyan-400" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">Membership</div>
-                      <div className="text-xs text-white/60">Status & history</div>
-                    </div>
-                  </button>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
+                    <span className="flex items-center gap-1">
+                      📅 {new Date(selectedNewsArticle.published_at || selectedNewsArticle.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      👁️ {selectedNewsArticle.views} views
+                    </span>
+                  </div>
 
-                  <button
-                    onClick={() => {
-                      setAboutOpen(true);
-                    }}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 transition-all text-left"
-                  >
-                    <Info className="w-5 h-5 text-blue-400" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">About</div>
-                      <div className="text-xs text-white/60">About this project</div>
-                    </div>
-                  </button>
+                  {selectedNewsArticle.image_url && (
+                    <img
+                      src={selectedNewsArticle.image_url}
+                      alt={selectedNewsArticle.title}
+                      className="w-full h-96 object-cover rounded-xl mb-6"
+                    />
+                  )}
 
-                  <button
-                    onClick={() => {
-                      setHelpOpen(true);
-                    }}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-green-500/30 transition-all text-left"
-                  >
-                    <HelpCircle className="w-5 h-5 text-green-400" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">Help Center</div>
-                      <div className="text-xs text-white/60">Contact / Support</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setFeedbackOpen(true);
-                    }}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-yellow-500/30 transition-all text-left"
-                  >
-                    <Send className="w-5 h-5 text-yellow-400" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">Send Feedback</div>
-                      <div className="text-xs text-white/60">Tell us what you think</div>
-                    </div>
-                  </button>
-
-                  <div className="mt-4 border-t border-white/10 pt-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-5 h-5 text-white/60" />
-                        <div>
-                          <div className="text-sm font-semibold text-white">Notifications</div>
-                          <div className="text-xs text-white/40">{notificationsPaused ? "Paused" : "Active"}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 bg-white/5 rounded-xl p-3">
-                      <div className="flex items-center justify-between p-2">
-                        <div className="text-sm text-white">Pause all</div>
-                        <input
-                          type="checkbox"
-                          checked={notificationsPaused}
-                          onChange={(e) => togglePauseNotifications(e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-2">
-                        <div className="text-sm text-white/80">Ratings & messages</div>
-                        <input
-                          type="checkbox"
-                          checked={ratingsMsgEnabled}
-                          onChange={(e) => toggleRatingsMessages(e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-2">
-                        <div className="text-sm text-white/80">Dating messages</div>
-                        <input
-                          type="checkbox"
-                          checked={datingMsgEnabled}
-                          onChange={(e) => toggleDatingMessages(e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-2">
-                        <div className="text-sm text-white/80">Clubs & events</div>
-                        <input
-                          type="checkbox"
-                          checked={clubsMsgEnabled}
-                          onChange={(e) => toggleClubsMessages(e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-2">
-                        <div className="text-sm text-white/80">Campus news</div>
-                        <input
-                          type="checkbox"
-                          checked={campusNewsEnabled}
-                          onChange={(e) => toggleCampusNews(e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                      </div>
+                  <div className="prose prose-invert max-w-none">
+                    <div className="text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                      {selectedNewsArticle.content}
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 border-t border-white/10 space-y-2">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full px-4 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 rounded-xl font-semibold text-red-400 transition-all"
-                  >
-                    Logout
-                  </button>
+                <div className="border-t border-border p-6 flex items-center justify-between bg-muted/20">
                   <button
                     onClick={() => {
-                      setSidebarOpen(false);
-                      router.push("/account/delete");
+                      const url = `${window.location.origin}/news/${selectedNewsArticle.id}`;
+                      navigator.clipboard.writeText(url);
                     }}
-                    className="w-full px-4 py-2 text-sm text-red-400/70 hover:text-red-400 transition-colors"
+                    className="px-4 py-2 bg-muted/50 hover:bg-muted border border-border rounded-xl flex items-center gap-2 transition-all"
                   >
-                    Delete account
+                    <ExternalLink className="w-4 h-4" />
+                    Copy Link
                   </button>
-                </div>
-              </div>
-            </m.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* About, Help, Feedback Modals */}
-      <AnimatePresence>
-        {aboutOpen && (
-          <ModalOverlay onClose={() => setAboutOpen(false)}>
-            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">About Campus5</h3>
-                <button onClick={() => setAboutOpen(false)} className="text-white/60 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="text-sm text-white/80 space-y-3">
-                <p>
-                  Campus5 is a campus community platform connecting clubs, events, ratings and social
-                  features for students.
-                </p>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button 
-                  onClick={() => setAboutOpen(false)} 
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </ModalOverlay>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {helpOpen && (
-          <ModalOverlay onClose={() => setHelpOpen(false)}>
-            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Help Center</h3>
-                <button onClick={() => setHelpOpen(false)} className="text-white/60 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form className="space-y-4" onSubmit={submitHelp}>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Name</label>
-                  <input
-                    value={helpName}
-                    onChange={(e) => setHelpName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="Your name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Email</label>
-                  <input
-                    value={helpEmail}
-                    onChange={(e) => setHelpEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="your@college.edu"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Message</label>
-                  <textarea
-                    value={helpMessage}
-                    onChange={(e) => setHelpMessage(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    rows={4}
-                    placeholder="Describe your issue..."
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
                   <button
-                    type="button"
-                    onClick={() => setHelpOpen(false)}
-                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white hover:bg-white/10 transition-all"
+                    onClick={closeNewsModal}
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
                   >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                  >
-                    Send
+                    Close
                   </button>
                 </div>
-              </form>
-            </div>
-          </ModalOverlay>
-        )}
-      </AnimatePresence>
+              </m.div>
+            </m.div>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {feedbackOpen && (
-          <ModalOverlay onClose={() => setFeedbackOpen(false)}>
-            <div className="w-full bg-slate-900 rounded-2xl shadow-2xl p-6 border border-white/10">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Send Feedback</h3>
-                <button onClick={() => setFeedbackOpen(false)} className="text-white/60 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form className="space-y-4" onSubmit={submitFeedback}>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Name</label>
-                  <input
-                    value={feedbackName}
-                    onChange={(e) => setFeedbackName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="Your name"
-                  />
+        {/* Sidebar Menu */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <>
+              <m.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSidebarOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              />
+              <m.aside
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 20 }}
+                className="fixed top-0 right-0 z-50 h-full w-[360px] bg-card/95 backdrop-blur-xl border-l border-border shadow-2xl overflow-y-auto"
+              >
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between p-6 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-lg text-white">
+                        {profileName?.charAt(0) || "U"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{profileName}</p>
+                        <p className="text-xs text-muted-foreground">Student Member</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-10 h-10 rounded-xl bg-muted/50 hover:bg-muted border border-border flex items-center justify-center transition-all"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    <button
+                      onClick={() => {
+                        setSidebarOpen(false);
+                        router.push("/profile");
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-purple-500/30 transition-all text-left"
+                    >
+                      <Award className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">View Profile</div>
+                        <div className="text-xs text-muted-foreground">Manage your account</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSidebarOpen(false);
+                        router.push("/membership");
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-cyan-500/30 transition-all text-left"
+                    >
+                      <Bell className="w-5 h-5 text-cyan-400" />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">Membership</div>
+                        <div className="text-xs text-muted-foreground">Status & history</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAboutOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-blue-500/30 transition-all text-left"
+                    >
+                      <Info className="w-5 h-5 text-blue-400" />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">About</div>
+                        <div className="text-xs text-muted-foreground">About this project</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setHelpOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-green-500/30 transition-all text-left"
+                    >
+                      <HelpCircle className="w-5 h-5 text-green-400" />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">Help Center</div>
+                        <div className="text-xs text-muted-foreground">Contact / Support</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setFeedbackOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-yellow-500/30 transition-all text-left"
+                    >
+                      <Send className="w-5 h-5 text-yellow-400" />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">Send Feedback</div>
+                        <div className="text-xs text-muted-foreground">Tell us what you think</div>
+                      </div>
+                    </button>
+
+                    <div className="mt-4 border-t border-border pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <div className="text-sm font-semibold text-foreground">Notifications</div>
+                            <div className="text-xs text-muted-foreground">{notificationsPaused ? "Paused" : "Active"}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 bg-muted/30 rounded-xl p-3">
+                        <div className="flex items-center justify-between p-2">
+                          <div className="text-sm text-foreground">Pause all</div>
+                          <input
+                            type="checkbox"
+                            checked={notificationsPaused}
+                            onChange={(e) => togglePauseNotifications(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-2">
+                          <div className="text-sm text-muted-foreground">Ratings & messages</div>
+                          <input
+                            type="checkbox"
+                            checked={ratingsMsgEnabled}
+                            onChange={(e) => toggleRatingsMessages(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-2">
+                          <div className="text-sm text-muted-foreground">Dating messages</div>
+                          <input
+                            type="checkbox"
+                            checked={datingMsgEnabled}
+                            onChange={(e) => toggleDatingMessages(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-2">
+                          <div className="text-sm text-muted-foreground">Clubs & events</div>
+                          <input
+                            type="checkbox"
+                            checked={clubsMsgEnabled}
+                            onChange={(e) => toggleClubsMessages(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-2">
+                          <div className="text-sm text-muted-foreground">Campus news</div>
+                          <input
+                            type="checkbox"
+                            checked={campusNewsEnabled}
+                            onChange={(e) => toggleCampusNews(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-border space-y-2">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-xl font-semibold text-red-500 transition-all flex items-center justify-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSidebarOpen(false);
+                        router.push("/account/delete");
+                      }}
+                      className="w-full px-4 py-2 text-sm text-red-400/70 hover:text-red-400 transition-colors"
+                    >
+                      Delete account
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Email</label>
-                  <input
-                    value={feedbackEmail}
-                    onChange={(e) => setFeedbackEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    placeholder="your@college.edu"
-                  />
+              </m.aside>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* About, Help, Feedback Modals */}
+        <AnimatePresence>
+          {aboutOpen && (
+            <ModalOverlay onClose={() => setAboutOpen(false)}>
+              <div className="w-full bg-card text-card-foreground rounded-bento shadow-2xl p-6 border border-border">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-lg font-semibold">About Campus5</h3>
+                  <button onClick={() => setAboutOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Type</label>
-                  <select
-                    value={feedbackType}
-                    onChange={(e) => setFeedbackType(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                  >
-                    <option value="general">General</option>
-                    <option value="bug">Bug Report</option>
-                    <option value="feature">Feature Request</option>
-                  </select>
+                <div className="text-sm text-muted-foreground space-y-3">
+                  <p>
+                    Campus5 is a campus community platform connecting clubs, events, ratings and social
+                    features for students.
+                  </p>
                 </div>
-                <div>
-                  <label className="text-sm text-white/80 block mb-1">Message</label>
-                  <textarea
-                    value={feedbackMessage}
-                    onChange={(e) => setFeedbackMessage(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white text-sm"
-                    rows={4}
-                    placeholder="Tell us what you think..."
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
+                <div className="mt-6 flex justify-end">
                   <button
-                    type="button"
-                    onClick={() => setFeedbackOpen(false)}
-                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white hover:bg-white/10 transition-all"
+                    onClick={() => setAboutOpen(false)}
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
                   >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-                  >
-                    Submit
+                    Close
                   </button>
                 </div>
-              </form>
-            </div>
-          </ModalOverlay>
-        )}
-      </AnimatePresence>
+              </div>
+            </ModalOverlay>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {helpOpen && (
+            <ModalOverlay onClose={() => setHelpOpen(false)}>
+              <div className="w-full bg-card text-card-foreground rounded-bento shadow-2xl p-6 border border-border">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Help Center</h3>
+                  <button onClick={() => setHelpOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form className="space-y-4" onSubmit={submitHelp}>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Name</label>
+                    <input
+                      value={helpName}
+                      onChange={(e) => setHelpName(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Email</label>
+                    <input
+                      value={helpEmail}
+                      onChange={(e) => setHelpEmail(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="your@college.edu"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Message</label>
+                    <textarea
+                      value={helpMessage}
+                      onChange={(e) => setHelpMessage(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      rows={4}
+                      placeholder="Describe your issue..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHelpOpen(false)}
+                      className="px-4 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </ModalOverlay>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {feedbackOpen && (
+            <ModalOverlay onClose={() => setFeedbackOpen(false)}>
+              <div className="w-full bg-card text-card-foreground rounded-bento shadow-2xl p-6 border border-border">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Send Feedback</h3>
+                  <button onClick={() => setFeedbackOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form className="space-y-4" onSubmit={submitFeedback}>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Name</label>
+                    <input
+                      value={feedbackName}
+                      onChange={(e) => setFeedbackName(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Email</label>
+                    <input
+                      value={feedbackEmail}
+                      onChange={(e) => setFeedbackEmail(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      placeholder="your@college.edu"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Type</label>
+                    <select
+                      value={feedbackType}
+                      onChange={(e) => setFeedbackType(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                    >
+                      <option value="general">General</option>
+                      <option value="bug">Bug Report</option>
+                      <option value="feature">Feature Request</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Message</label>
+                    <textarea
+                      value={feedbackMessage}
+                      onChange={(e) => setFeedbackMessage(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground text-sm"
+                      rows={4}
+                      placeholder="Tell us what you think..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackOpen(false)}
+                      className="px-4 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </ModalOverlay>
+          )}
+        </AnimatePresence>
       </div>
     </LazyMotion>
   );

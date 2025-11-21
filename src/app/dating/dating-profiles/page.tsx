@@ -93,6 +93,11 @@ export default function DatingProfileDashboard() {
       console.error("Error loading profile:", error);
     } else if (data) {
       if (!data.gallery_photos) data.gallery_photos = ["", "", "", ""];
+
+      // The basic fields (name, gender, year, branch) are already in the profiles table
+      // from main profile signup, so they're automatically available for dating.
+      // No additional auto-population needed - they're shared fields!
+
       setProfile(data as Profile);
       setSelectedInterests(data.interests || []);
       setDatingDescription(data.dating_description || "");
@@ -320,18 +325,21 @@ export default function DatingProfileDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
-        <m.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
-        />
-      </div>
+      <LazyMotion features={domAnimation}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center">
+          <m.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full"
+          />
+        </div>
+      </LazyMotion>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 text-white overflow-x-hidden pb-32">
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 text-white overflow-x-hidden pb-32">
       <Toaster position="top-center" />
 
       {/* Animated Background Elements */}
@@ -975,5 +983,6 @@ export default function DatingProfileDashboard() {
         }
       `}</style>
     </div>
+    </LazyMotion>
   );
 }

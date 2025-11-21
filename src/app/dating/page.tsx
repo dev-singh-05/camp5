@@ -102,6 +102,7 @@ function DatingPageContent() {
   const [completion, setCompletion] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [userGender, setUserGender] = useState<string | null>(null);
+  const [acceptedMatchesCount, setAcceptedMatchesCount] = useState<number>(0);
 
   // Verification state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
@@ -147,6 +148,7 @@ function DatingPageContent() {
   /**
    * Check verification status for current user.
    * PERFORMANCE: Memoized to prevent re-creation
+   * UPDATED: Only shows verification modal after 2 accepted matches
    */
   const checkVerificationStatus = useCallback(async () => {
     try {
@@ -154,6 +156,16 @@ function DatingPageContent() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Get user's accepted matches count
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("dating_accepted_matches_count")
+        .eq("id", user.id)
+        .single();
+
+      const matchCount = profileData?.dating_accepted_matches_count || 0;
+      setAcceptedMatchesCount(matchCount);
 
       const { data: verification, error } = await supabase
         .from("dating_verifications")
@@ -170,7 +182,8 @@ function DatingPageContent() {
 
       if (!verification) {
         setVerificationStatus({ status: "not_submitted" });
-        setShowVerificationOverlay(true);
+        // Only show verification overlay after 2 accepted matches
+        setShowVerificationOverlay(matchCount >= 2);
       } else {
         setVerificationStatus({
           status: verification.status as "pending" | "approved" | "rejected",
@@ -259,13 +272,20 @@ function DatingPageContent() {
   /* ------------------------ Matching flow -------------------------------- */
 
   async function handleMatch(type: "random" | "interest") {
-    // Check verification status first
-    if (verificationStatus.status !== "approved") {
-      toast.error("Please complete verification first");
+    // Allow first 2 matches without verification (progressive unlock)
+    const needsVerification = acceptedMatchesCount >= 2;
+
+    // Check verification status after 2 matches
+    if (needsVerification && verificationStatus.status !== "approved") {
+      toast.error("Please complete verification to continue matching 💞");
       return;
     }
 
-    if (completion > 0 && completion < 50) {
+    // For first 2 matches, only require photo and interests (basic fields)
+    // After 2 matches, require 50% profile completion
+    const minCompletionRequired = acceptedMatchesCount >= 2 ? 50 : 0;
+
+    if (completion > 0 && completion < minCompletionRequired) {
       toast.error("Complete at least 50% of your profile before matching 💞");
       router.push("/dating/dating-profiles");
       return;
@@ -506,10 +526,17 @@ function DatingPageContent() {
 
   // PERFORMANCE: Memoize expensive boolean calculations to prevent re-computation on every render
   // WHY: These are computed from multiple state variables and used in render
-  const matchingDisabled = useMemo(
-    () => creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved",
-    [creating, completion, verificationStatus.status]
-  );
+  // UPDATED: Progressive unlock - allow matching without verification for first 2 matches
+  const matchingDisabled = useMemo(() => {
+    const needsVerification = acceptedMatchesCount >= 2;
+    const minCompletionRequired = acceptedMatchesCount >= 2 ? 50 : 0;
+
+    return (
+      creating ||
+      (completion > 0 && completion < minCompletionRequired) ||
+      (needsVerification && verificationStatus.status !== "approved")
+    );
+  }, [creating, completion, verificationStatus.status, acceptedMatchesCount]);
 
   const shouldHidePhoto = useMemo(
     () => selectedCategory === "serious" || selectedCategory === "fun",
@@ -664,9 +691,12 @@ function DatingPageContent() {
     fetchUserGender();
   }, []);
 
-  /* If profile completion is less than 50, nudge user */
+  /* If profile completion is less than required minimum, nudge user */
   useEffect(() => {
-    if (completion > 0 && completion < 50) {
+    // Progressive unlock: Only require 50% completion after 2 matches
+    const minCompletionRequired = acceptedMatchesCount >= 2 ? 50 : 0;
+
+    if (completion > 0 && completion < minCompletionRequired) {
       toast.error("Please complete at least 50% of your profile before matching 💞", {
         duration: 2500,
       });
@@ -675,7 +705,7 @@ function DatingPageContent() {
       }, 2500);
       return () => clearTimeout(t);
     }
-  }, [completion, router]);
+  }, [completion, acceptedMatchesCount, router]);
 
   /* Handle navigation from deleted chat - remove deleted match from list */
   useEffect(() => {
@@ -694,8 +724,8 @@ function DatingPageContent() {
 
   /* --------------------------- UI -------------------------------------- */
 
-  // Show verification overlay if not submitted
-  if (showVerificationOverlay && verificationStatus.status === "not_submitted") {
+  // Show verification overlay only after 2 accepted matches
+  if (showVerificationOverlay && verificationStatus.status === "not_submitted" && acceptedMatchesCount >= 2) {
     return (
       <VerificationOverlay
         onVerificationSubmitted={() => {
@@ -706,8 +736,8 @@ function DatingPageContent() {
     );
   }
 
-  // Show pending screen
-  if (verificationStatus.status === "pending") {
+  // Show pending screen (only after 2 matches)
+  if (verificationStatus.status === "pending" && acceptedMatchesCount >= 2) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center p-4">
         <Toaster position="top-center" />
@@ -736,8 +766,8 @@ function DatingPageContent() {
     );
   }
 
-  // Show rejected screen
-  if (verificationStatus.status === "rejected") {
+  // Show rejected screen (only after 2 matches)
+  if (verificationStatus.status === "rejected" && acceptedMatchesCount >= 2) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-pink-950 to-slate-950 flex items-center justify-center p-4">
         <Toaster position="top-center" />

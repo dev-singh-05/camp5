@@ -35,7 +35,10 @@
       "Bash(git rm:*)",
       "Bash(bash:*)",
       "Bash(supabase --version:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(supabase db push:*)",
+      "Bash(where:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []

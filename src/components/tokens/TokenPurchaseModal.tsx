@@ -55,7 +55,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!utrNumber.trim()) {
       alert("Please enter UTR number");
       return;
@@ -104,7 +104,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -116,8 +116,8 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         >
           {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl blur-xl" />
-          
-          <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8 text-center">
+
+          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl border border-border shadow-2xl p-8 text-center text-card-foreground">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -127,20 +127,20 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
               <CheckCircle className="w-10 h-10 text-white" />
             </motion.div>
 
-            <h3 className="text-2xl font-bold text-white mb-3">
+            <h3 className="text-2xl font-bold text-foreground mb-3">
               Request Submitted!
             </h3>
-            <p className="text-white/70 mb-6">
-              Your token purchase request has been submitted for admin review. 
-              Tokens will be credited within <span className="text-green-400 font-semibold">30 minutes</span> after approval.
+            <p className="text-muted-foreground mb-6">
+              Your token purchase request has been submitted for admin review.
+              Tokens will be credited within <span className="text-green-500 dark:text-green-400 font-semibold">30 minutes</span> after approval.
             </p>
-            
+
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6 text-left">
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-white/80">
-                  <p className="font-semibold mb-2 text-white">What happens next?</p>
-                  <ul className="space-y-1.5 text-xs text-white/70">
+                <div className="text-sm text-foreground/80">
+                  <p className="font-semibold mb-2 text-foreground">What happens next?</p>
+                  <ul className="space-y-1.5 text-xs text-muted-foreground">
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                       Admin will verify your payment
@@ -176,7 +176,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -188,27 +188,27 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
         >
           {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-cyan-500/20 rounded-2xl blur-xl" />
-          
+
           {/* Main container */}
-          <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl border border-border shadow-2xl overflow-hidden text-card-foreground">
             {/* Header */}
             <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20" />
-              <div className="relative p-6 border-b border-white/10 flex items-center justify-between">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 opacity-50" />
+              <div className="relative p-6 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                     <Upload className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Add Tokens</h2>
-                    <p className="text-sm text-white/60">Complete payment & submit</p>
+                    <h2 className="text-2xl font-bold text-foreground">Add Tokens</h2>
+                    <p className="text-sm text-muted-foreground">Complete payment & submit</p>
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                  className="w-10 h-10 rounded-xl bg-muted/50 hover:bg-muted border border-border flex items-center justify-center transition-all"
                 >
-                  <X className="w-5 h-5 text-white" />
+                  <X className="w-5 h-5 text-foreground" />
                 </button>
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
             <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-200px)]">
               <div className="p-6 space-y-6">
                 {/* QR Code Section */}
-                <div className="bg-white/5 border border-dashed border-white/20 rounded-xl p-8 text-center">
+                <div className="bg-muted/20 border border-dashed border-border rounded-xl p-8 text-center">
                   <motion.div
                     animate={{ scale: [1, 1.05, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -225,31 +225,31 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
                   >
                     <Smartphone className="w-8 h-8 text-purple-400" />
                   </motion.div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     Payment QR Code
                   </h3>
-                  <p className="text-white/60 text-sm mb-4">
+                  <p className="text-muted-foreground text-sm mb-4">
                     Scan this QR code to make payment
                   </p>
-                  <div className="inline-block px-6 py-3 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-xl font-semibold text-sm">
+                  <div className="inline-block px-6 py-3 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30 rounded-xl font-semibold text-sm">
                     🚧 QR Code Coming Soon
                   </div>
                 </div>
 
                 {/* UTR Number Field */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    UTR Number / Transaction ID <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    UTR Number / Transaction ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={utrNumber}
                     onChange={(e) => setUtrNumber(e.target.value)}
                     placeholder="Enter UTR or Transaction ID"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder:text-white/40 transition-all"
+                    className="w-full px-4 py-3 bg-background border border-input rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-foreground placeholder:text-muted-foreground transition-all"
                     required
                   />
-                  <p className="text-xs text-white/50 mt-2 flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <Info className="w-3 h-3" />
                     Enter the UTR/Transaction ID from your payment app
                   </p>
@@ -257,8 +257,8 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
 
                 {/* Screenshot Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Payment Screenshot <span className="text-white/40 text-xs">(Optional)</span>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Payment Screenshot <span className="text-muted-foreground text-xs">(Optional)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -270,16 +270,16 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
                     />
                     <label
                       htmlFor="screenshot-upload"
-                      className="w-full px-4 py-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-xl flex items-center justify-center gap-3 cursor-pointer transition-all group"
+                      className="w-full px-4 py-4 bg-muted/20 hover:bg-muted/40 border border-border hover:border-purple-500/30 rounded-xl flex items-center justify-center gap-3 cursor-pointer transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <ImageIcon className="w-5 h-5 text-purple-400" />
                       </div>
                       <div className="text-left flex-1">
-                        <div className="text-sm font-medium text-white">
+                        <div className="text-sm font-medium text-foreground">
                           {screenshot ? screenshot.name : "Choose screenshot"}
                         </div>
-                        <div className="text-xs text-white/50">
+                        <div className="text-xs text-muted-foreground">
                           {screenshot ? "Click to change" : "PNG, JPG up to 10MB"}
                         </div>
                       </div>
@@ -289,13 +289,13 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-2 flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2"
+                      className="mt-2 flex items-center gap-2 text-sm text-green-500 dark:text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>File selected successfully</span>
                     </motion.div>
                   )}
-                  <p className="text-xs text-white/50 mt-2 flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <Info className="w-3 h-3" />
                     Upload screenshot for faster verification
                   </p>
@@ -305,10 +305,10 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-white/80">
-                      <p className="font-semibold mb-1 text-white">Note:</p>
-                      <p className="text-xs text-white/70">
-                        Your request will be submitted successfully even if the screenshot upload fails. 
+                    <div className="text-sm text-foreground/80">
+                      <p className="font-semibold mb-1 text-foreground">Note:</p>
+                      <p className="text-xs text-muted-foreground">
+                        Your request will be submitted successfully even if the screenshot upload fails.
                         The UTR number is mandatory for verification.
                       </p>
                     </div>
@@ -317,7 +317,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
               </div>
 
               {/* Footer with buttons */}
-              <div className="border-t border-white/10 p-6 bg-black/20 space-y-3">
+              <div className="border-t border-border p-6 bg-muted/10 space-y-3">
                 <button
                   type="submit"
                   disabled={uploading || !utrNumber.trim()}
@@ -343,7 +343,7 @@ export default function TokenPurchaseModal({ userId, onClose }: TokenPurchaseMod
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold transition-all"
+                  className="w-full px-6 py-3 bg-muted/50 hover:bg-muted border border-border text-foreground rounded-xl font-semibold transition-all"
                 >
                   Cancel
                 </button>

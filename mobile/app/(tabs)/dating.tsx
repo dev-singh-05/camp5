@@ -58,6 +58,7 @@ export default function Dating() {
   const [user, setUser] = useState<any>(null);
   const [completion, setCompletion] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [acceptedMatchesCount, setAcceptedMatchesCount] = useState<number>(0);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
     status: "not_submitted",
   });
@@ -112,6 +113,16 @@ export default function Dating() {
 
   async function checkVerificationStatus(userId: string) {
     try {
+      // Get user's accepted matches count for progressive unlocking
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("dating_accepted_matches_count")
+        .eq("id", userId)
+        .single();
+
+      const matchCount = profileData?.dating_accepted_matches_count || 0;
+      setAcceptedMatchesCount(matchCount);
+
       const { data: verification, error } = await supabase
         .from("dating_verifications")
         .select("status, rejection_reason")
@@ -184,17 +195,26 @@ export default function Dating() {
   }
 
   async function handleMatch(type: "random" | "interest") {
-    // Check verification status first
-    if (verificationStatus.status !== "approved") {
+    // Progressive unlock: Allow first 2 matches without verification
+    const needsVerification = acceptedMatchesCount >= 2;
+
+    // Check verification status after 2 matches
+    if (needsVerification && verificationStatus.status !== "approved") {
       Toast.show({
         type: "error",
         text1: "Verification Required",
-        text2: "Please complete verification first",
+        text2: "Please complete verification to continue matching",
       });
+      // Show verification modal
+      setShowVerificationModal(true);
       return;
     }
 
-    if (completion > 0 && completion < 50) {
+    // For first 2 matches, only require photo and interests (basic fields)
+    // After 2 matches, require 50% profile completion
+    const minCompletionRequired = acceptedMatchesCount >= 2 ? 50 : 0;
+
+    if (completion > 0 && completion < minCompletionRequired) {
       Toast.show({
         type: "error",
         text1: "Profile Incomplete",
@@ -435,8 +455,14 @@ export default function Dating() {
     setRefreshing(false);
   }
 
+  // Progressive unlock: Allow first 2 matches without verification
+  const needsVerification = acceptedMatchesCount >= 2;
+  const minCompletionRequired = acceptedMatchesCount >= 2 ? 50 : 0;
+
   const matchingDisabled =
-    creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved";
+    creating ||
+    (completion > 0 && completion < minCompletionRequired) ||
+    (needsVerification && verificationStatus.status !== "approved");
 
   const shouldHidePhoto = selectedCategory === "serious" || selectedCategory === "fun";
   const shouldHideName =
@@ -455,8 +481,8 @@ export default function Dating() {
     );
   }
 
-  // Show verification pending screen
-  if (verificationStatus.status === "pending") {
+  // Show verification pending screen (only after 2 matches)
+  if (verificationStatus.status === "pending" && acceptedMatchesCount >= 2) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>
@@ -473,8 +499,8 @@ export default function Dating() {
     );
   }
 
-  // Show verification not submitted screen
-  if (verificationStatus.status === "not_submitted") {
+  // Show verification not submitted screen (only after 2 matches)
+  if (verificationStatus.status === "not_submitted" && acceptedMatchesCount >= 2) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>
@@ -482,7 +508,7 @@ export default function Dating() {
             <Text style={styles.statusIcon}>📸</Text>
             <Text style={styles.statusTitle}>Verification Required</Text>
             <Text style={styles.statusText}>
-              Please complete your dating verification to access the dating feature.
+              Please complete your dating verification to continue matching.
             </Text>
             <TouchableOpacity
               style={styles.primaryButton}
@@ -505,8 +531,8 @@ export default function Dating() {
     );
   }
 
-  // Show verification rejected screen
-  if (verificationStatus.status === "rejected") {
+  // Show verification rejected screen (only after 2 matches)
+  if (verificationStatus.status === "rejected" && acceptedMatchesCount >= 2) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>

@@ -90,7 +90,7 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -102,13 +102,13 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
         >
           {/* Animated gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-orange-500/20 to-pink-500/20 rounded-2xl blur-xl" />
-          
+
           {/* Main container */}
-          <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl border border-border shadow-2xl overflow-hidden text-card-foreground">
             {/* Header with balance */}
             <div className="relative overflow-hidden">
               {/* Animated background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20" />
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 opacity-50" />
               <motion.div
                 animate={{
                   scale: [1, 1.2, 1],
@@ -117,30 +117,30 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                 transition={{ duration: 20, repeat: Infinity }}
                 className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-full blur-3xl"
               />
-              
-              <div className="relative p-6 border-b border-white/10">
+
+              <div className="relative p-6 border-b border-border">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
                       <Coins className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-white">Your Tokens</h2>
-                      <p className="text-sm text-white/60">Manage your balance</p>
+                      <h2 className="text-2xl font-bold text-foreground">Your Tokens</h2>
+                      <p className="text-sm text-muted-foreground">Manage your balance</p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all"
+                    className="w-10 h-10 rounded-xl bg-muted/50 hover:bg-muted border border-border flex items-center justify-center transition-all"
                   >
-                    <X className="w-5 h-5 text-white" />
+                    <X className="w-5 h-5 text-foreground" />
                   </button>
                 </div>
 
                 {/* Balance display */}
-                <div className="bg-black/30 backdrop-blur-md rounded-xl p-6 border border-white/10">
+                <div className="bg-muted/30 backdrop-blur-md rounded-xl p-6 border border-border">
                   <div className="text-center">
-                    <div className="text-sm text-white/60 mb-2">Current Balance</div>
+                    <div className="text-sm text-muted-foreground mb-2">Current Balance</div>
                     <div className="flex items-center justify-center gap-2 mb-2">
                       <motion.div
                         animate={{ scale: [1, 1.1, 1] }}
@@ -150,7 +150,7 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                         {balance}
                       </motion.div>
                     </div>
-                    <div className="text-sm text-white/60">Tokens Available</div>
+                    <div className="text-sm text-muted-foreground">Tokens Available</div>
                   </div>
                 </div>
               </div>
@@ -176,8 +176,8 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                 {/* Transaction History */}
                 <div>
                   <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-white/60" />
-                    <h3 className="text-lg font-semibold text-white">Recent Transactions</h3>
+                    <TrendingUp className="w-5 h-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold text-foreground">Recent Transactions</h3>
                   </div>
 
                   {loading ? (
@@ -187,13 +187,13 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="w-12 h-12 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full mx-auto mb-4"
                       />
-                      <p className="text-white/60">Loading transactions...</p>
+                      <p className="text-muted-foreground">Loading transactions...</p>
                     </div>
                   ) : transactions.length === 0 ? (
-                    <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+                    <div className="text-center py-12 bg-muted/20 rounded-xl border border-border">
                       <div className="text-4xl mb-3">📝</div>
-                      <p className="text-white/60">No transactions yet</p>
-                      <p className="text-sm text-white/40 mt-1">Your transaction history will appear here</p>
+                      <p className="text-muted-foreground">No transactions yet</p>
+                      <p className="text-sm text-muted-foreground/60 mt-1">Your transaction history will appear here</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -203,7 +203,7 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 transition-all"
+                          className="bg-muted/20 hover:bg-muted/40 rounded-xl p-4 border border-border transition-all"
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -211,17 +211,17 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                                 {getTypeIcon(tx.type)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold text-white capitalize truncate">
+                                <div className="text-sm font-semibold text-foreground capitalize truncate">
                                   {tx.type}
                                 </div>
                                 {tx.description && (
-                                  <div className="text-xs text-white/60 truncate">{tx.description}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{tx.description}</div>
                                 )}
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(tx.status)} capitalize`}>
                                     {tx.status}
                                   </span>
-                                  <span className="text-xs text-white/40">
+                                  <span className="text-xs text-muted-foreground/60">
                                     {new Date(tx.created_at).toLocaleDateString("en-US", {
                                       month: "short",
                                       day: "numeric",
@@ -230,7 +230,7 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
                                 </div>
                               </div>
                             </div>
-                            <div className={`text-lg font-bold flex-shrink-0 ${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <div className={`text-lg font-bold flex-shrink-0 ${tx.amount > 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                               {tx.amount > 0 ? '+' : ''}{tx.amount}
                             </div>
                           </div>
@@ -243,10 +243,10 @@ export default function TokenBalanceModal({ userId, onClose, onAddTokens }: Toke
             </div>
 
             {/* Footer */}
-            <div className="border-t border-white/10 p-6 bg-black/20">
+            <div className="border-t border-border p-6 bg-muted/10">
               <button
                 onClick={onClose}
-                className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold transition-all"
+                className="w-full px-6 py-3 bg-muted/50 hover:bg-muted border border-border text-foreground rounded-xl font-semibold transition-all"
               >
                 Close
               </button>

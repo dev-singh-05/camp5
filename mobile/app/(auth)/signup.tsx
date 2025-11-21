@@ -47,7 +47,8 @@ export default function Signup() {
     }
 
     // Validate email domain
-    if (!email.endsWith("@medicaps.ac.in")) {
+    const trimmedEmail = email.toLowerCase().trim();
+    if (!trimmedEmail.endsWith("@medicaps.ac.in")) {
       Toast.show({
         type: "error",
         text1: "Error",
@@ -64,7 +65,7 @@ export default function Signup() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: trimmedEmail,
           password,
           fullName: fullName.trim(),
           enrollment: enrollment.trim(),

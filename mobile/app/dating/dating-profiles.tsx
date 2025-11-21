@@ -130,6 +130,11 @@ export default function DatingProfiles() {
       console.error("Error loading profile:", error);
     } else if (data) {
       if (!data.gallery_photos) data.gallery_photos = ["", "", "", ""];
+
+      // The basic fields (name, gender, year, branch) are already in the profiles table
+      // from main profile signup, so they're automatically available for dating.
+      // No additional auto-population needed - they're shared fields!
+
       setProfile(data as Profile);
       setSelectedInterests(data.interests || []);
       setDatingDescription(data.dating_description || "");

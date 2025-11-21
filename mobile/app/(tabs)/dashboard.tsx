@@ -19,6 +19,7 @@ import { Updates } from "../../components/Updates";
 import { TokenBalanceModal } from "../../components/TokenBalanceModal";
 import { TokenPurchaseModal } from "../../components/TokenPurchaseModal";
 import { ConnectionRequests } from "../../components/ConnectionRequests";
+import { ProfileEditModal } from "../../components/ProfileEditModal";
 import type { NewsItem } from "../../types/dashboard";
 import Toast from "react-native-toast-message";
 
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [tokenBalanceModalVisible, setTokenBalanceModalVisible] = useState(false);
   const [tokenPurchaseModalVisible, setTokenPurchaseModalVisible] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Use the dashboard data hook
   const {
@@ -45,6 +47,13 @@ export default function Dashboard() {
     refreshProfile,
     refreshTokenBalance,
   } = useDashboardData(user?.id);
+
+  // Check if profile is completed and show onboarding if not
+  useEffect(() => {
+    if (profileData && !profileData.profile_completed) {
+      setShowOnboarding(true);
+    }
+  }, [profileData]);
 
   useEffect(() => {
     loadUser();
@@ -204,6 +213,31 @@ export default function Dashboard() {
           visible={tokenPurchaseModalVisible}
           userId={user.id}
           onClose={() => setTokenPurchaseModalVisible(false)}
+        />
+      )}
+
+      {/* Onboarding Modal - Profile Setup */}
+      {user && (
+        <ProfileEditModal
+          visible={showOnboarding}
+          userId={user.id}
+          onClose={() => {
+            // User cannot close onboarding without completing it
+            Toast.show({
+              type: "info",
+              text1: "Profile Setup Required",
+              text2: "Please complete your profile to continue",
+            });
+          }}
+          onProfileUpdated={() => {
+            setShowOnboarding(false);
+            refreshProfile();
+            Toast.show({
+              type: "success",
+              text1: "Welcome!",
+              text2: "Your profile has been set up successfully",
+            });
+          }}
         />
       )}
 
