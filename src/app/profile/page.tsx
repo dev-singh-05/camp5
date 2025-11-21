@@ -26,6 +26,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import BentoCard from "@/components/ui/BentoCard";
 import HappyButton from "@/components/ui/HappyButton";
+import { useTheme } from "@/context/ThemeContext";
 
 type Profile = {
   id: string;
@@ -81,6 +82,7 @@ type Rating = {
 export default function ProfilePage() {
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { theme, toggleTheme } = useTheme();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -356,10 +358,27 @@ export default function ProfilePage() {
     { key: "year", label: "Year", type: "text" },
     { key: "age", label: "Age", type: "number" },
     { key: "height", label: "Height", type: "text" },
-    <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[100px]" />
-      </div >
+  ];
 
-    <div className="relative z-10 max-w-6xl mx-auto">
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!profile) return null;
+
+  return (
+    <div className="min-h-screen bg-background text-foreground pb-20 relative overflow-hidden transition-colors duration-300">
+      {/* Background blobs */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[100px]" />
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <HappyButton
@@ -446,32 +465,51 @@ export default function ProfilePage() {
                     <div className="text-sm font-semibold">Received</div>
                     <div className="text-xs text-muted-foreground">{requestsReceived.length} pending</div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleRequestAction(r.id, "accepted")}
-                      className="flex-1 py-1 bg-green-500/10 text-green-600 hover:bg-green-500/20 rounded text-xs font-medium transition-colors"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => handleRequestAction(r.id, "declined")}
-                      className="flex-1 py-1 bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded text-xs font-medium transition-colors"
-                    >
-                      Decline
-                    </button>
-                  </div>
                 </div>
-                ))
-                ) : (
-                <p className="text-xs text-center text-muted-foreground py-2">No pending requests</p>
-                      )}
-            </div>
-          </motion.div>
-                )}
-        </AnimatePresence>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showReceived ? "rotate-180" : ""}`} />
+              </button>
 
-        <button
-          onClick={() => setShowSent(!showSent)}
+              <AnimatePresence>
+                {showReceived && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2 pt-2">
+                      {requestsReceived.length > 0 ? (
+                        requestsReceived.map((r) => (
+                          <div key={r.id} className="flex justify-between items-center p-3 bg-background rounded-lg border border-border text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium truncate">{r.from_user?.full_name}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRequestAction(r.id, "accepted")}
+                                className="px-2 py-1 bg-green-500/10 text-green-600 hover:bg-green-500/20 rounded text-xs font-medium transition-colors"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleRequestAction(r.id, "declined")}
+                                className="px-2 py-1 bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded text-xs font-medium transition-colors"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-center text-muted-foreground py-2">No pending requests</p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button
+                onClick={() => setShowSent(!showSent)}
           className="w-full flex items-center justify-between p-3 bg-background/50 hover:bg-background/80 rounded-xl border border-border transition-all"
         >
           <div className="flex items-center gap-3">
@@ -513,35 +551,54 @@ export default function ProfilePage() {
         </AnimatePresence>
       </div>
     </BentoCard>
-        </div >
-
-    {/* Right Column: Details & Bio */ }
-    < div className = "lg:col-span-2 space-y-6" >
-      {/* Bio Section */ }
-      < BentoCard variant = "default" title = "About Me" icon = { User } >
-        <div className="bg-muted/30 rounded-xl p-4 border border-border">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-transparent border-none focus:ring-0 p-0 text-foreground placeholder:text-muted-foreground resize-none"
-            rows={4}
-            placeholder="Tell us about yourself... (e.g. interests, hobbies, what you're looking for)"
-          />
-          <div className="flex justify-end mt-2 pt-2 border-t border-border">
-            <HappyButton
-              size="sm"
-              variant="periwinkle"
-              onClick={handleSaveDescription}
-              icon={Check}
-            >
-              Save Bio
-            </HappyButton>
-          </div>
         </div>
-          </BentoCard >
 
-    {/* Profile Details */ }
-    < BentoCard variant = "default" title = "Profile Details" icon = { Edit2 } >
+        {/* Right Column: Details & Bio */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Bio Section */}
+          <BentoCard variant="default" title="About Me" icon={User}>
+            <div className="bg-muted/30 rounded-xl p-4 border border-border">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-transparent border-none focus:ring-0 p-0 text-foreground placeholder:text-muted-foreground resize-none"
+                rows={4}
+                placeholder="Tell us about yourself... (e.g. interests, hobbies, what you're looking for)"
+              />
+              <div className="flex justify-end mt-2 pt-2 border-t border-border">
+                <HappyButton
+                  size="sm"
+                  variant="periwinkle"
+                  onClick={handleSaveDescription}
+                  icon={Check}
+                >
+                  Save Bio
+                </HappyButton>
+              </div>
+            </div>
+          </BentoCard>
+
+          {/* Theme & Appearance */}
+          <BentoCard variant="pink" title="Appearance" icon={Star}>
+            <div className="flex items-center justify-between p-2">
+              <div>
+                <div className="font-semibold">Theme Preference</div>
+                <div className="text-xs text-muted-foreground">Switch between Light and Dark mode</div>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className="relative inline-flex h-8 w-14 items-center rounded-full bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                role="switch"
+                aria-checked={theme === 'dark'}
+              >
+                <span className={`${theme === 'dark' ? 'translate-x-7 bg-purple-500' : 'translate-x-1 bg-yellow-400'} inline-block h-6 w-6 transform rounded-full transition-transform`} />
+                <span className="sr-only">Toggle theme</span>
+              </button>
+            </div>
+          </BentoCard>
+
+          {/* Profile Details */}
+          <BentoCard variant="default" title="Profile Details" icon={Edit2}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {profileFields.map((field) => {
           const currentValue = profile[field.key as keyof Profile];
@@ -620,12 +677,12 @@ export default function ProfilePage() {
           );
         })}
       </div>
-          </BentoCard >
-        </div >
-      </div >
-    </div >
+    </BentoCard>
+    </div>
+    </div>
+    </div>
 
-    {/* Confirmation Modal */ }
+    {/* Confirmation Modal */}
     <AnimatePresence>
   {
     showConfirmModal && (
@@ -672,9 +729,9 @@ export default function ProfilePage() {
       </motion.div>
     )
   }
-  </AnimatePresence >
+  </AnimatePresence>
 
-    {/* Ratings Modal */ }
+    {/* Ratings Modal */}
     <AnimatePresence>
   {
     showRatingsModal && (
@@ -806,7 +863,7 @@ export default function ProfilePage() {
       </motion.div>
     )
   }
-  </AnimatePresence >
-    </div >
+  </AnimatePresence>
+    </div>
   );
 }

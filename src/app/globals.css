@@ -3,19 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --background: #F9F9F9;
-  --foreground: #171717;
+  /* New Vibrant Pastel Light Mode */
+  --background: #FDFBFF; /* Very light neutral base */
+  --foreground: #1F2937; /* Dark grey for readable text */
   --card-bg: #FFFFFF;
-  --text-primary: #171717;
-  --text-secondary: #555555;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+
+  /* Pastel Accents */
+  --happy-mint: #4ADE80;
+  --happy-coral: #FB7185;
+  --happy-lilac: #C4B5FD;
+  --happy-sky: #38BDF8;
+  --happy-yellow: #FDBA74;
 }
 
 [data-theme='dark'] {
   --background: #121212;
   --foreground: #EDEDED;
-  --card-bg: #1E1E1E; /* Slightly lighter than bg for depth, but cards will pop with colors */
+  --card-bg: #1E1E1E; /* Slightly lighter than bg for depth */
   --text-primary: #EDEDED;
   --text-secondary: #AAAAAA;
+
+  /* Muted/Neon Accents for Dark Mode (keeping existing if used, or fallback) */
+  --happy-mint: #6BCB77;
+  --happy-coral: #FF6B6B;
+  --happy-lilac: #8B5CF6;
+  --happy-sky: #4D96FF;
+  --happy-yellow: #FFD93D;
 }
 
 html,
@@ -26,7 +41,7 @@ body {
 
 body {
   color: var(--foreground);
-  background: transparent;
+  background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -44,8 +59,9 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+  :root {
+    /* Fallback if JS doesn't run immediately, though ThemeContext handles it */
+    /* We generally rely on data-theme, but this helps prevent FOUC */
   }
 }
 
@@ -105,7 +121,8 @@ a {
   display: flex;
   flex-direction: column;
   min-height: 58px;
-  background-color: white;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
   overflow: hidden;
   position: relative;
   inset-inline: auto;
@@ -148,7 +165,7 @@ a {
   gap: 1rem;
   padding: 1rem;
   z-index: 99;
-  background-color: white;
+  background-color: var(--card-bg);
 }
 
 .dropdown input:where(:checked) + .trigger {
@@ -183,7 +200,7 @@ a {
   font-size: 15px;
   font-weight: 500;
   border: 1px solid #c1c2c5;
-  background-color: white;
+  background-color: var(--card-bg);
 }
 
 /* =======================
@@ -221,7 +238,7 @@ a {
   -moz-user-select: none;
   user-select: none;
   font-weight: 500;
-  color: white;
+  color: var(--text-primary);
   width: 100%;
   display: flex;
   align-items: center;
@@ -303,4 +320,3 @@ a {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
-
