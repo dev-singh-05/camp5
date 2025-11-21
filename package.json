@@ -6,7 +6,14 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "supa:login": "supabase login",
+    "supa:link": "supabase link",
+    "supa:start": "supabase start",
+    "supa:stop": "supabase stop",
+    "supa:status": "supabase status",
+    "supa:new": "supabase migration new",
+    "supa:push": "supabase db push"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.8",
@@ -27,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "postcss": "^8.5.6",
+    "supabase": "^2.58.5",
     "tailwindcss": "^3.4.17",
     "typescript": "5.9.3"
   }
