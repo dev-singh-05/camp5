@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import { supabase } from "../../utils/supabaseClient";
+import Toast from "react-native-toast-message";
 
 type Profile = {
   id: string;
@@ -50,6 +51,10 @@ export default function LeaderboardPage() {
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [unlockedStats, setUnlockedStats] = useState<Set<string>>(new Set());
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -57,12 +62,42 @@ export default function LeaderboardPage() {
   const [filterGender, setFilterGender] = useState("");
   const [filterYear, setFilterYear] = useState("");
 
+  const TOKENS_TO_VIEW_STATS = 250;
+
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+
+        // Load token balance
+        const { data: tokenData } = await supabase
+          .from("user_tokens")
+          .select("balance")
+          .eq("user_id", user.id)
+          .single();
+
+        if (tokenData) {
+          setTokenBalance(tokenData.balance || 0);
+        }
+
+        // Load unlocked stats
+        const { data: unlocksData } = await supabase
+          .from("stats_unlocks")
+          .select("profile_id")
+          .eq("user_id", user.id);
+
+        if (unlocksData) {
+          const unlockedIds = new Set(unlocksData.map((u) => u.profile_id));
+          setUnlockedStats(unlockedIds);
+        }
+      }
+
       // First, get all ratings and calculate cumulative XP per user
       const { data: ratingsData, error: ratingsError } = await supabase
         .from("ratings")
@@ -128,6 +163,69 @@ export default function LeaderboardPage() {
     await loadData();
     setRefreshing(false);
   }
+
+  const handleUnlockWithTokens = async () => {
+    if (!currentUserId || !selectedUser) return;
+
+    if (tokenBalance < TOKENS_TO_VIEW_STATS) {
+      Toast.show({
+        type: "error",
+        text1: "Insufficient Tokens",
+        text2: `You need ${TOKENS_TO_VIEW_STATS} tokens. Current balance: ${tokenBalance}`,
+      });
+      return;
+    }
+
+    setIsUnlocking(true);
+    try {
+      const newBalance = tokenBalance - TOKENS_TO_VIEW_STATS;
+
+      // Deduct tokens
+      const { error: tokenError } = await supabase
+        .from("user_tokens")
+        .update({ balance: newBalance })
+        .eq("user_id", currentUserId);
+
+      if (tokenError) throw tokenError;
+
+      // Log transaction
+      await supabase.from("token_transactions").insert([
+        {
+          user_id: currentUserId,
+          amount: -TOKENS_TO_VIEW_STATS,
+          type: "spend",
+          status: "completed",
+          description: `Unlocked stats for ${selectedUser.full_name}`,
+        },
+      ]);
+
+      // Record unlock
+      await supabase.from("stats_unlocks").insert([
+        {
+          user_id: currentUserId,
+          profile_id: selectedUser.id,
+          unlocked_via: "tokens",
+        },
+      ]);
+
+      setTokenBalance(newBalance);
+      setUnlockedStats((prev) => new Set(prev).add(selectedUser.id));
+      Toast.show({
+        type: "success",
+        text1: "Stats Unlocked!",
+        text2: `You can now view ${selectedUser.full_name}'s detailed stats`,
+      });
+    } catch (error) {
+      console.error("Error unlocking stats:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to unlock stats. Please try again.",
+      });
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   const getAvatar = (profile: Profile) => {
     if (profile.profile_photo) return { uri: profile.profile_photo };
@@ -225,13 +323,10 @@ export default function LeaderboardPage() {
 
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{user.full_name}</Text>
-                    <Text style={styles.userRatings}>{user.total_ratings || 0} ratings</Text>
+                    <Text style={styles.userRatings}>Tap to view details</Text>
                   </View>
 
-                  <View style={styles.userStats}>
-                    <Text style={styles.userBranch}>{user.branch || "—"}</Text>
-                    <Text style={styles.userXP}>{user.avg_overall_xp?.toFixed(1) || 0} XP</Text>
-                  </View>
+                  <Text style={styles.profileArrow}>→</Text>
                 </TouchableOpacity>
               );
             })}
@@ -296,13 +391,60 @@ export default function LeaderboardPage() {
                   <Text style={styles.profileBranch}>{selectedUser.branch || "—"}</Text>
                 </View>
 
-                {/* Info Message - No Detailed Stats on Leaderboard */}
-                <View style={styles.infoContainer}>
-                  <Text style={styles.infoIcon}>🔒</Text>
-                  <Text style={styles.infoText}>
-                    Detailed attribute ratings are private. Connect with this user and unlock their stats on the main ratings page to see detailed attributes.
-                  </Text>
-                </View>
+                {/* Detailed Stats - Show if unlocked, otherwise show unlock option */}
+                {unlockedStats.has(selectedUser.id) ? (
+                  <View style={styles.attributesContainer}>
+                    <Text style={styles.attributesTitle}>Detailed Attributes</Text>
+                    {[
+                      { label: "Confidence", value: selectedUser.avg_confidence, icon: "💪" },
+                      { label: "Humbleness", value: selectedUser.avg_humbleness, icon: "🙏" },
+                      { label: "Friendliness", value: selectedUser.avg_friendliness, icon: "😊" },
+                      { label: "Intelligence", value: selectedUser.avg_intelligence, icon: "🧠" },
+                      { label: "Communication", value: selectedUser.avg_communication, icon: "💬" },
+                    ].map((attr) => (
+                      <View key={attr.label} style={styles.attributeRow}>
+                        <Text style={styles.attributeLabel}>
+                          {attr.icon} {attr.label}
+                        </Text>
+                        <View style={styles.attributeBarContainer}>
+                          <View
+                            style={[
+                              styles.attributeBar,
+                              { width: `${((attr.value || 0) / 5) * 100}%` },
+                            ]}
+                          />
+                          <Text style={styles.attributeValue}>{attr.value?.toFixed(1) || 0}/5</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.lockedContainer}>
+                    <Text style={styles.lockIcon}>🔒</Text>
+                    <Text style={styles.lockedTitle}>Detailed attributes are locked. Unlock to view their detailed ratings!</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.unlockButton,
+                        (isUnlocking || tokenBalance < TOKENS_TO_VIEW_STATS) &&
+                          styles.unlockButtonDisabled,
+                      ]}
+                      onPress={handleUnlockWithTokens}
+                      disabled={isUnlocking || tokenBalance < TOKENS_TO_VIEW_STATS}
+                    >
+                      {isUnlocking ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <>
+                          <Text style={styles.unlockButtonText}>
+                            {tokenBalance < TOKENS_TO_VIEW_STATS
+                              ? "Insufficient Tokens"
+                              : `🔓 Unlock Detailed Stats`}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -418,6 +560,8 @@ export default function LeaderboardPage() {
           </View>
         </View>
       </Modal>
+
+      <Toast />
     </LinearGradient>
   );
 }
@@ -545,19 +689,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.6)",
   },
-  userStats: {
-    alignItems: "flex-end",
-  },
-  userBranch: {
-    fontSize: 10,
+  profileArrow: {
+    fontSize: 24,
     color: "rgba(255,255,255,0.4)",
-    fontStyle: "italic",
-    marginBottom: 4,
-  },
-  userXP: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#06b6d4",
   },
   emptyState: {
     flex: 1,
@@ -659,23 +793,82 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.6)",
     fontStyle: "italic",
   },
-  infoContainer: {
-    backgroundColor: "rgba(168, 85, 247, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(168, 85, 247, 0.3)",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
+  attributesContainer: {
+    marginBottom: 20,
   },
-  infoIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+  attributesTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+    marginBottom: 16,
   },
-  infoText: {
+  attributeRow: {
+    marginBottom: 16,
+  },
+  attributeLabel: {
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
+    marginBottom: 8,
+  },
+  attributeBarContainer: {
+    height: 8,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 4,
+    overflow: "hidden",
+    position: "relative",
+  },
+  attributeBar: {
+    height: "100%",
+    backgroundColor: "#a855f7",
+    borderRadius: 4,
+  },
+  attributeValue: {
+    position: "absolute",
+    right: 8,
+    top: -20,
+    fontSize: 12,
+    color: "white",
+    fontWeight: "bold",
+  },
+  lockedContainer: {
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  lockIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  lockedTitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 16,
     textAlign: "center",
     lineHeight: 20,
+  },
+  unlockButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#a855f7",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: "100%",
+  },
+  unlockButtonDisabled: {
+    backgroundColor: "rgba(168, 85, 247, 0.3)",
+    opacity: 0.6,
+  },
+  unlockButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
   filterModalContent: {
     backgroundColor: "#1e1b4b",

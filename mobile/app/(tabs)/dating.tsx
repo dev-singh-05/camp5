@@ -184,24 +184,41 @@ export default function Dating() {
   }
 
   async function handleMatch(type: "random" | "interest") {
-    // Check verification status first
-    if (verificationStatus.status !== "approved") {
-      Toast.show({
-        type: "error",
-        text1: "Verification Required",
-        text2: "Please complete verification first",
-      });
-      return;
-    }
+    // Check if user has "Taste of Dating" privileges (less than 2 matches)
+    const hasTasteOfDating = matches.length < 2;
 
-    if (completion > 0 && completion < 50) {
-      Toast.show({
-        type: "error",
-        text1: "Profile Incomplete",
-        text2: "Complete at least 50% of your profile before matching",
-      });
-      router.push("/dating/dating-profiles");
-      return;
+    if (!hasTasteOfDating) {
+      // Enforce strict requirements for 3rd match onwards
+      if (verificationStatus.status !== "approved") {
+        Toast.show({
+          type: "error",
+          text1: "Verification Required",
+          text2: "You've used your 2 free matches! Please verify to continue.",
+        });
+        return;
+      }
+
+      if (completion > 0 && completion < 50) {
+        Toast.show({
+          type: "error",
+          text1: "Profile Incomplete",
+          text2: "Complete at least 50% of your profile to continue matching.",
+        });
+        router.push("/dating/dating-profiles");
+        return;
+      }
+    } else {
+      // Optional: Notify them they are using a free match
+      if (verificationStatus.status !== "approved" || completion < 50) {
+        // We can show a toast or just let them proceed. 
+        // Let's show a helpful toast so they know why it's working.
+        Toast.show({
+          type: "info",
+          text1: "Taste of Dating",
+          text2: `Match ${matches.length + 1}/2 without verification!`,
+          visibilityTime: 2000,
+        });
+      }
     }
 
     setCreating(true);
@@ -222,8 +239,8 @@ export default function Dating() {
         myProfile?.gender === "male"
           ? "female"
           : myProfile?.gender === "female"
-          ? "male"
-          : null;
+            ? "male"
+            : null;
 
       // Build exclusion set
       const excludedIds = new Set<string>([user.id]);
@@ -435,8 +452,11 @@ export default function Dating() {
     setRefreshing(false);
   }
 
+  const hasTasteOfDating = matches.length < 2;
   const matchingDisabled =
-    creating || (completion > 0 && completion < 50) || verificationStatus.status !== "approved";
+    creating ||
+    (!hasTasteOfDating &&
+      ((completion > 0 && completion < 50) || verificationStatus.status !== "approved"));
 
   const shouldHidePhoto = selectedCategory === "serious" || selectedCategory === "fun";
   const shouldHideName =
@@ -456,7 +476,7 @@ export default function Dating() {
   }
 
   // Show verification pending screen
-  if (verificationStatus.status === "pending") {
+  if (verificationStatus.status === "pending" && !hasTasteOfDating) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>
@@ -474,7 +494,7 @@ export default function Dating() {
   }
 
   // Show verification not submitted screen
-  if (verificationStatus.status === "not_submitted") {
+  if (verificationStatus.status === "not_submitted" && !hasTasteOfDating) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>
@@ -506,7 +526,7 @@ export default function Dating() {
   }
 
   // Show verification rejected screen
-  if (verificationStatus.status === "rejected") {
+  if (verificationStatus.status === "rejected" && !hasTasteOfDating) {
     return (
       <LinearGradient colors={["#0f1729", "#831843", "#0f1729"]} style={styles.container}>
         <View style={styles.centerContainer}>
@@ -632,6 +652,14 @@ export default function Dating() {
               </Text>
             </View>
           )}
+
+          {hasTasteOfDating && verificationStatus.status !== "approved" && (
+            <View style={[styles.warningBox, { backgroundColor: "rgba(16, 185, 129, 0.2)", borderColor: "rgba(16, 185, 129, 0.4)" }]}>
+              <Text style={[styles.warningText, { color: "#34d399" }]}>
+                🎁 Taste of Dating: {2 - matches.length} free match{2 - matches.length !== 1 ? "es" : ""} remaining!
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Match Buttons */}
@@ -720,8 +748,8 @@ export default function Dating() {
             {matches.length === 0
               ? "No chats yet"
               : matches.length === 1
-              ? "You have 1 chat"
-              : `${isChatsExpanded ? "Showing all chats" : "Click to see all chats"}`}
+                ? "You have 1 chat"
+                : `${isChatsExpanded ? "Showing all chats" : "Click to see all chats"}`}
           </Text>
 
           {matches.length > 0 && isChatsExpanded && (

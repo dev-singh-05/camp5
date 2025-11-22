@@ -35,7 +35,8 @@
       "Bash(git rm:*)",
       "Bash(bash:*)",
       "Bash(supabase --version:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(find \"C:\\Users\\devba\\campu5\\src\\app\" -type f ( -name \"*profile*\" -o -name \"*setup*\" -o -name \"*complete*\" ) 2)"
     ],
     "deny": [],
     "ask": []

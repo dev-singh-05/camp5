@@ -66,7 +66,7 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
           hometown: data.hometown || '',
           year: data.year || '',
           branch: data.branch || '',
-          gender: data.gender || '',
+          gender: data.gender ? data.gender.charAt(0).toUpperCase() + data.gender.slice(1) : '',
         });
       }
     } catch (err) {
@@ -129,7 +129,7 @@ export function ProfileEditModal({ visible, userId, onClose, onProfileUpdated }:
           hometown: profileData.hometown.trim(),
           year: profileData.year,
           branch: profileData.branch,
-          gender: profileData.gender,
+          gender: profileData.gender.toLowerCase(),
           profile_completed: true,
         })
         .eq('id', userId);

@@ -16,7 +16,11 @@
       "Bash(dir:*)",
       "Bash(findstr:*)",
       "Bash(mkdir:*)",
-      "Bash(npx expo-doctor)"
+      "Bash(npx expo-doctor)",
+      "Bash(ipconfig:*)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -19,6 +19,7 @@ import { Updates } from "../../components/Updates";
 import { TokenBalanceModal } from "../../components/TokenBalanceModal";
 import { TokenPurchaseModal } from "../../components/TokenPurchaseModal";
 import { ConnectionRequests } from "../../components/ConnectionRequests";
+import { ProfileEditModal } from "../../components/ProfileEditModal";
 import type { NewsItem } from "../../types/dashboard";
 import Toast from "react-native-toast-message";
 
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [tokenBalanceModalVisible, setTokenBalanceModalVisible] = useState(false);
   const [tokenPurchaseModalVisible, setTokenPurchaseModalVisible] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
   // Use the dashboard data hook
   const {
@@ -49,6 +51,21 @@ export default function Dashboard() {
   useEffect(() => {
     loadUser();
   }, []);
+
+  // Check for profile completion when profileData is loaded
+  useEffect(() => {
+    if (profileData && !loading) {
+      // Check if required fields are missing
+      if (
+        !profileData.full_name ||
+        !profileData.gender ||
+        !profileData.year ||
+        !profileData.branch
+      ) {
+        setShowOnboardingModal(true);
+      }
+    }
+  }, [profileData, loading]);
 
   async function loadUser() {
     try {
@@ -204,6 +221,29 @@ export default function Dashboard() {
           visible={tokenPurchaseModalVisible}
           userId={user.id}
           onClose={() => setTokenPurchaseModalVisible(false)}
+        />
+      )}
+
+      {/* Onboarding Modal - for first-time users */}
+      {user && (
+        <ProfileEditModal
+          visible={showOnboardingModal}
+          userId={user.id}
+          onClose={() => {
+            // Don't allow closing without completing required fields
+            if (
+              profileData?.full_name &&
+              profileData?.gender &&
+              profileData?.year &&
+              profileData?.branch
+            ) {
+              setShowOnboardingModal(false);
+            }
+          }}
+          onProfileUpdated={() => {
+            refreshProfile();
+            setShowOnboardingModal(false);
+          }}
         />
       )}
 

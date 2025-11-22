@@ -50,6 +50,10 @@ export default function ConnectionsPage() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [hasRatedUser, setHasRatedUser] = useState<Set<string>>(new Set());
   const [unlockedStats, setUnlockedStats] = useState<Set<string>>(new Set());
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
+  const TOKENS_TO_VIEW_STATS = 250;
 
   // Rating states
   const [confidence, setConfidence] = useState(0);
@@ -73,6 +77,17 @@ export default function ConnectionsPage() {
       }
 
       setCurrentUserId(user.id);
+
+      // Load token balance
+      const { data: tokenData } = await supabase
+        .from("user_tokens")
+        .select("balance")
+        .eq("user_id", user.id)
+        .single();
+
+      if (tokenData) {
+        setTokenBalance(tokenData.balance || 0);
+      }
 
       // Fetch accepted connections
       const { data: connections } = await supabase
@@ -159,6 +174,69 @@ export default function ConnectionsPage() {
 
   const getAvatarText = (profile: Profile) => {
     return (profile.full_name || profile.username || "U")[0].toUpperCase();
+  };
+
+  const handleUnlockWithTokens = async () => {
+    if (!currentUserId || !selectedUser) return;
+
+    if (tokenBalance < TOKENS_TO_VIEW_STATS) {
+      Toast.show({
+        type: "error",
+        text1: "Insufficient Tokens",
+        text2: `You need ${TOKENS_TO_VIEW_STATS} tokens. Current balance: ${tokenBalance}`,
+      });
+      return;
+    }
+
+    setIsUnlocking(true);
+    try {
+      const newBalance = tokenBalance - TOKENS_TO_VIEW_STATS;
+
+      // Deduct tokens
+      const { error: tokenError } = await supabase
+        .from("user_tokens")
+        .update({ balance: newBalance })
+        .eq("user_id", currentUserId);
+
+      if (tokenError) throw tokenError;
+
+      // Log transaction
+      await supabase.from("token_transactions").insert([
+        {
+          user_id: currentUserId,
+          amount: -TOKENS_TO_VIEW_STATS,
+          type: "spend",
+          status: "completed",
+          description: `Unlocked stats for ${selectedUser.full_name}`,
+        },
+      ]);
+
+      // Record unlock
+      await supabase.from("stats_unlocks").insert([
+        {
+          user_id: currentUserId,
+          profile_id: selectedUser.id,
+          unlocked_via: "tokens",
+        },
+      ]);
+
+      setTokenBalance(newBalance);
+      setUnlockedStats((prev) => new Set(prev).add(selectedUser.id));
+      Toast.show({
+        type: "success",
+        text1: "Stats Unlocked!",
+        text2: `You can now view ${selectedUser.full_name}'s detailed stats`,
+      });
+    } catch (error) {
+      console.error("Error unlocking stats:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to unlock stats. Please try again.",
+      });
+    } finally {
+      setIsUnlocking(false);
+    }
   };
 
   const openChat = (user: Profile) => {
@@ -375,9 +453,28 @@ export default function ConnectionsPage() {
                 ) : (
                   <View style={styles.lockedContainer}>
                     <Text style={styles.lockIcon}>🔒</Text>
-                    <Text style={styles.lockedText}>
-                      Detailed attributes are locked. Use 250 tokens to unlock on the main ratings page.
-                    </Text>
+                    <Text style={styles.lockedTitle}>Detailed attributes are locked. Unlock to view their detailed ratings!</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.unlockButton,
+                        (isUnlocking || tokenBalance < TOKENS_TO_VIEW_STATS) &&
+                          styles.unlockButtonDisabled,
+                      ]}
+                      onPress={handleUnlockWithTokens}
+                      disabled={isUnlocking || tokenBalance < TOKENS_TO_VIEW_STATS}
+                    >
+                      {isUnlocking ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <>
+                          <Text style={styles.unlockButtonText}>
+                            {tokenBalance < TOKENS_TO_VIEW_STATS
+                              ? "Insufficient Tokens"
+                              : `🔓 Unlock Detailed Stats`}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -725,12 +822,34 @@ const styles = StyleSheet.create({
   },
   lockIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  lockedText: {
+  lockedTitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 16,
     textAlign: "center",
+    lineHeight: 20,
+  },
+  unlockButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#a855f7",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: "100%",
+  },
+  unlockButtonDisabled: {
+    backgroundColor: "rgba(168, 85, 247, 0.3)",
+    opacity: 0.6,
+  },
+  unlockButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
   actionButtons: {
     flexDirection: "row",

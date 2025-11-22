@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -372,6 +373,50 @@ export default function ChatScreen() {
         return;
       }
 
+      // Check profile completion
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select(
+          "age, work, education, branch, gender, location, hometown, height, exercise, drinking, smoking, kids, religion, year, profile_photo"
+        )
+        .eq("id", user.id)
+        .single();
+
+      if (myProfile) {
+        const fields = [
+          "age",
+          "work",
+          "education",
+          "branch",
+          "gender",
+          "location",
+          "hometown",
+          "height",
+          "exercise",
+          "drinking",
+          "smoking",
+          "kids",
+          "religion",
+          "year",
+          "profile_photo",
+        ];
+
+        const filled = fields.filter((f) => {
+          const value = myProfile[f as keyof typeof myProfile];
+          return value !== undefined && value !== null && value !== "";
+        }).length;
+
+        const completion = Math.round((filled / fields.length) * 100);
+
+        if (completion < 50) {
+          Alert.alert(
+            "Profile Incomplete",
+            `Your profile is only ${completion}% complete. You need to complete at least 50% of your profile to reveal your identity.`
+          );
+          return;
+        }
+      }
+
       const { data: match, error: matchErr } = await supabase
         .from("dating_matches")
         .select("user1_id, user2_id")
@@ -590,61 +635,61 @@ export default function ChatScreen() {
     <LinearGradient colors={["#0f1729", "#1e1b4b", "#0f1729"]} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chat</Text>
-          <View style={styles.headerActions}>
-            {/* Token Balance */}
-            <View style={styles.tokenBadge}>
-              <Text style={styles.tokenIcon}>🪙</Text>
-              <Text style={styles.tokenText}>{loadingTokens ? "..." : tokenBalance}</Text>
-            </View>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Chat</Text>
+        <View style={styles.headerActions}>
+          {/* Token Balance */}
+          <View style={styles.tokenBadge}>
+            <Text style={styles.tokenIcon}>🪙</Text>
+            <Text style={styles.tokenText}>{loadingTokens ? "..." : tokenBalance}</Text>
           </View>
         </View>
+      </View>
 
-        {/* Action Buttons Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.actionsRow}
-          contentContainerStyle={styles.actionsContent}
+      {/* Action Buttons Row */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.actionsRow}
+        contentContainerStyle={styles.actionsContent}
+      >
+        <TouchableOpacity
+          style={[styles.actionButton, (isChatLocked || loadingTokens) && styles.actionButtonDisabled]}
+          onPress={() => setShowCreateSQModal(true)}
+          disabled={isChatLocked || loadingTokens}
         >
-          <TouchableOpacity
-            style={[styles.actionButton, (isChatLocked || loadingTokens) && styles.actionButtonDisabled]}
-            onPress={() => setShowCreateSQModal(true)}
-            disabled={isChatLocked || loadingTokens}
-          >
-            <Text style={styles.actionButtonText}>🎁 Surprise Q</Text>
+          <Text style={styles.actionButtonText}>🎁 Surprise Q</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, locked && styles.actionButtonDisabled]}
+          onPress={() => {
+            if (!locked) setShowProfileModal(true);
+          }}
+          disabled={locked}
+        >
+          <Text style={styles.actionButtonText}>
+            {locked ? "🔒 Profile" : "View Profile"}
+          </Text>
+        </TouchableOpacity>
+
+        {shouldShowRevealButton && (
+          <TouchableOpacity style={styles.revealButton} onPress={handleReveal}>
+            <Text style={styles.revealButtonText}>Reveal Identity</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, locked && styles.actionButtonDisabled]}
-            onPress={() => {
-              if (!locked) setShowProfileModal(true);
-            }}
-            disabled={locked}
-          >
-            <Text style={styles.actionButtonText}>
-              {locked ? "🔒 Profile" : "View Profile"}
-            </Text>
-          </TouchableOpacity>
-
-          {shouldShowRevealButton && (
-            <TouchableOpacity style={styles.revealButton} onPress={handleReveal}>
-              <Text style={styles.revealButtonText}>Reveal Identity</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-
-        {/* Chat Lock Banner */}
-        {isChatLocked && (
-          <View style={styles.lockBanner}>
-            <Text style={styles.lockBannerText}>
-              ⚠️ Chat locked - Answer the surprise question to continue
-            </Text>
-          </View>
         )}
+      </ScrollView>
+
+      {/* Chat Lock Banner */}
+      {isChatLocked && (
+        <View style={styles.lockBanner}>
+          <Text style={styles.lockBannerText}>
+            ⚠️ Chat locked - Answer the surprise question to continue
+          </Text>
+        </View>
+      )}
 
       {/* Icebreaker */}
       {icebreaker && (
@@ -894,6 +939,23 @@ export default function ChatScreen() {
 
                 {!locked && (
                   <>
+                    {/* Photos Section */}
+                    <View style={styles.photosSection}>
+                      {partnerProfile.profile_photo && (
+                        <Image
+                          source={{ uri: partnerProfile.profile_photo }}
+                          style={styles.mainProfilePhoto}
+                        />
+                      )}
+                      {partnerProfile.gallery_photos && partnerProfile.gallery_photos.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+                          {partnerProfile.gallery_photos.map((photo: string, index: number) => (
+                            <Image key={index} source={{ uri: photo }} style={styles.galleryPhoto} />
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+
                     {partnerProfile.dating_description && (
                       <View style={styles.profileSection}>
                         <Text style={styles.profileSectionTitle}>💖 About</Text>
@@ -902,6 +964,14 @@ export default function ChatScreen() {
                         </Text>
                       </View>
                     )}
+
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>📍 Location</Text>
+                      <Text style={styles.profileSectionText}>
+                        {partnerProfile.location || "Not specified"}
+                        {partnerProfile.hometown && ` (From ${partnerProfile.hometown})`}
+                      </Text>
+                    </View>
 
                     {(partnerProfile.branch || partnerProfile.year) && (
                       <View style={styles.profileSection}>
@@ -1613,5 +1683,28 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  photosSection: {
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  mainProfilePhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: "#a855f7",
+    marginBottom: 16,
+  },
+  galleryScroll: {
+    flexGrow: 0,
+  },
+  galleryPhoto: {
+    width: 100,
+    height: 140,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 });

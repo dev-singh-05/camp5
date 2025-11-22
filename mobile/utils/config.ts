@@ -9,7 +9,7 @@
 // Example: https://yourapp.vercel.app
 
 export const API_URL = __DEV__
-  ? "http://localhost:3000" // Change this to your local IP if testing on physical device
+  ? "http://192.168.1.66:3000" // Local development - using network IP instead of localhost
   : "https://your-production-url.com"; // Replace with your production URL
 
 export const API_ENDPOINTS = {
